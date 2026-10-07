@@ -3,4 +3,4 @@
 idf_component_register(SRCS "sensors.c" "shtc3_codec.c" "battery_model.c" "battery_learn.c"
                        INCLUDE_DIRS "include"
                        REQUIRES esp_driver_i2c
-                       PRIV_REQUIRES esp_adc util)
+                       PRIV_REQUIRES board esp_adc util)

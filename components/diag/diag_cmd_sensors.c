@@ -28,6 +28,10 @@ static int sensors_body(int argc, char **argv)
     (void)argc;
     (void)argv;
     esp_err_t err = sensors_sample_env(time(NULL));
+    if (err == ESP_ERR_NOT_SUPPORTED) {
+        printf("sensors: this board has no temperature sensor\n");
+        return 1;
+    }
     if (err != ESP_OK) {
         printf("sensors: SHTC3 read failed: %s\n", esp_err_to_name(err));
         return 1;

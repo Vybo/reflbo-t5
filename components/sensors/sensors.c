@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include "board_caps.h"
+#include "board_pins.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_adc/adc_oneshot.h"
@@ -24,19 +26,20 @@
 #define I2C_TIMEOUT_MS      50     /* at least two 10 ms ticks; shorter timeouts round down to zero */
 
 #define LEARN_MIN_EPOCH 1577836800 /* 2020-01-01 */
-#define BAT_CHANNEL         ADC_CHANNEL_3 /* GPIO4 */
 #define BAT_SAMPLES         16
-#define BAT_DIVIDER         3             /* 200k / 100k */
 
 static const char *TAG = "sensors";
 
+#if BOARD_HAS_ENV_SENSOR
 static i2c_master_dev_handle_t s_shtc3;
+#endif
 static adc_oneshot_unit_handle_t s_adc;
 static adc_cali_handle_t s_cali;
 static sensors_state_t s_state;
 static int s_temp_offset_c100 = CONFIG_REFLBO_TEMP_OFFSET_C10 * 10;
 static int s_hum_offset_pct100 = CONFIG_REFLBO_HUM_OFFSET_PCT10 * 10;
 
+#if BOARD_HAS_ENV_SENSOR
 static esp_err_t shtc3_command(uint16_t cmd)
 {
     const uint8_t bytes[2] = { (uint8_t)(cmd >> 8), (uint8_t)cmd };
@@ -65,16 +68,17 @@ static esp_err_t shtc3_check_id(void)
     ESP_RETURN_ON_FALSE((value & 0x083F) == 0x0807, ESP_ERR_NOT_FOUND, TAG, "unexpected id 0x%04x", value);
     return ESP_OK;
 }
+#endif
 
 static esp_err_t adc_init(void)
 {
-    adc_oneshot_unit_init_cfg_t unit = { .unit_id = ADC_UNIT_1 };
+    adc_oneshot_unit_init_cfg_t unit = { .unit_id = BOARD_BAT_ADC_UNIT };
     ESP_RETURN_ON_ERROR(adc_oneshot_new_unit(&unit, &s_adc), TAG, "ADC unit");
     adc_oneshot_chan_cfg_t chan = { .atten = ADC_ATTEN_DB_12, .bitwidth = ADC_BITWIDTH_DEFAULT };
-    ESP_RETURN_ON_ERROR(adc_oneshot_config_channel(s_adc, BAT_CHANNEL, &chan), TAG, "ADC channel");
+    ESP_RETURN_ON_ERROR(adc_oneshot_config_channel(s_adc, BOARD_BAT_ADC_CHANNEL, &chan), TAG, "ADC channel");
     adc_cali_curve_fitting_config_t cali = {
-        .unit_id = ADC_UNIT_1,
-        .chan = BAT_CHANNEL,
+        .unit_id = BOARD_BAT_ADC_UNIT,
+        .chan = BOARD_BAT_ADC_CHANNEL,
         .atten = ADC_ATTEN_DB_12,
         .bitwidth = ADC_BITWIDTH_DEFAULT,
     };
@@ -87,6 +91,7 @@ static esp_err_t adc_init(void)
 
 esp_err_t sensors_init(i2c_master_bus_handle_t bus, bool cold)
 {
+#if BOARD_HAS_ENV_SENSOR
     if (s_shtc3 == NULL) {
         i2c_device_config_t cfg = {
             .dev_addr_length = I2C_ADDR_BIT_LEN_7,
@@ -95,16 +100,22 @@ esp_err_t sensors_init(i2c_master_bus_handle_t bus, bool cold)
         };
         ESP_RETURN_ON_ERROR(i2c_master_bus_add_device(bus, &cfg, &s_shtc3), TAG, "add SHTC3");
     }
+#else
+    (void)bus;
+#endif
     if (cold) {
         battery_gauge_init(&s_state.gauge);
+#if BOARD_HAS_ENV_SENSOR
         esp_err_t err = shtc3_check_id();
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "SHTC3 not ready: %s", esp_err_to_name(err));
         }
+#endif
     }
     return adc_init();
 }
 
+#if BOARD_HAS_ENV_SENSOR
 static esp_err_t read_env_once(int *temp_c100, int *hum_pct100)
 {
     ESP_RETURN_ON_ERROR(shtc3_wake(), TAG, "wakeup");
@@ -119,9 +130,11 @@ static esp_err_t read_env_once(int *temp_c100, int *hum_pct100)
     ESP_RETURN_ON_FALSE(shtc3_parse(raw, temp_c100, hum_pct100), ESP_ERR_INVALID_CRC, TAG, "CRC");
     return ESP_OK;
 }
+#endif
 
 esp_err_t sensors_sample_env(time_t now)
 {
+#if BOARD_HAS_ENV_SENSOR
     int t, h;
     esp_err_t err = read_env_once(&t, &h);
     if (err != ESP_OK) {
@@ -135,14 +148,18 @@ esp_err_t sensors_sample_env(time_t now)
         .time = now,
     };
     return ESP_OK;
+#else
+    (void)now;
+    return ESP_ERR_NOT_SUPPORTED; /* no climate sensor on this board (T5 spec §2.4) */
+#endif
 }
 
 esp_err_t sensors_sample_battery(time_t now)
 {
     int raw, sum = 0, count = 0;
-    adc_oneshot_read(s_adc, BAT_CHANNEL, &raw); /* the first sample after a pause reads low */
+    adc_oneshot_read(s_adc, BOARD_BAT_ADC_CHANNEL, &raw); /* the first sample after a pause reads low */
     for (int i = 0; i < BAT_SAMPLES; i++) {
-        if (adc_oneshot_read(s_adc, BAT_CHANNEL, &raw) != ESP_OK) {
+        if (adc_oneshot_read(s_adc, BOARD_BAT_ADC_CHANNEL, &raw) != ESP_OK) {
             continue;
         }
         int mv = raw * 3100 / 4095; /* rough 12 dB range without calibration */
@@ -153,7 +170,7 @@ esp_err_t sensors_sample_battery(time_t now)
         count++;
     }
     ESP_RETURN_ON_FALSE(count > 0, ESP_FAIL, TAG, "ADC read");
-    int mv = sum / count * BAT_DIVIDER * CONFIG_REFLBO_BATTERY_FACTOR_PERMILLE / 1000;
+    int mv = sum / count * BOARD_BAT_DIVIDER * CONFIG_REFLBO_BATTERY_FACTOR_PERMILLE / 1000;
     s_state.last_mv = mv;
     s_state.battery_time = now;
     battery_gauge_add(&s_state.gauge, (uint32_t)now, mv);

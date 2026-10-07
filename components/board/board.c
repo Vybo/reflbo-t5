@@ -1,5 +1,6 @@
 #include "board.h"
 
+#include "board_caps.h"
 #include "board_pins.h"
 #include "driver/gpio.h"
 #include "esp_check.h"
@@ -11,6 +12,7 @@ static const char *TAG = "board";
 
 static i2c_master_bus_handle_t s_i2c;
 
+#if BOARD_HAS_AUDIO
 /* Standby writes from esp_codec_dev: es8311 suspend and es7210 stop (AGENTS.md gotcha 8). */
 static const uint8_t k_es8311_standby[][2] = {
     { 0x32, 0x00 }, { 0x17, 0x00 }, { 0x0E, 0xFF }, { 0x12, 0x02 }, { 0x14, 0x00 },
@@ -38,13 +40,20 @@ static esp_err_t write_codec(uint16_t addr, const uint8_t (*regs)[2], size_t cou
     i2c_master_bus_rm_device(dev);
     return err;
 }
+#endif
 
 static void report_devices(void)
 {
     static const struct {
         uint16_t addr;
         const char *name;
-    } k_devices[] = { { 0x18, "ES8311" }, { 0x40, "ES7210" }, { 0x51, "PCF85063" }, { 0x70, "SHTC3" } };
+    } k_devices[] = {
+#if CONFIG_REFLBO_BOARD_T5S3
+        { 0x51, "PCF8563" },
+#else
+        { 0x18, "ES8311" }, { 0x40, "ES7210" }, { 0x51, "PCF85063" }, { 0x70, "SHTC3" },
+#endif
+    };
     for (size_t i = 0; i < sizeof(k_devices) / sizeof(k_devices[0]); i++) {
         esp_err_t err = i2c_master_probe(s_i2c, k_devices[i].addr, I2C_TIMEOUT_MS);
         if (err == ESP_OK) {
@@ -57,9 +66,11 @@ static void report_devices(void)
 
 esp_err_t board_init(bool cold)
 {
+#if BOARD_HAS_AUDIO
     gpio_config_t pa = { .pin_bit_mask = 1ULL << BOARD_PIN_PA_CTRL, .mode = GPIO_MODE_OUTPUT };
     ESP_RETURN_ON_ERROR(gpio_config(&pa), TAG, "PA_CTRL");
     gpio_set_level(BOARD_PIN_PA_CTRL, 0); /* speaker amp off */
+#endif
 
     i2c_master_bus_config_t bus = {
         .i2c_port = -1,
@@ -77,6 +88,7 @@ esp_err_t board_init(bool cold)
 
     if (cold) {
         report_devices();
+#if BOARD_HAS_AUDIO
         err = write_codec(0x18, k_es8311_standby, sizeof(k_es8311_standby) / sizeof(k_es8311_standby[0]));
         if (err == ESP_OK) {
             err = write_codec(0x40, k_es7210_standby, sizeof(k_es7210_standby) / sizeof(k_es7210_standby[0]));
@@ -86,6 +98,7 @@ esp_err_t board_init(bool cold)
         } else {
             ESP_LOGI(TAG, "audio codecs in standby");
         }
+#endif
     }
     return ESP_OK;
 }

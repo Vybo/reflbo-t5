@@ -420,7 +420,7 @@ void app_ui_sample(time_t now)
     if (err == ESP_OK) {
         sensors_env_t env = sensors_env();
         ds_set_env(&s.ds, env.temp_c100, env.hum_pct100, env.time, local_day(&local));
-    } else {
+    } else if (err != ESP_ERR_NOT_SUPPORTED) { /* not supported: a board without the SHTC3 (T5 spec §2.4) */
         ESP_LOGW(TAG, "SHTC3: %s; keeping the last reading", esp_err_to_name(err));
     }
     /* Config mode too (D20): the radio's load pulls VBAT down, which errs on the safe side, as a
