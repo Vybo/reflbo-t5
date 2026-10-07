@@ -4,6 +4,7 @@
 #include <time.h>
 
 #include "app_internal.h"
+#include "board_caps.h"
 #include "cJSON.h"
 #include "display.h"
 #include "esp_app_desc.h"
@@ -199,12 +200,14 @@ static void get_status(uint8_t *out, size_t size, webui_reply_t *reply)
     if (a != NULL) {
         cJSON_AddNumberToObject(sync, "air_at", a->fetched);
     }
+#if BOARD_HAS_RTC_TRIM
     const rtc_trim_t *trim = timekeeping_trim();
     cJSON *rtc = cJSON_AddObjectToObject(t, "rtc");
     cJSON_AddNumberToObject(rtc, "trim_steps", trim->offset);
     if (trim->drift_ppb != TRIM_NO_DRIFT) {
         cJSON_AddNumberToObject(rtc, "drift_s_per_day", timekeeping_trim_drift_s10_per_day(trim) / 10.0);
     }
+#endif
 
     /* spec §10.3, M6: the weather radar's frames and the flight radar's polls */
     app_radar_status_t rs;

@@ -29,7 +29,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "power.h"
-#include "pcf85063.h"
+#include "rtcchip.h"
 #include "scheduler.h"
 #include "st7305.h"
 #include "sdkconfig.h"
@@ -212,7 +212,7 @@ static void schedule_next(void)
     s_wake_at = wake.when;
     if (wake.alarm != s_next_alarm) {
         s_next_alarm = wake.alarm;
-        esp_err_t err = pcf85063_set_alarm(s_next_alarm); /* also clears the alarm flag, which releases INT */
+        esp_err_t err = rtcchip_set_alarm(s_next_alarm); /* also clears the alarm flag, which releases INT */
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "RTC alarm: %s; the backup timer takes over", esp_err_to_name(err));
         }
@@ -476,7 +476,7 @@ static void enter_night_sleep(void)
     }
     s_next_alarm = until;
     s_wake_at = until;
-    err = pcf85063_set_alarm(until); /* also clears the alarm flag */
+    err = rtcchip_set_alarm(until); /* also clears the alarm flag */
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "RTC alarm: %s; the backup timer takes over", esp_err_to_name(err));
     }
@@ -593,13 +593,15 @@ static esp_err_t boot(void)
     }
 
     ESP_RETURN_ON_ERROR(board_init(wake == POWER_WAKE_COLD), TAG, "board");
-    ESP_RETURN_ON_ERROR(pcf85063_init(board_i2c()), TAG, "RTC");
+    ESP_RETURN_ON_ERROR(rtcchip_init(board_i2c()), TAG, "RTC");
+#if BOARD_HAS_RTC_TRIM
     if (wake == POWER_WAKE_COLD) {
         err = timekeeping_trim_start(); /* the RTC lost its trim with its power, or a reset kept it: write it */
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "RTC trim: %s", esp_err_to_name(err));
         }
     }
+#endif
     ESP_RETURN_ON_ERROR(timekeeping_init(app_settings()->tz_posix), TAG, "time zone");
     err = timekeeping_load_from_rtc(wake == POWER_WAKE_RTC);
     if (err != ESP_OK) {

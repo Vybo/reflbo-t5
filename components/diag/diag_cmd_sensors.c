@@ -5,7 +5,7 @@
 
 #include "diag_internal.h"
 #include "esp_console.h"
-#include "pcf85063.h"
+#include "rtcchip.h"
 #include "sensors.h"
 #include "timekeeping.h"
 #include "timekeeping_iso.h"
@@ -91,7 +91,7 @@ static int rtc_body(int argc, char **argv)
     if (argc == 2 && strcmp(argv[1], "get") == 0) {
         time_t utc;
         bool valid;
-        esp_err_t err = pcf85063_read(&utc, &valid);
+        esp_err_t err = rtcchip_read(&utc, &valid);
         if (err != ESP_OK) {
             printf("rtc: %s\n", esp_err_to_name(err));
             return 1;
@@ -103,6 +103,7 @@ static int rtc_body(int argc, char **argv)
         format_local(utc, local, sizeof(local));
         printf("rtc: %s (%s), local %s\n", iso, valid ? "valid" : "INVALID: oscillator stopped, set the time",
                local);
+#if BOARD_HAS_RTC_TRIM
         const rtc_trim_t *trim = timekeeping_trim(); /* spec §7, D25 */
         int drift10 = timekeeping_trim_drift_s10_per_day(trim);
         printf("trim %d steps (%+.2f ppm)%s", trim->offset, -trim->offset * TRIM_STEP_PPB / 1000.0,
@@ -111,6 +112,7 @@ static int rtc_body(int argc, char **argv)
             printf("; last drift %s%d.%d s a day", drift10 < 0 ? "-" : "+", abs(drift10) / 10, abs(drift10) % 10);
         }
         printf("\n");
+#endif
         return 0;
     }
     if (argc == 3 && strcmp(argv[1], "set") == 0) {

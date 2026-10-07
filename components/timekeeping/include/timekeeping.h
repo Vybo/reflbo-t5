@@ -19,7 +19,8 @@ bool timekeeping_valid(void);
 esp_err_t timekeeping_set_utc(time_t utc);
 
 /* The RTC trim (spec §7, D25), kept in NVS `sys/rtc_trim`. Loads it and writes the offset to the RTC;
- * call once NVS is up (a cold boot, or the first wake that stays awake). */
+ * call once NVS is up (a cold boot, or the first wake that stays awake). Defined only on boards with
+ * BOARD_HAS_RTC_TRIM (board_caps.h). */
 esp_err_t timekeeping_trim_start(void);
 const rtc_trim_t *timekeeping_trim(void);
 /* A sync's time (sync_report_t): the true UTC at a monotonic instant. Times the RTC's error, sets the

@@ -7,16 +7,12 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "nvs.h"
-#include "pcf85063.h"
+#include "rtcchip.h"
 #include "timekeeping_sync.h"
 
 static const char *TAG = "timekeeping";
 
-#define NVS_KEY_TRIM "rtc_trim"
-
 static bool s_valid;
-static rtc_trim_t s_trim;
-static bool s_trim_up;
 
 esp_err_t timekeeping_init(const char *tz_posix)
 {
@@ -29,7 +25,7 @@ esp_err_t timekeeping_load_from_rtc(bool at_edge)
 {
     time_t utc;
     bool valid;
-    ESP_RETURN_ON_ERROR(pcf85063_read(&utc, &valid), TAG, "RTC read");
+    ESP_RETURN_ON_ERROR(rtcchip_read(&utc, &valid), TAG, "RTC read");
     struct timeval now;
     gettimeofday(&now, NULL);
     if (timekeeping_rtc_resync(now.tv_sec, utc, at_edge)) {
@@ -44,6 +40,20 @@ bool timekeeping_valid(void)
 {
     return s_valid;
 }
+
+static int64_t clock_us(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (int64_t)tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
+#if BOARD_HAS_RTC_TRIM
+
+#define NVS_KEY_TRIM "rtc_trim"
+
+static rtc_trim_t s_trim;
+static bool s_trim_up;
 
 static void trim_save(void)
 {
@@ -83,7 +93,7 @@ esp_err_t timekeeping_trim_start(void)
 {
     trim_load();
     ESP_LOGI(TAG, "RTC trim %d steps", s_trim.offset);
-    return pcf85063_set_offset(s_trim.offset); /* the chip loses it with its power (D9) */
+    return rtcchip_set_offset(s_trim.offset); /* the chip loses it with its power (D9) */
 }
 
 const rtc_trim_t *timekeeping_trim(void)
@@ -92,18 +102,11 @@ const rtc_trim_t *timekeeping_trim(void)
     return &s_trim;
 }
 
-static int64_t clock_us(void)
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (int64_t)tv.tv_sec * 1000000 + tv.tv_usec;
-}
-
 esp_err_t timekeeping_apply_true_time(int64_t true_utc_us, int64_t mono_us, int64_t *moved_ms)
 {
     trim_load();
     int64_t error_ms = 0; /* the RTC against the system clock, while the RTC still keeps its time */
-    bool measured = s_valid && pcf85063_error_ms(&error_ms) == ESP_OK;
+    bool measured = s_valid && rtcchip_error_ms(&error_ms) == ESP_OK;
     int64_t true_now = true_utc_us + (esp_timer_get_time() - mono_us);
     int64_t ahead_ms = (clock_us() - true_now) / 1000; /* the system clock against the truth */
     struct timeval tv = { .tv_sec = (time_t)(true_now / 1000000), .tv_usec = (suseconds_t)(true_now % 1000000) };
@@ -111,12 +114,12 @@ esp_err_t timekeeping_apply_true_time(int64_t true_utc_us, int64_t mono_us, int6
     *moved_ms = -ahead_ms;
     if (measured && timekeeping_trim_measure(&s_trim, true_now / 1000, error_ms + ahead_ms)) {
         ESP_LOGI(TAG, "RTC drift %ld ppb: trim now %d steps", (long)s_trim.drift_ppb, s_trim.offset);
-        ESP_RETURN_ON_ERROR(pcf85063_set_offset(s_trim.offset), TAG, "RTC offset");
+        ESP_RETURN_ON_ERROR(rtcchip_set_offset(s_trim.offset), TAG, "RTC offset");
     } else if (measured) {
         ESP_LOGI(TAG, "RTC off by %lld ms", (long long)(error_ms + ahead_ms));
     }
     int64_t set_at_ms = 0;
-    ESP_RETURN_ON_ERROR(pcf85063_write_precise(&set_at_ms), TAG, "RTC write");
+    ESP_RETURN_ON_ERROR(rtcchip_write_precise(&set_at_ms), TAG, "RTC write");
     timekeeping_trim_set(&s_trim, set_at_ms);
     trim_save();
     s_valid = true;
@@ -125,7 +128,7 @@ esp_err_t timekeeping_apply_true_time(int64_t true_utc_us, int64_t mono_us, int6
 
 esp_err_t timekeeping_set_utc(time_t utc)
 {
-    ESP_RETURN_ON_ERROR(pcf85063_write(utc), TAG, "RTC write");
+    ESP_RETURN_ON_ERROR(rtcchip_write(utc), TAG, "RTC write");
     trim_load(); /* also after a deep-sleep wake: the measurement must not span this set */
     if (s_trim.set_at_ms != 0) {
         timekeeping_trim_forget(&s_trim);
@@ -137,3 +140,29 @@ esp_err_t timekeeping_set_utc(time_t utc)
     ESP_LOGI(TAG, "time set to %lld", (long long)utc);
     return ESP_OK;
 }
+
+#else /* an RTC without trim or a precise set (T5 spec §2.4, §8.1) */
+
+esp_err_t timekeeping_apply_true_time(int64_t true_utc_us, int64_t mono_us, int64_t *moved_ms)
+{
+    int64_t true_now = true_utc_us + (esp_timer_get_time() - mono_us);
+    int64_t ahead_ms = (clock_us() - true_now) / 1000; /* the system clock against the truth */
+    struct timeval tv = { .tv_sec = (time_t)(true_now / 1000000), .tv_usec = (suseconds_t)(true_now % 1000000) };
+    settimeofday(&tv, NULL);
+    *moved_ms = -ahead_ms;
+    ESP_RETURN_ON_ERROR(rtcchip_write(tv.tv_sec), TAG, "RTC write"); /* to the second */
+    s_valid = true;
+    return ESP_OK;
+}
+
+esp_err_t timekeeping_set_utc(time_t utc)
+{
+    ESP_RETURN_ON_ERROR(rtcchip_write(utc), TAG, "RTC write");
+    struct timeval tv = { .tv_sec = utc };
+    settimeofday(&tv, NULL);
+    s_valid = true;
+    ESP_LOGI(TAG, "time set to %lld", (long long)utc);
+    return ESP_OK;
+}
+
+#endif
