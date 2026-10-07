@@ -14,7 +14,8 @@ enum EpdRenderMethod {
 
 extern const enum EpdRenderMethod EPD_CURRENT_RENDER_METHOD;
 
-#ifdef CONFIG_IDF_TARGET_ESP32
+/* reflbo patch P2 (PATCHES.md): an ESP32-S3 whose latch is on a shift register uses the I2S path. */
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_EPD_S3_SHIFT_REGISTER_LATCH)
 #define RENDER_METHOD_I2S 1
 #elif defined(CONFIG_IDF_TARGET_ESP32S3)
 #define RENDER_METHOD_LCD 1

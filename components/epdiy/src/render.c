@@ -264,8 +264,20 @@ void epd_renderer_init(enum EpdInitOptions options, const EpdInitConfig* config)
     }
 
     ESP_LOGI("epd", "Space used for waveform LUT: %dK", lut_size / 1024);
+    /* reflbo patch P5 (PATCHES.md): the LUT in PSRAM when configured, or when internal RAM is short
+     * (Wi-Fi up), rather than abort. */
+#ifdef CONFIG_EPD_LUT_IN_PSRAM
+    render_context.conversion_lut
+        = (uint8_t*)heap_caps_malloc(lut_size, MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
+#else
     render_context.conversion_lut
         = (uint8_t*)heap_caps_malloc(lut_size, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    if (render_context.conversion_lut == NULL) {
+        ESP_LOGW("epd", "LUT: internal RAM short, using PSRAM");
+        render_context.conversion_lut
+            = (uint8_t*)heap_caps_malloc(lut_size, MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
+    }
+#endif
     if (render_context.conversion_lut == NULL) {
         ESP_LOGE("epd", "could not allocate LUT!");
         abort();

@@ -3,3 +3,6 @@ CONFIG_REFLBO_BOARD_T5S3=y
 
 # DT6: the e-paper keeps its image without power and the 3V3 rail is an LDO, so idle in deep sleep.
 CONFIG_REFLBO_IDLE_DEFAULT_DEEP=y
+
+# The panel through the patched epdiy (T5 spec §5.1): the latch is on the 74HCT4094 on V2.3.
+CONFIG_EPD_S3_SHIFT_REGISTER_LATCH=y
