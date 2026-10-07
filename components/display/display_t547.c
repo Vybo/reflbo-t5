@@ -54,6 +54,9 @@ static esp_err_t alloc_fb(void)
  * Wi-Fi needs the rest of the time (T5 spec §5.2). */
 static void panel_up(void)
 {
+    /* epd_init() sets the board each time and warns from the second on; routine wakes print warnings. P5's
+     * LUT fallback logs as "epd" and stays. */
+    esp_log_level_set("epdiy", ESP_LOG_ERROR);
     epd_init(&epd_board_lilygo_t5_47, &ED047TC1, EPD_OPTIONS);
     if (!s_hl_ready) {
         s_hl = epd_hl_init(NULL); /* the display's own waveform: epdiy_ED047TC1 */

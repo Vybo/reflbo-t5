@@ -18,3 +18,7 @@ CONFIG_ESP32_REV_MIN_3=y
 CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
 CONFIG_SPIRAM_SPEED_80M=y
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+
+# The RTC slow clock from the 8.5 MHz oscillator ÷256: it keeps the time through deep sleep (DT10) far better than
+# the 150 kHz RC, for about 5 µA more in deep sleep (T1 bring-up).
+CONFIG_RTC_CLK_SRC_INT_8MD256=y

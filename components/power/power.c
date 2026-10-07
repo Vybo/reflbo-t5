@@ -31,6 +31,7 @@
 #define NVS_NAMESPACE "sys"
 #define NVS_KEY_IDLE  "idle"
 #define TEST_END_HOLD_MS 3000
+#define UART_WAKE_HOLD_MS 3000 /* a UART wake loses its characters: stay up for the line that follows */
 
 static const char *TAG = "power";
 
@@ -313,6 +314,7 @@ power_wake_t power_sleep_light(time_t until_utc)
     /* Console input wakes it (T5 spec §9); the first characters are lost to the wake. */
     uart_set_wakeup_threshold(CONFIG_ESP_CONSOLE_UART_NUM, 3);
     esp_sleep_enable_uart_wakeup(CONFIG_ESP_CONSOLE_UART_NUM);
+    uart_wait_tx_done(CONFIG_ESP_CONSOLE_UART_NUM, pdMS_TO_TICKS(100)); /* the log out now, not at the next wake */
 #endif
     esp_sleep_enable_timer_wakeup(sleep_us_until(until_utc));
     int64_t slept_from_us = esp_timer_get_time();
@@ -326,6 +328,9 @@ power_wake_t power_sleep_light(time_t until_utc)
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_GPIO);
 #if CONFIG_ESP_CONSOLE_UART
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_UART);
+    if (err == ESP_OK && (esp_sleep_get_wakeup_causes() & BIT(ESP_SLEEP_WAKEUP_UART))) {
+        power_hold_awake_ms(UART_WAKE_HOLD_MS); /* until a whole line holds it for DIAG_INPUT_AWAKE_MS */
+    }
 #endif
     if (err == ESP_OK) {
         count_sleep_at(false, slept_from_us);
@@ -480,6 +485,7 @@ void power_start_test(power_idle_t mode, int cycles)
 {
     s_rtc.stats = (power_stats_t){ 0 }; /* the test's numbers only */
     s_awake_since_us = -1;
+    s_hold_until_us = 0; /* the test starts now, not after a UART console's 5-minute hold (T5 spec §9) */
     s_rtc.test_cycles = cycles;
     s_rtc.test_mode = (uint8_t)mode;
     seal();
