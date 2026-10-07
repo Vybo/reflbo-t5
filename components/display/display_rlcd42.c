@@ -8,6 +8,12 @@
 
 static const char *TAG = "display";
 
+#if CONFIG_REFLBO_PANEL_INIT_XIAOZHI
+#define PANEL_VARIANT ST7305_VARIANT_XIAOZHI
+#else
+#define PANEL_VARIANT ST7305_VARIANT_FACTORY
+#endif
+
 static gfx_fb_t s_fb; /* s_fb.buf stays NULL until display_init */
 static uint32_t s_last_crc;
 static bool s_pushed;
@@ -73,10 +79,10 @@ void display_cancel_deep_sleep(void)
     st7305_cancel_deep_sleep();
 }
 
-esp_err_t display_init(st7305_variant_t variant)
+esp_err_t display_init(void)
 {
     ESP_RETURN_ON_ERROR(alloc_fb(), TAG, "framebuffer");
-    ESP_RETURN_ON_ERROR(st7305_init(variant), TAG, "panel init");
+    ESP_RETURN_ON_ERROR(st7305_init(PANEL_VARIANT), TAG, "panel init");
     int64_t start = esp_timer_get_time();
     ESP_RETURN_ON_ERROR(display_commit(true), TAG, "first frame");
     ESP_LOGI(TAG, "first frame pushed in %lld us", (long long)(esp_timer_get_time() - start));
@@ -106,4 +112,27 @@ esp_err_t display_set_variant(st7305_variant_t variant)
     ESP_RETURN_ON_ERROR(st7305_reinit(variant), TAG, "reinit");
     ESP_RETURN_ON_ERROR(display_commit(true), TAG, "frame");
     return st7305_set_mode(ST7305_MODE_LPM);
+}
+
+esp_err_t display_init_lost(void)
+{
+    display_state_t fallback = { .variant = PANEL_VARIANT, .mode = ST7305_MODE_LPM, .lpm_rate = ST7305_LPM_1HZ,
+                                 .asleep = true };
+    ESP_RETURN_ON_ERROR(display_init_warm(&fallback), TAG, "panel attach");
+    st7305_set_lpm_rate(ST7305_LPM_1HZ); /* assumed, so send it; safe without a reset */
+    esp_err_t err = display_wake();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "panel wake: %s", esp_err_to_name(err));
+    }
+    return ESP_OK;
+}
+
+esp_err_t display_set_fast(bool fast)
+{
+    return st7305_set_mode(fast ? ST7305_MODE_HPM : ST7305_MODE_LPM);
+}
+
+esp_err_t display_clean(void)
+{
+    return ESP_OK; /* the RLCD shows each push as it is */
 }

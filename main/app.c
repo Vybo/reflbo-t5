@@ -31,7 +31,6 @@
 #include "power.h"
 #include "rtcchip.h"
 #include "scheduler.h"
-#include "st7305.h"
 #include "sdkconfig.h"
 #include "sensors.h"
 #include "storage.h"
@@ -59,12 +58,6 @@
 #define MENU_SETTLE_MS    1000  /* BOOT pressed fast to back out of the menu makes no double after it */
 #define RESTART_MS        1500  /* a restart's toast stays this long; it also lets a web reply go out */
 #define NVS_KEY_RESUME    "resume_cfg" /* in `sys`: come back in config mode (spec §10.2) */
-
-#if CONFIG_REFLBO_PANEL_INIT_XIAOZHI
-#define PANEL_VARIANT ST7305_VARIANT_XIAOZHI
-#else
-#define PANEL_VARIANT ST7305_VARIANT_FACTORY
-#endif
 
 static const char *TAG = "app";
 
@@ -617,16 +610,9 @@ static esp_err_t boot(void)
     } else if (wake != POWER_WAKE_COLD) {
         /* Woke from deep sleep without a valid snapshot: the panel still runs, don't reset it. It
          * may have been asleep for the night, so wake it anyway (SLPOUT is harmless otherwise). */
-        display_state_t fallback = { .variant = PANEL_VARIANT, .mode = ST7305_MODE_LPM, .lpm_rate = ST7305_LPM_1HZ,
-                                     .asleep = true };
-        ESP_RETURN_ON_ERROR(display_init_warm(&fallback), TAG, "display");
-        st7305_set_lpm_rate(ST7305_LPM_1HZ); /* assumed, so send it; safe without a reset */
-        err = display_wake();
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "panel wake: %s", esp_err_to_name(err));
-        }
+        ESP_RETURN_ON_ERROR(display_init_lost(), TAG, "display");
     } else {
-        ESP_RETURN_ON_ERROR(display_init(PANEL_VARIANT), TAG, "display");
+        ESP_RETURN_ON_ERROR(display_init(), TAG, "display");
     }
     app_ui_apply_settings(); /* offsets, freshness and the panel rate, now that the panel is up */
     ESP_RETURN_ON_ERROR(board_buttons_start(on_button, k_app_dashboard_buttons), TAG, "buttons");

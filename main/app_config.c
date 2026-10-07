@@ -8,7 +8,6 @@
 #include "esp_log.h"
 #include "lang.h"
 #include "netmgr.h"
-#include "st7305.h"
 #include "ui_screens.h"
 #include "webui.h"
 
@@ -114,9 +113,9 @@ void app_config_enter(void)
     s_setup_asked = false;
     s_started_ms = app_uptime_ms();
     board_buttons_set_config(k_config_buttons);
-    esp_err_t err = st7305_set_mode(ST7305_MODE_HPM); /* spec §9.1: the screen answers at once */
+    esp_err_t err = display_set_fast(true); /* spec §9.1: the screen answers at once */
     if (err != ESP_OK) {
-        ESP_LOGW(TAG, "HPM: %s", esp_err_to_name(err));
+        ESP_LOGW(TAG, "fast: %s", esp_err_to_name(err));
     }
     bool no_password = !webui_password_set();
     netmgr_start(no_password); /* D18: only a phone on the AP may choose the password */
@@ -138,9 +137,9 @@ void app_config_exit(void)
     }
     app_net_refresh();
     board_buttons_set_config(k_app_dashboard_buttons);
-    esp_err_t err = st7305_set_mode(ST7305_MODE_LPM);
+    esp_err_t err = display_set_fast(false);
     if (err != ESP_OK) {
-        ESP_LOGW(TAG, "LPM: %s", esp_err_to_name(err));
+        ESP_LOGW(TAG, "slow: %s", esp_err_to_name(err));
     }
     ESP_LOGI(TAG, "config mode off");
     app_ui_toast(lang_str(lang_get(app_settings()->language), LS_T_WIFI_OFF));

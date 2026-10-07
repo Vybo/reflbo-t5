@@ -3,12 +3,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "board_caps.h"
 #include "diag_internal.h"
 #include "display.h"
 #include "esp_console.h"
 #include "esp_heap_caps.h"
 #include "gfx_test_pattern.h"
 #include "util_base64.h"
+#if BOARD_HAS_LPM_RATE
+#include "st7305.h"
+#endif
 
 #define PBM_CHUNK 57 /* bytes per line: 76 base64 characters */
 
@@ -39,6 +43,13 @@ static int screenshot_body(int argc, char **argv)
     free(pbm);
     return 0;
 }
+
+#if BOARD_HAS_LPM_RATE
+
+#define PANEL_USAGE                                                                                                  \
+    "panel status | test | clear | mode <hpm|lpm> | rate <0.25|0.5|1|2|4|8> | fps [s] | sleep | wake | init "      \
+    "<factory|xiaozhi>"
+#define PANEL_HELP "panel status | test | clear | mode <hpm|lpm> | rate <0.25|0.5|1|2|4|8> | fps [s] | init <factory|xiaozhi>"
 
 static int print_status(void)
 {
@@ -87,44 +98,60 @@ static bool parse_seconds(const char *text, int *seconds)
     return true;
 }
 
+#else /* e-paper (T5 spec §9): its own status and commands come with its driver (T1) */
+
+#define PANEL_USAGE "panel status | test | clear | sleep | wake"
+#define PANEL_HELP  PANEL_USAGE
+
+static int print_status(void)
+{
+    printf("panel e-paper%s\n", display_asleep() ? ", asleep" : "");
+    return 0;
+}
+
+#endif
+
 static int panel_body(int argc, char **argv)
 {
-    st7305_lpm_rate_t rate;
-    int seconds = 4;
     esp_err_t err = ESP_ERR_INVALID_ARG;
     gfx_fb_t *fb = display_fb();
     if (fb == NULL) {
         printf("panel: display not initialised\n");
         return 1;
     }
+#if BOARD_HAS_LPM_RATE
+    st7305_lpm_rate_t rate;
+    int seconds = 4;
+#endif
     if (argc == 2 && strcmp(argv[1], "status") == 0) {
         return print_status();
-    } else if ((argc == 2 || argc == 3) && strcmp(argv[1], "fps") == 0 &&
-               (argc == 2 || parse_seconds(argv[2], &seconds))) {
-        return print_frame_rate(seconds);
     } else if (argc == 2 && strcmp(argv[1], "test") == 0) {
         gfx_draw_test_pattern(fb);
         err = display_commit(false);
     } else if (argc == 2 && strcmp(argv[1], "clear") == 0) {
         gfx_clear(fb, GFX_WHITE);
         err = display_commit(false);
+    } else if (argc == 2 && strcmp(argv[1], "sleep") == 0) {
+        err = display_sleep();
+    } else if (argc == 2 && strcmp(argv[1], "wake") == 0) {
+        err = display_wake();
+#if BOARD_HAS_LPM_RATE
+    } else if ((argc == 2 || argc == 3) && strcmp(argv[1], "fps") == 0 &&
+               (argc == 2 || parse_seconds(argv[2], &seconds))) {
+        return print_frame_rate(seconds);
     } else if (argc == 3 && strcmp(argv[1], "mode") == 0 && strcmp(argv[2], "hpm") == 0) {
         err = st7305_set_mode(ST7305_MODE_HPM);
     } else if (argc == 3 && strcmp(argv[1], "mode") == 0 && strcmp(argv[2], "lpm") == 0) {
         err = st7305_set_mode(ST7305_MODE_LPM);
     } else if (argc == 3 && strcmp(argv[1], "rate") == 0 && parse_lpm_rate(argv[2], &rate)) {
         err = st7305_set_lpm_rate(rate);
-    } else if (argc == 2 && strcmp(argv[1], "sleep") == 0) {
-        err = display_sleep();
-    } else if (argc == 2 && strcmp(argv[1], "wake") == 0) {
-        err = display_wake();
     } else if (argc == 3 && strcmp(argv[1], "init") == 0 && strcmp(argv[2], "factory") == 0) {
         err = display_set_variant(ST7305_VARIANT_FACTORY);
     } else if (argc == 3 && strcmp(argv[1], "init") == 0 && strcmp(argv[2], "xiaozhi") == 0) {
         err = display_set_variant(ST7305_VARIANT_XIAOZHI);
+#endif
     } else {
-        printf("usage: panel status | test | clear | mode <hpm|lpm> | rate <0.25|0.5|1|2|4|8> | fps [s] | sleep |"
-               " wake | init <factory|xiaozhi>\n");
+        printf("usage: %s\n", PANEL_USAGE);
         return 1;
     }
     if (err != ESP_OK) {
@@ -148,8 +175,7 @@ esp_err_t diag_register_display_commands(void)
 {
     const esp_console_cmd_t cmds[] = {
         { .command = "screenshot", .help = "Print the framebuffer as base64 PBM between markers", .func = &cmd_screenshot },
-        { .command = "panel", .help = "panel status | test | clear | mode <hpm|lpm> | rate <0.25|0.5|1|2|4|8> | fps [s] | init <factory|xiaozhi>",
-          .func = &cmd_panel },
+        { .command = "panel", .help = PANEL_HELP, .func = &cmd_panel },
     };
     for (size_t i = 0; i < sizeof(cmds) / sizeof(cmds[0]); i++) {
         esp_err_t err = esp_console_cmd_register(&cmds[i]);

@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "app_internal.h"
+#include "board_caps.h"
 #include "display.h"
 #include "esp_attr.h"
 #include "esp_log.h"
@@ -185,6 +186,7 @@ void app_ui_apply_settings(void)
     for (int f = 0; f < DS_FIELD_COUNT; f++) {
         ds_set_ttl(&s.ds, (ds_field_t)f, ttl);
     }
+#if BOARD_HAS_LPM_RATE
     int quarter_hz = s.settings.lpm_quarter_hz, rate = 0;
     while (quarter_hz > 1 && rate < ST7305_LPM_8HZ) {
         quarter_hz /= 2;
@@ -196,6 +198,7 @@ void app_ui_apply_settings(void)
             ESP_LOGW(TAG, "panel rate: %s", esp_err_to_name(err));
         }
     }
+#endif
     if (s.cold_boot_at == 0 && timekeeping_valid()) {
         s.cold_boot_at = time(NULL); /* Info > Uptime counts from the first valid clock after a cold boot */
     }

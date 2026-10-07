@@ -13,7 +13,6 @@
 #include "lang.h"
 #include "netmgr.h"
 #include "power.h"
-#include "st7305.h"
 #include "storage.h"
 #include "timekeeping.h"
 #include "timekeeping_zones.h"
@@ -415,9 +414,9 @@ void app_menu_open(void)
     s_deadline_ms = app_uptime_ms() + MENU_TIMEOUT_MS;
     power_hold_awake_ms(MENU_TIMEOUT_MS);
     board_buttons_set_config(k_menu_buttons);
-    esp_err_t err = st7305_set_mode(ST7305_MODE_HPM); /* new frames appear at once (spec §4.2) */
+    esp_err_t err = display_set_fast(true); /* new frames appear at once (spec §4.2) */
     if (err != ESP_OK) {
-        ESP_LOGW(TAG, "HPM: %s", esp_err_to_name(err));
+        ESP_LOGW(TAG, "fast: %s", esp_err_to_name(err));
     }
     ESP_LOGI(TAG, "menu open");
     app_menu_render();
@@ -431,9 +430,9 @@ void app_menu_close(void)
     s_open = false;
     s_closed_ms = app_uptime_ms();
     board_buttons_set_config(k_app_dashboard_buttons);
-    esp_err_t err = st7305_set_mode(ST7305_MODE_LPM);
+    esp_err_t err = display_set_fast(false);
     if (err != ESP_OK) {
-        ESP_LOGW(TAG, "LPM: %s", esp_err_to_name(err));
+        ESP_LOGW(TAG, "slow: %s", esp_err_to_name(err));
     }
     ESP_LOGI(TAG, "menu closed");
     app_ui_render();

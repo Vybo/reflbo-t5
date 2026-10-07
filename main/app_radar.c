@@ -2,10 +2,10 @@
 #include <string.h>
 
 #include "app_internal.h"
+#include "display.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "map_data.h"
-#include "st7305.h"
 #include "storage.h"
 #include "timekeeping.h"
 
@@ -252,9 +252,9 @@ bool app_radar_loop_start(void)
     }
     s_loop_count = (uint8_t)s_store.count;
     s_loop_at = 0;
-    esp_err_t err = st7305_set_mode(ST7305_MODE_HPM); /* each frame shows at once */
+    esp_err_t err = display_set_fast(true); /* each frame shows at once */
     if (err != ESP_OK) {
-        ESP_LOGW(TAG, "loop: HPM: %s", esp_err_to_name(err));
+        ESP_LOGW(TAG, "loop: fast: %s", esp_err_to_name(err));
     }
     s_loop_next_ms = app_uptime_ms() + LOOP_STEP_MS;
     ESP_LOGI(TAG, "loop: %u frames", s_loop_count);
@@ -281,9 +281,9 @@ void app_radar_loop_stop(void)
         return;
     }
     s_loop_count = 0;
-    esp_err_t err = st7305_set_mode(ST7305_MODE_LPM);
+    esp_err_t err = display_set_fast(false);
     if (err != ESP_OK) {
-        ESP_LOGW(TAG, "loop: LPM: %s", esp_err_to_name(err));
+        ESP_LOGW(TAG, "loop: slow: %s", esp_err_to_name(err));
     }
     app_ui_render();
 }
