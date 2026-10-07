@@ -16,4 +16,8 @@ if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.local")
 endif()
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+if(REFLBO_BOARD STREQUAL "t5")
+    # The component manager writes the target into its lock file: the T5's ESP32 keeps its own.
+    idf_build_set_property(DEPENDENCIES_LOCK "${CMAKE_CURRENT_LIST_DIR}/dependencies.lock.t5")
+endif()
 project(reflbo)
