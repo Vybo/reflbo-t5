@@ -16,6 +16,21 @@ typedef struct {
     bool pushed;
 } display_state_t;
 
+/* `panel status` (T5 spec §9). */
+typedef struct {
+    uint32_t updates;      /* since boot */
+    uint32_t last_ms;      /* the last update, from epdiy's start to its end */
+    uint32_t min_internal; /* the least free internal RAM seen with epdiy up, bytes; 0 before the first */
+} display_t5_stats_t;
+void display_t5_stats(display_t5_stats_t *out);
+
+/* `panel bench` (T5 spec §5.3): the test pattern drawn clean (clear and GC16), its inverse in GL16, the
+ * pattern again in DU. The next commit puts the frame back. */
+typedef struct {
+    uint32_t clean_ms, gl16_ms, du_ms;
+} display_t5_bench_t;
+esp_err_t display_t5_bench(display_t5_bench_t *out);
+
 #else
 
 #include "st7305.h"

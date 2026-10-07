@@ -31,6 +31,11 @@ void board_buttons_ignore_until_released(board_button_t button);
  * BOOT long press. `config` must stay valid; it is applied on the buttons task. */
 void board_buttons_set_config(const gesture_config_t config[BOARD_BUTTON_COUNT]);
 /* True while a gesture is being timed or an edge is queued; sleeping then would lose it. */
+/* The T5's BOOT pin also strobes the panel's shift register (T5 spec §8.3). While a button is lent, it
+ * isn't read and its pin is the borrower's. Giving it back makes the pin an input again and reads it
+ * afresh, so a press during an update counts from its end. Both are safe before board_buttons_start(). */
+void board_buttons_lend(board_button_t button);
+void board_buttons_give_back(board_button_t button);
 bool board_buttons_busy(void);
 bool board_buttons_pressed(board_button_t button);
 const char *board_button_name(board_button_t button);

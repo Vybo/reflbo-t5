@@ -8,4 +8,4 @@ endif()
 idf_component_register(SRCS ${srcs}
                        INCLUDE_DIRS "include"
                        REQUIRES gfx st7305
-                       PRIV_REQUIRES esp_timer util)
+                       PRIV_REQUIRES board epaper epdiy esp_timer util)

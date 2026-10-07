@@ -38,6 +38,7 @@ static board_button_cb_t s_cb;
 static gesture_recogniser_t s_rec[BOARD_BUTTON_COUNT];
 static volatile bool s_busy;
 static const gesture_config_t *volatile s_config; /* the next gesture timings, for MSG_CONFIG */
+static volatile bool s_lent[BOARD_BUTTON_COUNT]; /* the pin is someone else's: not read (T5 spec §8.3) */
 
 static void IRAM_ATTR on_edge(void *arg)
 {
@@ -56,7 +57,7 @@ static uint32_t now_ms(void)
 
 bool board_buttons_pressed(board_button_t button)
 {
-    return gpio_get_level(k_pins[button]) == 0;
+    return !s_lent[button] && gpio_get_level(k_pins[button]) == 0;
 }
 
 static void report(board_button_t button, gesture_t gesture)
@@ -94,7 +95,9 @@ static void buttons_task(void *arg)
             board_button_t b = (board_button_t)msg.button;
             switch (msg.kind) {
             case MSG_EDGE:
-                report(b, gesture_update(&s_rec[b], board_buttons_pressed(b), now_ms()));
+                if (!s_lent[b]) {
+                    report(b, gesture_update(&s_rec[b], board_buttons_pressed(b), now_ms()));
+                }
                 break;
             case MSG_INJECT:
                 report(b, (gesture_t)msg.gesture);
@@ -108,6 +111,9 @@ static void buttons_task(void *arg)
                 break;
             case MSG_RESYNC:
                 for (int i = 0; i < BOARD_BUTTON_COUNT; i++) {
+                    if (s_lent[i]) {
+                        continue;
+                    }
                     report((board_button_t)i, gesture_update(&s_rec[i], board_buttons_pressed(i), now_ms()));
                 }
                 break;
@@ -126,6 +132,9 @@ static void buttons_task(void *arg)
         }
         bool busy = false;
         for (int b = 0; b < BOARD_BUTTON_COUNT; b++) {
+            if (s_lent[b]) {
+                continue;
+            }
             report((board_button_t)b, gesture_update(&s_rec[b], board_buttons_pressed(b), now_ms()));
             busy |= gesture_busy(&s_rec[b]);
         }
@@ -156,6 +165,9 @@ esp_err_t board_buttons_start(board_button_cb_t cb, const gesture_config_t confi
         };
         ESP_RETURN_ON_ERROR(gpio_config(&io), TAG, "button pin");
         ESP_RETURN_ON_ERROR(gpio_isr_handler_add(k_pins[b], on_edge, (void *)(uintptr_t)b), TAG, "button ISR");
+        if (s_lent[b]) {
+            gpio_intr_disable(k_pins[b]); /* lent before the start: given back later */
+        }
     }
     BaseType_t ok = xTaskCreatePinnedToCore(buttons_task, "buttons", TASK_STACK, NULL, TASK_PRIORITY, NULL,
                                             tskNO_AFFINITY);
@@ -187,6 +199,25 @@ void board_buttons_set_config(const gesture_config_t config[BOARD_BUTTON_COUNT])
 {
     s_config = config;
     post((msg_t){ .kind = MSG_CONFIG });
+}
+
+void board_buttons_lend(board_button_t button)
+{
+    s_lent[button] = true;
+    if (s_queue != NULL) {
+        gpio_intr_disable(k_pins[button]);
+    }
+}
+
+void board_buttons_give_back(board_button_t button)
+{
+    gpio_set_direction(k_pins[button], GPIO_MODE_INPUT);
+    s_lent[button] = false;
+    if (s_queue != NULL) {
+        gpio_set_intr_type(k_pins[button], GPIO_INTR_ANYEDGE);
+        gpio_intr_enable(k_pins[button]);
+        post((msg_t){ .kind = MSG_RESYNC });
+    }
 }
 
 bool board_buttons_busy(void)
