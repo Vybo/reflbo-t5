@@ -2,10 +2,11 @@
 # T5 builds its sources; on other boards it's headers only, and REQUIRES stay the same for both, as ESP-IDF
 # reads them before Kconfig. epaper_sr.c and epaper_frame.c are pure C and also built on the host.
 if(CONFIG_REFLBO_BOARD_T547)
-    set(srcs "epaper_sr.c" "epaper_frame.c")
+    set(srcs "epaper_board.c" "epaper_sr.c" "epaper_frame.c")
 else()
     set(srcs "")
 endif()
 idf_component_register(SRCS ${srcs}
                        INCLUDE_DIRS "include"
-                       REQUIRES gfx)
+                       REQUIRES gfx
+                       PRIV_REQUIRES board esp_driver_gpio)

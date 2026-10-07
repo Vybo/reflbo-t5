@@ -26,10 +26,27 @@ static void test_off_leaves_only_the_logic_supply_disabled(void)
     TEST_ASSERT_EQUAL_HEX8(0x02, epaper_sr_word(&off));
 }
 
+/* Review Focus 3: the rest word is epdiy's lilygo_t5_47 power-off state: power disable set, PWR_EN, the
+ * rails, STV, OE, MODE and LE clear. */
+static void test_rest_matches_epdiys_power_off(void)
+{
+    epaper_sr_t off = epaper_sr_off();
+    TEST_ASSERT_TRUE(off.power_disable);
+    TEST_ASSERT_FALSE(off.power_enable);
+    TEST_ASSERT_FALSE(off.pos_power);
+    TEST_ASSERT_FALSE(off.neg_power);
+    TEST_ASSERT_FALSE(off.stv);
+    TEST_ASSERT_FALSE(off.output_enable);
+    TEST_ASSERT_FALSE(off.mode);
+    TEST_ASSERT_FALSE(off.latch_enable);
+    TEST_ASSERT_EQUAL_HEX8(0x02, epaper_sr_word(&off));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_each_signal_has_its_bit);
     RUN_TEST(test_off_leaves_only_the_logic_supply_disabled);
+    RUN_TEST(test_rest_matches_epdiys_power_off);
     return UNITY_END();
 }
