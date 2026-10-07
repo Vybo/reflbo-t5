@@ -50,3 +50,25 @@ The TPS63020 that makes the 3V3 rail has PS/SYNC tied high, which forces PWM and
 | — | — | M5: the default schedule | `times` 05:30, display every 1 min, sensors every 5 min; light sleep | Fnirsi FNB58 | 24 h | — | — | — | To be measured by the owner (M5 acceptance 4): the daily average |
 | — | — | M6: a radar frame per sync | 10 syncs on demand, 2 min apart, against M5's syncs without the radar | Fnirsi FNB58 | — | — | — | — | To be measured by the owner (M6 acceptance 6) |
 | — | — | M6: the flight radar in sync mode `always` | an hour with the Flights view, against an hour of `always` with the clock | Fnirsi FNB58 | 2 × 1 h | — | — | — | To be measured by the owner (M6 acceptance 6) |
+
+## The T5-4.7 (fork)
+
+The LilyGo T5-4.7 (ESP32, T5 spec) has no forced-PWM converter: its 3V3 rail is an LDO, so it idles in deep sleep (DT6). Its own figures:
+
+**Refresh times** (2026-10-07, cc1d27e, `panel bench` and the logs, the board on USB): for the whole 960×540 panel, the LUT in internal RAM, two runs each, within 1 ms of each other unless given:
+- a clean update (clear, then GC16): 2.22 s, of which the clear takes 1.37 s; a routine minute's clean update with the dashboard: 2.0–2.2 s;
+- GL16: 1.10–1.13 s;
+- DU: 0.55 s;
+- with the LUT in PSRAM: clean 2.64 s, GL16 1.77 s, DU 0.57 s (so the LUT stays internal, T5 spec §5.1).
+
+A routine deep-sleep minute keeps the chip awake about 2.2 s, nearly all of it the clean update (`sleep stats` over 30 cycles: mean awake 2.25 s, mean asleep 56.6 s).
+
+**The clock's drift** (2026-10-07, the board on USB at room temperature): 30 one-minute deep-sleep cycles (`sleep test deep 30`), the board's clock against the Mac's at the start and the end, timed at the board's second edge to about 0.1 s:
+
+| Slow clock | Build | Window | Drift | Rate |
+|---|---|---|---|---|
+| 150 kHz RC (ESP-IDF default) | T1 bring-up, `CONFIG_RTC_CLK_SRC_INT_RC` | 16:15:47–16:49:06 UTC | +17 to +19 s (the start set ±1 s) | about +9000 ppm, 13 min a day fast |
+| 8MD256 (the T5's default) | T1 bring-up, `CONFIG_RTC_CLK_SRC_INT_8MD256` (as cc1d27e) | 16:51:28–17:23:46 UTC | −1.96 s | about −1000 ppm, 85 s a day slow |
+
+**Current:** to be measured by the owner (T1, the USB meter): the deep-sleep floor between updates, a clean update's peak and length, a minute's mAh.
+

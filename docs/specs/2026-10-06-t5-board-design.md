@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), is a draft for the owner's review (§13)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built (§13)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -44,6 +44,7 @@ Fork decisions are numbered DT1, DT2, … so they don't collide with upstream's 
 | DT9 | Owner, 2026-10-07: the board on the desk is the ESP32 LilyGo T5-4.7 (ESP32-D0WD-V3 in a WROVER module, CH9102 USB-serial, MAC `34:ab:95:5e:5d:58`), not the T5-ePaper-S3; port to it. The ESP32 becomes the T5's ESP-IDF target |
 | DT10 | Owner, 2026-10-07: no RTC module is added. The T5 keeps time with the ESP32's own clock between syncs (NTP) and loses it at power-off until the next sync (§8.1) |
 | DT11 | 2026-10-07: the T5's console is UART0 through the CH9102. A PC can't be detected on it, so console input keeps the board awake for 5 minutes instead (§9) |
+| DT12 | Owner, 2026-10-07 (T1 bring-up): if the ESP32's clock drifts too much, one NTP sync a day is acceptable (upstream's default schedule); a trim from sync to sync stays a proposal (§8.1, §12) |
 
 ### 1.3 Out of scope
 
@@ -111,10 +112,17 @@ The bits go out last first, then the strobe rises: output enable, mode, PWR_EN (
 5. **VCOM is a trimpot.** If contrast looks wrong, it's set by hand on the board, not in software.
 6. **The waveform has one temperature range** (epdiy's `ED047TC1`: 20–30 °C), so the missing temperature sensor costs nothing.
 7. **The ESP32 can't wake on "any of these pins low"** (its ext1 knows ALL_LOW and ANY_HIGH only), so KEY wakes through ext0 and BOOT's role through ext1 with one pin (§8.2).
-8. **The CH9102's DTR/RTS reset the chip.** esptool resets into download mode with them, no button needed. A tool that opens the port must change DTR and RTS together, or it resets the board (§9, §10.2).
+8. **The CH9102's DTR/RTS reset the chip.** esptool resets into download mode with them, no button needed. A tool that opens the port must change DTR and RTS together, or it resets the board (§9, §10.2). `devlog`'s order (both asserted, then RTS released before DTR) leaves it running: checked at T1, the clock stayed valid across port sessions.
 9. **Two boards on one Mac:** the RLCD is `/dev/cu.usbmodem*`, the T5 `/dev/cu.usbserial-*`. `devlog` picks a `usbmodem` port by itself, which is never the T5: every T5 command names its port.
 10. **The ESP32's internal RAM is tighter than the S3's.** epdiy's LUT falls back to PSRAM when internal RAM is short (§5.1); T1 measures the free internal RAM with Wi-Fi and epdiy up.
 11. **The owner can reach only RESET for now.** RESET boots the board and keeps it awake 2 s; esptool needs no button.
+12. **esptool fails above 230400 baud on this CH9102** (macOS, T1): at 921600 and 460800 the stub's first reply after the baud change is corrupt. Every esptool and `flash` call on the T5 passes `-b 230400`; reading the whole 16 MB takes about 13 minutes.
+13. **A UART wake loses its characters.** The bytes that wake the ESP32 from light sleep never reach the console, and the app slept again before the next line came, so a light-sleeping board never answered. A UART wake now holds the board 3 s (`UART_WAKE_HOLD_MS`); the next line, such as `devlog`'s nudge a second later, then holds it 5 minutes (DT11).
+14. **Light sleep keeps the UART's output until the next wake.** ESP-IDF suspends the UART for light sleep with its FIFO full, so log lines printed just before came out a minute later. `power_sleep_light()` waits for the console UART's output first (up to 100 ms).
+15. **Console input outranks `sleep test`.** The 5-minute hold from any console line came before the test's cycles in the power policy; `power_start_test()` clears the hold, so the cycles start at once.
+16. **The slow clock drifts.** Over 30 one-minute deep-sleep cycles the 150 kHz RC ran about 0.9 % fast (13 minutes a day), the 8MD256 source about 0.1 % slow (85 s a day): the T5 uses 8MD256 (§8.1).
+17. **`epd_init()` sets the board every time**, and epdiy warns "EPD board can only be set once!" from the second update on, routine wakes included. The fork sets epdiy's log tag to errors; P5's fallback logs as `epd` and still shows.
+18. **The battery reads about 4.78 V with USB in**, the LiPo's charger voltage, so the gauge shows full while USB is connected and the battery's own voltage once unplugged. As upstream, charging is invisible to the firmware.
 
 ## 3. The fork
 
@@ -170,6 +178,7 @@ The SHTC3 code is built only with `BOARD_HAS_ENV_SENSOR`. The battery reading ta
 
 - `components/epdiy/` holds epdiy 2.1.3 (tag `2.1.3`, commit `7c30780`, LGPL-3.0-or-later) with its licence headers, built only for `REFLBO_BOARD_T547`: the ESP32's I2S output path and the `epd_board_lilygo_t5_47` board definition, both as upstream has them.
 - **One patch, P5:** the conversion LUT (64 KB) goes to PSRAM when internal RAM is short, or always with the Kconfig option `EPD_LUT_IN_PSRAM`, instead of `abort()`. The ESP32's internal RAM is tight with Wi-Fi up (§2.5).
+- **The LUT stays in internal RAM** (T1): in PSRAM a full-panel GL16 took 1767 ms against 1101 ms (60 % slower) and a clean update 2.64 s against 2.22 s, so `EPD_LUT_IN_PSRAM` is off. Internal RAM free with epdiy up: about 126 KB with Wi-Fi off, about 58 KB in config mode with the AP up (30 KB the lowest since boot); the LUT fit both times, and P5's fallback covers a shorter day.
 - `components/epdiy/PATCHES.md` records the base and every change; `THIRD_PARTY.md` credits epdiy. The fork's own files stay Apache-2.0.
 
 ### 5.2 The `epaper` component
@@ -202,7 +211,7 @@ Our code, Apache-2.0, built only for the T5:
   - A second line: "Preset switches and leaving the menu flash clean too."
 - **The menu** gets Display ▸ Clean refresh (the same values), in place of the RLCD's refresh rate.
 
-Until T4 every update is a clean one. DU, GL16 and GC16's times and currents on this panel are measured at T1 (`docs/power.md`). If GL16 is too slow for the menu, the menu draws black and white only on the T5.
+Until T4 every update is a clean one. DU, GL16 and GC16's times and currents on this panel are measured at T1 (`docs/power.md`): for the whole panel, a clean update 2.22 s (the clear 1.37 s), GL16 1.10 s, DU 0.55 s. If GL16 is too slow for the menu, the menu draws black and white only on the T5.
 
 ### 5.4 Panel power and deep sleep
 
@@ -302,7 +311,8 @@ The page reads the panel's size, aspect ratio and capabilities from `/api/layout
 - `timekeeping.c` is unchanged on top of that.
 - A sync's log line "RTC off by N ms" is then the system clock's drift since the last sync.
 - After a power-off the time is invalid until a sync. If Wi-Fi is set up, the app syncs at boot; otherwise it asks for the time (upstream §7).
-- The slow clock is the internal 150 kHz RC oscillator by default, or the 8MD256 source. T1 measures both against the Mac's clock over several deep-sleep cycles and makes the steadier one the T5's default. If the drift comes to minutes a day, a time-only sync more often than daily is proposed to the owner, not built.
+- **The slow clock is the 8MD256 source** (`CONFIG_RTC_CLK_SRC_INT_8MD256`, T1). Over 30 one-minute deep-sleep cycles, against the Mac's clock to about 0.1 s: the 150 kHz RC, ESP-IDF's default, ran about +9000 ppm (13 minutes a day fast); 8MD256 about −1000 ppm (85 s a day slow). Its cost in deep sleep (ESP-IDF: about 5 µA) waits for the owner's meter (§8.5).
+- With one NTP sync a day (DT12, upstream's default), the clock is up to about 1.5 minutes off just before a sync. A trim from sync to sync, like upstream's RTC trim (D25): the drift each sync measures, applied to the time each deep sleep adds, is a proposal to the owner, not built (§12).
 
 ### 8.2 Wake timing
 
@@ -330,6 +340,8 @@ The T5 idles in deep sleep (DT6) and runs at 240 MHz while awake, epdiy's speed.
 - the slow clock's drift.
 
 Upstream's N2 goal (below 2 mA on average) is the yardstick.
+
+T1 (2026-10-07): a deep-sleep minute wakes for about 2.2 s, the clean update's length. The deep-sleep current, a clean update's peak and charge, and a minute's total wait for the owner's USB meter.
 
 ## 9. Settings, menu, web and console
 
@@ -379,7 +391,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | # | Milestone | Done when |
 |---|---|---|
 | T0 | The seams: the Kconfig board choice, `idf.sh`'s `REFLBO_BOARD`, the pin headers, capabilities, the display, RTC and sensor seams, the UI profile with the panel's size, status bar, board and capabilities; the T5 builds with a display that draws nothing and the RLCD's profile | Both boards build clean; the RLCD's goldens byte-identical; host tests pass (done 2026-10-07) |
-| T1 | Port and bring-up: the T5 as an ESP32 board (target, pins, console, wake, the ADC's scheme, the system-clock RTC, the tools); epdiy's ESP32 path with its board and patch P5, `epaper`, rails and deep sleep; every update clean; DU, GL16 and GC16, the slow clock's drift and the sleep current measured. Until T3 the app draws the RLCD's 400×300 1 bpp frame, which `epaper` places in the panel's middle | The test pattern and the clock on the panel (owner confirms); the timings, drift and current recorded |
+| T1 | Port and bring-up: the T5 as an ESP32 board (target, pins, console, wake, the ADC's scheme, the system-clock RTC, the tools); epdiy's ESP32 path with its board and patch P5, `epaper`, rails and deep sleep; every update clean; DU, GL16 and GC16, the slow clock's drift and the sleep current measured. Until T3 the app draws the RLCD's 400×300 1 bpp frame, which `epaper` places in the panel's middle | The test pattern and the clock on the panel (owner confirms); the timings, drift and current recorded (done 2026-10-07, the current waits for the owner's meter) |
 | T2 | Grayscale gfx: 4 bpp, anti-aliased fonts and icons, PGM screenshots, gray BMPs | The gray ramp and anti-aliased text on the panel match their screenshots |
 | T3 | The dense UI: the T5 profile, layouts, menu, screens, presets, the web page | The owner approves the renders; the T5's goldens committed; every layout on the panel |
 | T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured |
@@ -387,8 +399,9 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 ## 12. Risks and open items
 
 - **The ESP32's internal RAM** with Wi-Fi, TLS, the web server and epdiy's update all at once. T1 measures it; the LUT falls back to PSRAM, and epdiy is up only for updates.
-- **The slow clock's drift** without an RTC may need more frequent time syncs (DT10); T1 measures it.
-- **Refresh times and currents are unknown** until T1. They set `clean_after`'s default, the menu's mode and the radar loop's frame time.
+- **The slow clock's drift** without an RTC: T1 measured about −1000 ppm on 8MD256 (§8.1), up to about 1.5 minutes before a daily sync. The owner accepts a daily sync (DT12); the trim from sync to sync waits for the owner's decision.
+- **Refresh currents are unknown** until the owner's meter (T1 measured the times, §5.3). They set `clean_after`'s default, the menu's mode and the radar loop's frame time.
+- **A cold boot draws twice:** `display_init()` cleans the panel to its blank frame (1.6 s), then the first screen comes clean too. T4's fast updates make the second one fast.
 - **Ghosting** from fast updates between clean ones; the default may need lowering after the owner sees the panel.
 - **The CH9102's auto-reset:** a tool that opens the port the wrong way resets the board (§2.5).
 - **Image size:** T5 fonts at 4 bits and up to 220 px; the app has about 1.5 MB free in its 4 MB slot.
@@ -404,3 +417,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r1 | 2026-10-06 | First draft from the owner's answers (DT1–DT5) and the agreed design sections |
 | r2 | 2026-10-07 | T0 as built: the capabilities' list (§4.3), `display_init_lost()` (§4.4), the profile's first members (§7.1, §11) |
 | r3 | 2026-10-07 | The board is the ESP32 LilyGo T5-4.7 (DT9) without an RTC (DT10), with a UART console (DT11): the board (§2), the build's per-board target (§4.1), pins (§4.2), the capabilities (§4.3), the RTC (§4.5, §8.1), the ADC (§4.6), epdiy stock on the ESP32 with patch P5 (§5.1, DT4), `epaper` (§5.2), deep sleep (§5.4), wake and buttons (§8.2, §8.3, DT7), the battery (§8.4), the console and tools (§9), the rules at the board (§10.2), T1 (§11), the risks (§12) |
+| r4 | 2026-10-07 | T1 as built: bring-up's findings (§2.5), the LUT (§5.1), the refresh times (§5.3), the slow clock and its drift (§8.1), the current (§8.5, the owner's meter pending); DT12; the risks (§12) |
