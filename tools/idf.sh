@@ -4,6 +4,7 @@
 #
 #   tools/idf.sh build
 #   tools/idf.sh -p /dev/cu.usbmodem1101 flash
+#   REFLBO_BOARD=t5 tools/idf.sh build          # the T5-ePaper-S3, in build-t5/
 #   tools/idf.sh exec python tools/devlog.py --cmd version
 #
 # ESP-IDF comes from REFLBO_IDF_PATH, default ~/esp/esp-idf-v5.5.5. An inherited IDF_PATH is
@@ -31,6 +32,18 @@ if [[ "${1:-}" != "exec" && -z "${ESPPORT:-}" ]]; then
         exit 2
     fi
 fi
+
+# The board (T5 spec §4.1): REFLBO_BOARD=t5 builds the LilyGo T5-ePaper-S3 in build-t5/ with its own
+# sdkconfig.t5; unset or rlcd42, the Waveshare RLCD-4.2 in build/. `exec` commands don't build.
+board_args=()
+case "${REFLBO_BOARD:-rlcd42}" in
+    rlcd42) ;;
+    t5) board_args=(-B build-t5 -D REFLBO_BOARD=t5 -D SDKCONFIG=sdkconfig.t5) ;;
+    *)
+        echo "idf.sh: REFLBO_BOARD must be rlcd42 or t5, not '${REFLBO_BOARD}'" >&2
+        exit 2
+        ;;
+esac
 
 IDF_PATH="${REFLBO_IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}"
 if [[ ! -f "$IDF_PATH/export.sh" ]]; then
@@ -63,4 +76,4 @@ if [[ "${1:-}" == "exec" ]]; then
     shift
     exec "$@"
 fi
-exec idf.py "$@"
+exec idf.py "${board_args[@]}" "$@"

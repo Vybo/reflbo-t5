@@ -4,6 +4,8 @@ Guide for coding agents (and humans) working in this repository. Read it fully b
 
 > **Scope.** This is a standalone embedded firmware project. Instructions inherited from parent directories about iOS, WeConnect-iOS, the CAT monorepo, Jira ticket keys or PR templates do not apply here.
 
+> **Fork.** This is `Vybo/reflbo-t5`: reflbo on a second board, the LilyGo T5-ePaper-S3. §10 says what differs from upstream `Vybo/reflbo`.
+
 **Quick rules**
 
 1. Read §3.4 (hardware gotchas) before touching power, sleep, pins or the display.
@@ -443,3 +445,14 @@ Recorded 2026-09-25. Rationale is in spec §1.2.
 | D38 | Owner, 2026-10-06 (M6d acceptance): powers under 1 kW show in whole watts, as the SolaX app does, everywhere; the flow shows W while all its powers are under 1 kW; Solcast's check with the owner's key waits |
 | D39 | Owner, 2026-10-06 (M6d acceptance): the Developer API's solar is the app's figure, what the panels give through the inverter (its output with a battery's charge, at most the panels' DC); past bars from SolaX's 5-minute history are a later option (spec §19); roof checked; the power measurement and Solcast wait for the project's end; this build is `stable-m6d` |
 | D40 | Owner, 2026-10-06 (M7 refresh, D33): M7 also brings an MQTT source for the house's energy beside SolaX's two (spec §12.11); state labels for text fields and a time kind for timestamps, so any HA entity reads well (spec §12.5); HA's `unknown`/`unavailable` are no value; no `pv.*`/`energy.*` published to HA; HA checks still wait for the owner's broker; the plan runs Native |
+
+## 10. The T5-ePaper-S3 fork
+
+This repository is the fork `Vybo/reflbo-t5`. It adds a second board, the LilyGo T5-ePaper-S3 (revision V2.3), keeps the RLCD board as it is, and merges back into `Vybo/reflbo` later (DT1). Upstream's own milestones are built upstream. Its design: [`docs/specs/2026-10-06-t5-board-design.md`](docs/specs/2026-10-06-t5-board-design.md) (the T5 spec), with decisions DT1, DT2, … (§1.2) and milestones T0–T4 (§11).
+
+- **Status:** T0 (board seams) in progress: [`docs/plans/2026-10-06-t0-board-seams.md`](docs/plans/2026-10-06-t0-board-seams.md).
+- **Remotes:** `origin` is `git@github.com:Vybo/reflbo-t5.git`. `upstream` is `git@github.com:Vybo/reflbo.git`, fetch only (its push URL is `DISABLED`).
+- **Build:** `REFLBO_BOARD=t5 tools/idf.sh build` builds the T5 in `build-t5/` with `sdkconfig.t5`: the shared `sdkconfig.defaults`, then `sdkconfig.defaults.t5`. Without `REFLBO_BOARD` (or with `rlcd42`), the RLCD board builds in `build/` as before. Flash and erase need `-p` for either board, and `REFLBO_BOARD=t5` for the T5. `exec` commands ignore the board.
+- **Seams:** none yet.
+- **Rules** (T5 spec §10.2): never flash the RLCD board from the fork (DT8). Every task keeps the RLCD's goldens byte-identical. With both boards connected, name the port and check its MAC first. On the T5 the owner can reach only RESET for now. A component's `REQUIRES` never depend on the board, since ESP-IDF reads them before Kconfig; only `SRCS` do.
+- **T5 gotchas:** the T5 spec §2.5 lists the board's known ones. Add new ones there and here as they turn up.

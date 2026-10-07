@@ -1,0 +1,5 @@
+# LilyGo T5-ePaper-S3 (T5 spec §4.1), loaded after sdkconfig.defaults by REFLBO_BOARD=t5 tools/idf.sh.
+CONFIG_REFLBO_BOARD_T5S3=y
+
+# DT6: the e-paper keeps its image without power and the 3V3 rail is an LDO, so idle in deep sleep.
+CONFIG_REFLBO_IDLE_DEFAULT_DEEP=y

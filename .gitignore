@@ -3,6 +3,8 @@
 /build-*/
 sdkconfig
 sdkconfig.old
+sdkconfig.t5
+sdkconfig.t5.old
 /managed_components/
 # dependencies.lock stays tracked: it pins component registry versions
 

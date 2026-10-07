@@ -32,11 +32,13 @@ class PortGuardTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def run_idf_sh(self, *args, espport=None):
-        env = {k: v for k, v in os.environ.items() if k != "ESPPORT"}
+    def run_idf_sh(self, *args, espport=None, board=None):
+        env = {k: v for k, v in os.environ.items() if k not in ("ESPPORT", "REFLBO_BOARD")}
         env["REFLBO_IDF_PATH"] = str(self.fake.root)
         if espport:
             env["ESPPORT"] = espport
+        if board is not None:
+            env["REFLBO_BOARD"] = board
         return subprocess.run(["bash", str(IDF_SH), *args], env=env, capture_output=True, text=True)
 
     def test_flash_without_a_port_is_refused(self):
@@ -64,6 +66,39 @@ class PortGuardTest(unittest.TestCase):
         result = self.run_idf_sh("build")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.fake.calls_made(), ["args=build ESPPORT="])
+
+    def test_t5_builds_in_its_own_directory_with_its_own_sdkconfig(self):
+        result = self.run_idf_sh("build", board="t5")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.fake.calls_made(),
+                         ["args=-B build-t5 -D REFLBO_BOARD=t5 -D SDKCONFIG=sdkconfig.t5 build ESPPORT="])
+
+    def test_rlcd42_is_the_default_board(self):
+        result = self.run_idf_sh("build", board="rlcd42")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.fake.calls_made(), ["args=build ESPPORT="])
+
+    def test_an_unknown_board_is_refused(self):
+        result = self.run_idf_sh("build", board="t7")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("REFLBO_BOARD", result.stderr)
+        self.assertEqual(self.fake.calls_made(), [])
+
+    def test_t5_flash_still_needs_a_port(self):
+        result = self.run_idf_sh("flash", board="t5")
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(self.fake.calls_made(), [])
+
+    def test_t5_flash_uses_the_t5_build(self):
+        result = self.run_idf_sh("-p", "/dev/cu.usbmodemTEST", "flash", board="t5")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.fake.calls_made(),
+                         ["args=-B build-t5 -D REFLBO_BOARD=t5 -D SDKCONFIG=sdkconfig.t5 -p /dev/cu.usbmodemTEST flash ESPPORT="])
+
+    def test_exec_ignores_the_board(self):
+        result = self.run_idf_sh("exec", "true", board="t5")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.fake.calls_made(), [])
 
 
 if __name__ == "__main__":
