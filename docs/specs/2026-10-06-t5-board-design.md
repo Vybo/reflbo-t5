@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-ePaper-S3: design spec
 
 - **Date:** 2026-10-06
-- **Status:** Draft for the owner's review (r1)
+- **Status:** Approved by the owner on 2026-10-06 (r1); r2 records T0 as built (§13)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -133,13 +133,14 @@ The vendor driver pushes eight bits, last first, then raises the strobe: output 
 
 ### 4.3 Capabilities
 
-`board_caps.h` states, per board, at compile time: `BOARD_HAS_ENV_SENSOR`, `BOARD_HAS_AUDIO`, `BOARD_HAS_RTC_TRIM`, `BOARD_HAS_RTC_ALARM_WAKE`, `BOARD_HAS_LPM_RATE`, `BOARD_GRAYSCALE`. The catalogue (`/api/layouts`) publishes them with the panel's size, so the web page hides what the board can't do. Fields a board can't fill are left out of its catalogue and its menu's field lists; a preset from another board that names one draws the placeholder (upstream §5.3).
+`board_caps.h` states, per board, at compile time: `BOARD_NAME`, `BOARD_HAS_ENV_SENSOR`, `BOARD_HAS_AUDIO`, `BOARD_HAS_RTC_TRIM`, `BOARD_HAS_RTC_ALARM_WAKE`, `BOARD_HAS_LPM_RATE`; `BOARD_GRAYSCALE` joins at T2. The UI's profile carries the same as `UI_CAP_*` bits, and `main` checks with `_Static_assert` that they agree. The catalogue (`/api/layouts`) publishes them with the panel's size, so the web page hides what the board can't do. Fields a board can't fill are left out of its catalogue and its menu's field lists; a preset from another board that names one draws the placeholder (upstream §5.3).
 
 ### 4.4 Display API
 
 `display.h` stops including `st7305.h`. What changes for callers:
 
 - `display_init(void)` and `display_init_warm(const display_state_t *)`. The RLCD's init variant comes from the settings, as today, through `display_set_variant()`, which stays and exists only where `BOARD_HAS_LPM_RATE` is set.
+- `display_init_lost(void)`: a deep-sleep wake without a valid snapshot (the RLCD attaches, sets 1 Hz and wakes the panel, as `app.c` did).
 - `display_state_t` keeps its role in the snapshot; its contents are the board's (§5.5).
 - `display_set_fast(bool)`: HPM on the RLCD; on the T5, fast updates that don't count toward the clean refresh (§5.3). It replaces the direct `st7305_set_mode()` calls in `app_menu.c`, `app_config.c` and `app_radar.c`.
 - `display_commit(bool force)`: as today on the RLCD; on the T5 it finds the changed area and picks the update (§5.3).
@@ -251,6 +252,8 @@ A per-board profile holds what today is spread as constants: the panel's size, t
 - Fixed paddings inside widgets become `UI_PX(n)`: the identity on the RLCD, × 1.7 rounded on the T5. This lands as one mechanical commit.
 - Duplicated literals (`PANEL_W`, `PANEL_H`, the preview's `gfx_fb_size(400,300)`, the web's radar `400`) read the profile.
 
+T0 starts the profile with the panel's size, the status bar's height, the board's name and its capabilities (`ui_profile_t`), and `UI_STATUS_H`, the split area, the catalogue and the web preview read it. The layouts, fonts, screen geometry, split limits, view sizes and `UI_PX()` move in at T3, when the T5 has numbers of its own.
+
 ### 7.2 Sizes on the T5
 
 About 1.7× the RLCD's pixels (DT2): fonts 12 → 20, 16 → 26, 20 → 34, 28 → 46, numbers 48 → 80, 72 → 120, 110 → 180, 130 → 220; icons 16 → 26, 24 → 40, 48 → 80; the status bar 20 → 34. The exact sizes are settled in the T3 renders.
@@ -340,7 +343,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 
 | # | Milestone | Done when |
 |---|---|---|
-| T0 | The seams: the Kconfig board choice, `idf.sh`'s `REFLBO_BOARD`, the pin headers, capabilities, the display, RTC and sensor seams, the UI profile holding the RLCD's numbers; the T5 builds with a display that draws nothing and the RLCD's profile | Both boards build clean; the RLCD's goldens byte-identical; host tests pass |
+| T0 | The seams: the Kconfig board choice, `idf.sh`'s `REFLBO_BOARD`, the pin headers, capabilities, the display, RTC and sensor seams, the UI profile with the panel's size, status bar, board and capabilities; the T5 builds with a display that draws nothing and the RLCD's profile | Both boards build clean; the RLCD's goldens byte-identical; host tests pass |
 | T1 | Bring-up: vendored epdiy with its patch, `epaper`, rails and deep sleep, the PCF8563, the buttons, the battery; every update clean; DU, GL16 and GC16 measured. Until T3 the app still draws the RLCD's 400×300 1 bpp frame, which `epaper` places in the panel's centre | The test pattern and the clock on the panel (owner confirms); the T5's MAC and the timings recorded |
 | T2 | Grayscale gfx: 4 bpp, anti-aliased fonts and icons, PGM screenshots, gray BMPs | The gray ramp and anti-aliased text on the panel match their screenshots |
 | T3 | The dense UI: the T5 profile, layouts, menu, screens, presets, the web page | The owner approves the renders; the T5's goldens committed; every layout on the panel |
@@ -364,3 +367,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | Rev | Date | Change |
 |---|---|---|
 | r1 | 2026-10-06 | First draft from the owner's answers (DT1–DT5) and the agreed design sections |
+| r2 | 2026-10-07 | T0 as built: the capabilities' list (§4.3), `display_init_lost()` (§4.4), the profile's first members (§7.1, §11) |
