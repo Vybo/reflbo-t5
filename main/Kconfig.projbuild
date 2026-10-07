@@ -8,8 +8,8 @@ menu "reflbo"
             REFLBO_BOARD unset or rlcd42 builds into build/, t5 into build-t5/ with sdkconfig.t5.
         config REFLBO_BOARD_RLCD42
             bool "Waveshare ESP32-S3-RLCD-4.2"
-        config REFLBO_BOARD_T5S3
-            bool "LilyGo T5-ePaper-S3 (V2.3)"
+        config REFLBO_BOARD_T547
+            bool "LilyGo T5-4.7 (ESP32)"
     endchoice
 
     config REFLBO_TZ

@@ -42,18 +42,13 @@ static esp_err_t write_codec(uint16_t addr, const uint8_t (*regs)[2], size_t cou
 }
 #endif
 
+#if !CONFIG_REFLBO_BOARD_T547
 static void report_devices(void)
 {
     static const struct {
         uint16_t addr;
         const char *name;
-    } k_devices[] = {
-#if CONFIG_REFLBO_BOARD_T5S3
-        { 0x51, "PCF8563" },
-#else
-        { 0x18, "ES8311" }, { 0x40, "ES7210" }, { 0x51, "PCF85063" }, { 0x70, "SHTC3" },
-#endif
-    };
+    } k_devices[] = { { 0x18, "ES8311" }, { 0x40, "ES7210" }, { 0x51, "PCF85063" }, { 0x70, "SHTC3" } };
     for (size_t i = 0; i < sizeof(k_devices) / sizeof(k_devices[0]); i++) {
         esp_err_t err = i2c_master_probe(s_i2c, k_devices[i].addr, I2C_TIMEOUT_MS);
         if (err == ESP_OK) {
@@ -63,6 +58,7 @@ static void report_devices(void)
         }
     }
 }
+#endif
 
 esp_err_t board_init(bool cold)
 {
@@ -87,7 +83,9 @@ esp_err_t board_init(bool cold)
     ESP_RETURN_ON_FALSE(err == ESP_OK || err == ESP_ERR_INVALID_STATE, err, TAG, "GPIO ISR service");
 
     if (cold) {
+#if !CONFIG_REFLBO_BOARD_T547 /* the T5 has nothing on its I²C bus (T5 spec §2.1) */
         report_devices();
+#endif
 #if BOARD_HAS_AUDIO
         err = write_codec(0x18, k_es8311_standby, sizeof(k_es8311_standby) / sizeof(k_es8311_standby[0]));
         if (err == ESP_OK) {

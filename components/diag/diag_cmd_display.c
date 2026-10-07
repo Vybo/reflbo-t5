@@ -98,30 +98,14 @@ static bool parse_seconds(const char *text, int *seconds)
     return true;
 }
 
-#else /* e-paper (T5 spec §9) */
+#else /* e-paper (T5 spec §9): its own status and commands come with its driver (T1) */
 
-#define PANEL_USAGE "panel status | test | clear | clean | bench | sleep | wake"
+#define PANEL_USAGE "panel status | test | clear | sleep | wake"
 #define PANEL_HELP  PANEL_USAGE
 
 static int print_status(void)
 {
-    display_t5_stats_t st;
-    display_t5_stats(&st);
-    printf("panel e-paper: %lu updates since boot, the last %lu ms (clean); internal RAM at least %lu free with epdiy up\n",
-           (unsigned long)st.updates, (unsigned long)st.last_ms, (unsigned long)st.min_internal);
-    return 0;
-}
-
-static int print_bench(void)
-{
-    display_t5_bench_t b;
-    esp_err_t err = display_t5_bench(&b);
-    if (err != ESP_OK) {
-        printf("panel: %s\n", esp_err_to_name(err));
-        return 1;
-    }
-    printf("panel bench: clean %lu ms, GL16 %lu ms, DU %lu ms\n", (unsigned long)b.clean_ms,
-           (unsigned long)b.gl16_ms, (unsigned long)b.du_ms);
+    printf("panel e-paper%s\n", display_asleep() ? ", asleep" : "");
     return 0;
 }
 
@@ -151,12 +135,6 @@ static int panel_body(int argc, char **argv)
         err = display_sleep();
     } else if (argc == 2 && strcmp(argv[1], "wake") == 0) {
         err = display_wake();
-#if !BOARD_HAS_LPM_RATE
-    } else if (argc == 2 && strcmp(argv[1], "clean") == 0) {
-        err = display_clean();
-    } else if (argc == 2 && strcmp(argv[1], "bench") == 0) {
-        return print_bench();
-#endif
 #if BOARD_HAS_LPM_RATE
     } else if ((argc == 2 || argc == 3) && strcmp(argv[1], "fps") == 0 &&
                (argc == 2 || parse_seconds(argv[2], &seconds))) {

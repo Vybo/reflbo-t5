@@ -70,9 +70,9 @@
 static const char *TAG = "app";
 
 /* The UI's profile of this board (T5 spec §4.3, §7.1); its capabilities must say what board_caps.h says. */
-#if CONFIG_REFLBO_BOARD_T5S3
-#define UI_PROFILE_BOARD ui_profile_t5s3
-#define UI_CAPS_BOARD    UI_CAPS_T5S3
+#if CONFIG_REFLBO_BOARD_T547
+#define UI_PROFILE_BOARD ui_profile_t547
+#define UI_CAPS_BOARD    UI_CAPS_T547
 #else
 #define UI_PROFILE_BOARD ui_profile_rlcd42
 #define UI_CAPS_BOARD    UI_CAPS_RLCD42

@@ -23,8 +23,8 @@ static void test_the_rlcd_is_the_default_profile(void)
 
 static void test_use_switches_the_profile_and_null_restores_the_rlcd(void)
 {
-    ui_profile_use(&ui_profile_t5s3);
-    TEST_ASSERT_EQUAL_STRING("t5s3", ui_profile()->board);
+    ui_profile_use(&ui_profile_t547);
+    TEST_ASSERT_EQUAL_STRING("t547", ui_profile()->board);
     ui_profile_use(NULL);
     TEST_ASSERT_EQUAL_PTR(&ui_profile_rlcd42, ui_profile());
 }
@@ -32,10 +32,10 @@ static void test_use_switches_the_profile_and_null_restores_the_rlcd(void)
 /* T0 (T5 spec §11): the T5 keeps the RLCD's geometry until T3 and differs only in what it has. */
 static void test_the_t5_has_the_rlcd_geometry_and_none_of_its_capabilities(void)
 {
-    TEST_ASSERT_EQUAL_INT(400, ui_profile_t5s3.width);
-    TEST_ASSERT_EQUAL_INT(300, ui_profile_t5s3.height);
-    TEST_ASSERT_EQUAL_INT(20, ui_profile_t5s3.status_h);
-    TEST_ASSERT_EQUAL_HEX32(0, ui_profile_t5s3.caps);
+    TEST_ASSERT_EQUAL_INT(400, ui_profile_t547.width);
+    TEST_ASSERT_EQUAL_INT(300, ui_profile_t547.height);
+    TEST_ASSERT_EQUAL_INT(20, ui_profile_t547.status_h);
+    TEST_ASSERT_EQUAL_HEX32(0, ui_profile_t547.caps);
     TEST_ASSERT_EQUAL_HEX32(UI_CAP_ENV_SENSOR | UI_CAP_AUDIO | UI_CAP_RTC_TRIM | UI_CAP_RTC_ALARM_WAKE | UI_CAP_LPM_RATE,
                             ui_profile_rlcd42.caps);
 }

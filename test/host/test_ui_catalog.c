@@ -228,12 +228,12 @@ static void test_layouts_name_the_board_and_its_capabilities(void)
     TEST_ASSERT_TRUE(has_string(caps, "lpm_rate"));
     cJSON_Delete(s_root);
 
-    ui_profile_use(&ui_profile_t5s3);
+    ui_profile_use(&ui_profile_t547);
     TEST_ASSERT_TRUE(ui_catalog_layouts_json(s_out, sizeof(s_out)) > 0);
     ui_profile_use(NULL);
     s_root = cJSON_Parse(s_out);
     TEST_ASSERT_NOT_NULL(s_root);
-    TEST_ASSERT_EQUAL_STRING("t5s3", str(s_root, "board"));
+    TEST_ASSERT_EQUAL_STRING("t547", str(s_root, "board"));
     TEST_ASSERT_EQUAL_INT(400, num(s_root, "width"));
     TEST_ASSERT_EQUAL_INT(0, cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(s_root, "caps")));
 }

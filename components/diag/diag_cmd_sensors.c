@@ -87,11 +87,7 @@ static int battery_body(int argc, char **argv)
 
 static int rtc_body(int argc, char **argv)
 {
-#if CONFIG_REFLBO_BOARD_T5S3
-    static const char *const k_usage = "rtc get | rtc error | rtc set <YYYY-MM-DDTHH:MM[:SS][Z|+HH:MM]>";
-#else
     static const char *const k_usage = "rtc get | rtc set <YYYY-MM-DDTHH:MM[:SS][Z|+HH:MM]>";
-#endif
     if (argc == 2 && strcmp(argv[1], "get") == 0) {
         time_t utc;
         bool valid;
@@ -119,19 +115,6 @@ static int rtc_body(int argc, char **argv)
 #endif
         return 0;
     }
-#if CONFIG_REFLBO_BOARD_T5S3
-    /* The T5 measures its wake timer's drift with it (T5 spec §8.2). */
-    if (argc == 2 && strcmp(argv[1], "error") == 0) {
-        int64_t error_ms;
-        esp_err_t err = rtcchip_error_ms(&error_ms);
-        if (err != ESP_OK) {
-            printf("rtc: %s\n", esp_err_to_name(err));
-            return 1;
-        }
-        printf("rtc: %+lld ms against the system clock\n", (long long)error_ms);
-        return 0;
-    }
-#endif
     if (argc == 3 && strcmp(argv[1], "set") == 0) {
         time_t utc;
         struct tm year_check;

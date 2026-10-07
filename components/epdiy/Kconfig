@@ -1,14 +1,5 @@
 menu "epdiy (vendored, reflbo patches)"
 
-    config EPD_S3_SHIFT_REGISTER_LATCH
-        bool "ESP32-S3 with the panel's latch on a shift register"
-        depends on IDF_TARGET_ESP32S3
-        default n
-        help
-            reflbo patches P2 and P4 (PATCHES.md): epdiy's row-by-row output path, as on the ESP32, with
-            each row sent over LCD_CAM's i80 bus. For boards whose LE and STV come from a shift register,
-            as the LilyGo T5-ePaper-S3 V2.3's 74HCT4094, so the LCD path's HSYNC latch can't be used.
-
     config EPD_LUT_IN_PSRAM
         bool "Waveform LUT in PSRAM"
         default n

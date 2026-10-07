@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-# The board (T5 spec §4.1). tools/idf.sh passes -D REFLBO_BOARD=t5 for the LilyGo T5-ePaper-S3,
+# The board (T5 spec §4.1). tools/idf.sh passes -D REFLBO_BOARD=t5 for the LilyGo T5-4.7 (ESP32),
 # which builds in build-t5/ with its own sdkconfig.t5 and sdkconfig.defaults.t5 on top of the
 # shared defaults. Unset or rlcd42: the Waveshare RLCD-4.2, in build/ with sdkconfig.
 set(SDKCONFIG_DEFAULTS "sdkconfig.defaults")
