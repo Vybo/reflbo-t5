@@ -2,7 +2,7 @@
 # own clock (DT10). pcf85063_regs.c is pure C and also built on the host. REQUIRES stay the same for both
 # boards: ESP-IDF reads them before Kconfig.
 if(CONFIG_REFLBO_BOARD_T547)
-    set(srcs "rtcchip_t547.c")
+    set(srcs "rtc_sysclock.c" "rtcchip_t547.c")
 else()
     set(srcs "pcf85063.c" "pcf85063_regs.c" "rtcchip_rlcd42.c")
 endif()

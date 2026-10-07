@@ -101,8 +101,13 @@ static int rtc_body(int argc, char **argv)
         gmtime_r(&utc, &tm_utc);
         strftime(iso, sizeof(iso), "%Y-%m-%dT%H:%M:%SZ", &tm_utc);
         format_local(utc, local, sizeof(local));
+#if BOARD_HAS_RTC_CHIP
         printf("rtc: %s (%s), local %s\n", iso, valid ? "valid" : "INVALID: oscillator stopped, set the time",
                local);
+#else
+        printf("rtc: %s (%s), local %s\n", iso, valid ? "valid" : "INVALID: lost at a power-off or reset, set the time",
+               local);
+#endif
 #if BOARD_HAS_RTC_TRIM
         const rtc_trim_t *trim = timekeeping_trim(); /* spec §7, D25 */
         int drift10 = timekeeping_trim_drift_s10_per_day(trim);
