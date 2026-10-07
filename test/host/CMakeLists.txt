@@ -108,8 +108,8 @@ target_include_directories(sensors_logic PUBLIC ${REPO_ROOT}/components/sensors/
 target_link_libraries(sensors_logic PUBLIC util)
 target_compile_options(sensors_logic PRIVATE ${REFLBO_WARNINGS})
 
-# rtc: only the PCF85063 register codec builds on the host.
-add_library(rtc_logic STATIC ${REPO_ROOT}/components/rtc/pcf85063_regs.c)
+# rtc: the PCF85063's and PCF8563's register codecs build on the host.
+add_library(rtc_logic STATIC ${REPO_ROOT}/components/rtc/pcf85063_regs.c ${REPO_ROOT}/components/rtc/pcf8563_regs.c)
 target_include_directories(rtc_logic PUBLIC ${REPO_ROOT}/components/rtc/include)
 target_compile_options(rtc_logic PRIVATE ${REFLBO_WARNINGS})
 target_link_libraries(rtc_logic PUBLIC util)
@@ -243,6 +243,7 @@ reflbo_host_test(test_shtc3_codec sensors_logic)
 reflbo_host_test(test_battery_model sensors_logic)
 reflbo_host_test(test_battery_learn sensors_logic)
 reflbo_host_test(test_pcf85063_regs rtc_logic)
+reflbo_host_test(test_pcf8563_regs rtc_logic)
 reflbo_host_test(test_timekeeping_iso timekeeping_logic)
 reflbo_host_test(test_timekeeping_zones timekeeping_logic)
 reflbo_host_test(test_timekeeping_sync timekeeping_logic)
