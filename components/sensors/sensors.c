@@ -76,13 +76,23 @@ static esp_err_t adc_init(void)
     ESP_RETURN_ON_ERROR(adc_oneshot_new_unit(&unit, &s_adc), TAG, "ADC unit");
     adc_oneshot_chan_cfg_t chan = { .atten = ADC_ATTEN_DB_12, .bitwidth = ADC_BITWIDTH_DEFAULT };
     ESP_RETURN_ON_ERROR(adc_oneshot_config_channel(s_adc, BOARD_BAT_ADC_CHANNEL, &chan), TAG, "ADC channel");
+#if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
     adc_cali_curve_fitting_config_t cali = {
         .unit_id = BOARD_BAT_ADC_UNIT,
         .chan = BOARD_BAT_ADC_CHANNEL,
         .atten = ADC_ATTEN_DB_12,
         .bitwidth = ADC_BITWIDTH_DEFAULT,
     };
-    if (adc_cali_create_scheme_curve_fitting(&cali, &s_cali) != ESP_OK) {
+    esp_err_t cali_err = adc_cali_create_scheme_curve_fitting(&cali, &s_cali);
+#else /* the ESP32 (T5 spec §4.6) */
+    adc_cali_line_fitting_config_t cali = {
+        .unit_id = BOARD_BAT_ADC_UNIT,
+        .atten = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_DEFAULT,
+    };
+    esp_err_t cali_err = adc_cali_create_scheme_line_fitting(&cali, &s_cali);
+#endif
+    if (cali_err != ESP_OK) {
         ESP_LOGW(TAG, "no ADC calibration in eFuse; battery readings are approximate");
         s_cali = NULL;
     }

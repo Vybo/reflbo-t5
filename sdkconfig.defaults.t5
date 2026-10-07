@@ -1,5 +1,20 @@
-# LilyGo T5-ePaper-S3 (T5 spec §4.1), loaded after sdkconfig.defaults by REFLBO_BOARD=t5 tools/idf.sh.
+# LilyGo T5-4.7 on the ESP32 (T5 spec §4.1), loaded after sdkconfig.defaults by REFLBO_BOARD=t5 tools/idf.sh.
+# What the shared file sets for the S3 alone (octal PSRAM, the USB-JTAG console) doesn't exist on the ESP32.
+CONFIG_IDF_TARGET="esp32"
 CONFIG_REFLBO_BOARD_T547=y
 
 # DT6: the e-paper keeps its image without power and the 3V3 rail is an LDO, so idle in deep sleep.
 CONFIG_REFLBO_IDLE_DEFAULT_DEEP=y
+
+# DT11: the console on UART0, through the CH9102.
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200
+
+# ESP32-WROVER-E: 16 MB flash and 8 MB quad PSRAM (4 MB mapped), both at 80 MHz; 240 MHz for epdiy (T5 spec §8.5).
+CONFIG_SPIRAM=y
+# The WROVER-E's chip is ECO V3 (the owner's: ESP32-D0WD-V3), so the PSRAM cache workaround, which grows every
+# function and overflowed IRAM, isn't needed.
+CONFIG_ESP32_REV_MIN_3=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y

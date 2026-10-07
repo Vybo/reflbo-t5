@@ -8,7 +8,13 @@
 #include "board_pins.h"
 #include "driver/gpio.h"
 #include "driver/rtc_io.h"
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
 #include "driver/usb_serial_jtag.h"
+#endif
+#if CONFIG_ESP_CONSOLE_UART
+#include "driver/uart.h"
+#endif
+#include "soc/soc_caps.h"
 #include "esp_attr.h"
 #include "esp_check.h"
 #include "esp_log.h"
@@ -46,7 +52,9 @@ static power_idle_t s_strategy;
 static power_wake_t s_boot_wake;
 static bool s_boot_failed;
 static bool s_image_pending; /* with s_boot_failed: the failed image came from an upload */
+#if SOC_PM_SUPPORT_CPU_PD
 static bool s_cpu_pd_ready;
+#endif
 static int64_t s_hold_until_us;
 static int64_t s_awake_since_us; /* esp_timer time this awake phase began; -1 after a stats reset */
 static unsigned s_masked;        /* POWER_BUTTON_* the sleep that just ended left out */
@@ -148,6 +156,11 @@ static power_wake_t decode_boot_wake(void)
         return POWER_WAKE_COLD;
     }
     uint32_t causes = esp_sleep_get_wakeup_causes();
+#if CONFIG_IDF_TARGET_ESP32
+    if (causes & BIT(ESP_SLEEP_WAKEUP_EXT0)) {
+        return POWER_WAKE_KEY; /* KEY wakes through ext0 on the ESP32 (enable_button_wake()) */
+    }
+#endif
     if (causes & BIT(ESP_SLEEP_WAKEUP_EXT1)) {
         uint64_t pins = esp_sleep_get_ext1_wakeup_status();
         if (pins & BIT64(BOARD_PIN_KEY)) {
@@ -178,7 +191,11 @@ const char *power_wake_name(power_wake_t wake)
 
 bool power_tethered(void)
 {
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
     return usb_serial_jtag_is_connected();
+#else
+    return false; /* a UART can't see the PC: console input holds the board awake instead (T5 spec §9) */
+#endif
 }
 
 void power_hold_awake_ms(uint32_t ms)
@@ -273,6 +290,7 @@ static uint64_t sleep_us_until(time_t until_utc)
 
 power_wake_t power_sleep_light(time_t until_utc)
 {
+#if SOC_PM_SUPPORT_CPU_PD
     if (!s_cpu_pd_ready) { /* on first use: boots that only deep-sleep never need the buffer */
         s_cpu_pd_ready = true;
         esp_err_t err = esp_sleep_cpu_pd_low_init();
@@ -280,6 +298,7 @@ power_wake_t power_sleep_light(time_t until_utc)
             ESP_LOGW(TAG, "CPU stays powered in light sleep: %s", esp_err_to_name(err));
         }
     }
+#endif
     unsigned held = held_buttons();
     for (size_t i = 0; i < sizeof(k_wake_pins) / sizeof(k_wake_pins[0]); i++) {
         gpio_intr_disable(k_wake_pins[i]);
@@ -290,6 +309,11 @@ power_wake_t power_sleep_light(time_t until_utc)
         }
     }
     esp_sleep_enable_gpio_wakeup();
+#if CONFIG_ESP_CONSOLE_UART
+    /* Console input wakes it (T5 spec §9); the first characters are lost to the wake. */
+    uart_set_wakeup_threshold(CONFIG_ESP_CONSOLE_UART_NUM, 3);
+    esp_sleep_enable_uart_wakeup(CONFIG_ESP_CONSOLE_UART_NUM);
+#endif
     esp_sleep_enable_timer_wakeup(sleep_us_until(until_utc));
     int64_t slept_from_us = esp_timer_get_time();
     esp_err_t err = esp_light_sleep_start();
@@ -300,6 +324,9 @@ power_wake_t power_sleep_light(time_t until_utc)
         gpio_intr_enable(k_wake_pins[i]);
     }
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_GPIO);
+#if CONFIG_ESP_CONSOLE_UART
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_UART);
+#endif
     if (err == ESP_OK) {
         count_sleep_at(false, slept_from_us);
         s_awake_since_us = woke_us;
@@ -343,12 +370,28 @@ static unsigned held_buttons(void)
            (gpio_get_level(BOARD_PIN_BOOT) == 0 ? POWER_BUTTON_BOOT : 0);
 }
 
+#if !CONFIG_IDF_TARGET_ESP32
 /* ext1 bits for the buttons that are not held (D16). */
 static uint64_t button_wake_bits(unsigned held)
 {
     return (held & POWER_BUTTON_KEY ? 0 : BIT64(BOARD_PIN_KEY)) |
            (held & POWER_BUTTON_BOOT ? 0 : BIT64(BOARD_PIN_BOOT));
 }
+#endif
+
+#if CONFIG_IDF_TARGET_ESP32
+/* The ESP32's ext1 wakes on "all low" or "any high" only (T5 spec §2.5): KEY through ext0, BOOT's pin
+ * through ext1 alone. A button held now is left out (D16). */
+static void enable_button_wake(unsigned held)
+{
+    if (!(held & POWER_BUTTON_KEY)) {
+        esp_sleep_enable_ext0_wakeup(BOARD_PIN_KEY, 0);
+    }
+    if (!(held & POWER_BUTTON_BOOT)) {
+        esp_sleep_enable_ext1_wakeup_io(BIT64(BOARD_PIN_BOOT), ESP_EXT1_WAKEUP_ALL_LOW);
+    }
+}
+#endif
 
 unsigned power_masked_buttons(void)
 {
@@ -365,7 +408,11 @@ void power_sleep_deep(time_t until_utc)
 #endif
     unsigned held = held_buttons();
     s_rtc.masked = (uint8_t)held;
+#if CONFIG_IDF_TARGET_ESP32
+    enable_button_wake(held);
+#else
     esp_sleep_enable_ext1_wakeup_io(RTC_INT_WAKE_BIT | button_wake_bits(held), ESP_EXT1_WAKEUP_ANY_LOW);
+#endif
     esp_sleep_enable_timer_wakeup(sleep_us_until(until_utc));
     start_deep_sleep();
 }
@@ -377,10 +424,14 @@ void power_sleep_retry(uint32_t seconds)
     /* Not RTC_INT: whatever broke the boot may leave it low, which would wake the chip at once. */
     unsigned held = held_buttons();
     s_rtc.masked = (uint8_t)held;
+#if CONFIG_IDF_TARGET_ESP32
+    enable_button_wake(held);
+#else
     uint64_t bits = button_wake_bits(held);
     if (bits != 0) {
         esp_sleep_enable_ext1_wakeup_io(bits, ESP_EXT1_WAKEUP_ANY_LOW);
     }
+#endif
     esp_sleep_enable_timer_wakeup((uint64_t)seconds * 1000000u);
     start_deep_sleep();
 }
@@ -393,7 +444,11 @@ void power_sleep_critical(uint32_t recheck_s)
     s_rtc.masked = 0; /* KEY stays the wake source either way */
     /* A KEY still held, usually the press that asked for this check, wakes the chip when it is
      * released, so the next press counts; a timer looks again now and then in case it is stuck. */
+#if CONFIG_IDF_TARGET_ESP32
+    esp_sleep_enable_ext0_wakeup(BOARD_PIN_KEY, held ? 1 : 0);
+#else
     esp_sleep_enable_ext1_wakeup_io(BIT64(BOARD_PIN_KEY), held ? ESP_EXT1_WAKEUP_ANY_HIGH : ESP_EXT1_WAKEUP_ANY_LOW);
+#endif
     if (held) {
         esp_sleep_enable_timer_wakeup((uint64_t)recheck_s * 1000000u);
     }

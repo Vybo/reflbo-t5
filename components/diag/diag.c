@@ -4,8 +4,15 @@
 #include <stdio.h>
 
 #include "diag_internal.h"
+#include "sdkconfig.h"
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
 #include "driver/usb_serial_jtag.h"
 #include "driver/usb_serial_jtag_vfs.h"
+#else
+#include "driver/uart.h"
+#include "driver/uart_vfs.h"
+#endif
+#include "power.h"
 #include "esp_check.h"
 #include "esp_console.h"
 #include "esp_log.h"
@@ -17,6 +24,7 @@
 #define DIAG_REPL_STACK_SIZE 4096
 #define DIAG_REPL_PRIORITY   1
 #define DIAG_REPL_CORE       tskNO_AFFINITY
+#define DIAG_INPUT_AWAKE_MS  300000 /* a UART console can't see the PC: input keeps the board awake (T5 spec §9) */
 
 static const char *TAG = "diag";
 
@@ -62,6 +70,16 @@ int diag_on_owner(int (*body)(int argc, char **argv), int argc, char **argv)
     return call.ret;
 }
 
+#if !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+static int hold_awake_body(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    power_hold_awake_ms(DIAG_INPUT_AWAKE_MS);
+    return 0;
+}
+#endif
+
 static void diag_repl_task(void *arg)
 {
     (void)arg;
@@ -73,6 +91,10 @@ static void diag_repl_task(void *arg)
             vTaskDelay(pdMS_TO_TICKS(10)); /* input unavailable, e.g. the USB host went away */
             continue;
         }
+#if !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+        static char *const k_hold_argv[] = { "console", NULL };
+        diag_on_owner(hold_awake_body, 1, (char **)k_hold_argv); /* on the app task, as the power module wants */
+#endif
         int ret = 0;
         esp_err_t err = esp_console_run(line, &ret);
         if (err == ESP_ERR_NOT_FOUND) {
@@ -89,14 +111,32 @@ static void diag_repl_task(void *arg)
 esp_err_t diag_start(void)
 {
     /* Enter sends CR; print CRLF for '\n'. Blocking stdin and stdout. */
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
     usb_serial_jtag_vfs_set_rx_line_endings(ESP_LINE_ENDINGS_CR);
     usb_serial_jtag_vfs_set_tx_line_endings(ESP_LINE_ENDINGS_CRLF);
+#else
+    uart_vfs_dev_port_set_rx_line_endings(CONFIG_ESP_CONSOLE_UART_NUM, ESP_LINE_ENDINGS_CR);
+    uart_vfs_dev_port_set_tx_line_endings(CONFIG_ESP_CONSOLE_UART_NUM, ESP_LINE_ENDINGS_CRLF);
+#endif
     fcntl(fileno(stdout), F_SETFL, 0);
     fcntl(fileno(stdin), F_SETFL, 0);
 
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
     usb_serial_jtag_driver_config_t usj_config = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
     ESP_RETURN_ON_ERROR(usb_serial_jtag_driver_install(&usj_config), TAG, "USB-Serial-JTAG driver install failed");
     usb_serial_jtag_vfs_use_driver();
+#else
+    const uart_config_t uart_config = {
+        .baud_rate = CONFIG_ESP_CONSOLE_UART_BAUDRATE,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .source_clk = UART_SCLK_DEFAULT,
+    };
+    ESP_RETURN_ON_ERROR(uart_driver_install(CONFIG_ESP_CONSOLE_UART_NUM, 256, 0, 0, NULL, 0), TAG, "UART driver");
+    ESP_RETURN_ON_ERROR(uart_param_config(CONFIG_ESP_CONSOLE_UART_NUM, &uart_config), TAG, "UART config");
+    uart_vfs_dev_use_driver(CONFIG_ESP_CONSOLE_UART_NUM);
+#endif
 
     esp_console_config_t console_config = ESP_CONSOLE_CONFIG_DEFAULT();
     console_config.max_cmdline_length = DIAG_MAX_CMDLINE_LEN;
@@ -114,6 +154,10 @@ esp_err_t diag_start(void)
     BaseType_t created = xTaskCreatePinnedToCore(diag_repl_task, "diag_repl", DIAG_REPL_STACK_SIZE, NULL,
                                                  DIAG_REPL_PRIORITY, NULL, DIAG_REPL_CORE);
     ESP_RETURN_ON_FALSE(created == pdPASS, ESP_ERR_NO_MEM, TAG, "REPL task create failed");
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
     ESP_LOGI(TAG, "console ready on USB-Serial-JTAG");
+#else
+    ESP_LOGI(TAG, "console ready on UART%d", CONFIG_ESP_CONSOLE_UART_NUM);
+#endif
     return ESP_OK;
 }

@@ -71,7 +71,7 @@ class PortGuardTest(unittest.TestCase):
         result = self.run_idf_sh("build", board="t5")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.fake.calls_made(),
-                         ["args=-B build-t5 -D REFLBO_BOARD=t5 -D SDKCONFIG=sdkconfig.t5 build ESPPORT="])
+                         ["args=-B build-t5 -D REFLBO_BOARD=t5 -D SDKCONFIG=sdkconfig.t5 -D IDF_TARGET=esp32 build ESPPORT="])
 
     def test_rlcd42_is_the_default_board(self):
         result = self.run_idf_sh("build", board="rlcd42")
@@ -93,7 +93,7 @@ class PortGuardTest(unittest.TestCase):
         result = self.run_idf_sh("-p", "/dev/cu.usbmodemTEST", "flash", board="t5")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.fake.calls_made(),
-                         ["args=-B build-t5 -D REFLBO_BOARD=t5 -D SDKCONFIG=sdkconfig.t5 -p /dev/cu.usbmodemTEST flash ESPPORT="])
+                         ["args=-B build-t5 -D REFLBO_BOARD=t5 -D SDKCONFIG=sdkconfig.t5 -D IDF_TARGET=esp32 -p /dev/cu.usbmodemTEST flash ESPPORT="])
 
     def test_exec_ignores_the_board(self):
         result = self.run_idf_sh("exec", "true", board="t5")

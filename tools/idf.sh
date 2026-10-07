@@ -38,7 +38,7 @@ fi
 board_args=()
 case "${REFLBO_BOARD:-rlcd42}" in
     rlcd42) ;;
-    t5) board_args=(-B build-t5 -D REFLBO_BOARD=t5 -D SDKCONFIG=sdkconfig.t5) ;;
+    t5) board_args=(-B build-t5 -D REFLBO_BOARD=t5 -D SDKCONFIG=sdkconfig.t5 -D IDF_TARGET=esp32) ;;
     *)
         echo "idf.sh: REFLBO_BOARD must be rlcd42 or t5, not '${REFLBO_BOARD}'" >&2
         exit 2
