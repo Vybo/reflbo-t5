@@ -114,8 +114,9 @@ target_include_directories(rtc_logic PUBLIC ${REPO_ROOT}/components/rtc/include)
 target_compile_options(rtc_logic PRIVATE ${REFLBO_WARNINGS})
 target_link_libraries(rtc_logic PUBLIC util)
 
-# epaper: the T5 panel's shift-register words and the 1 bpp blit build on the host.
-add_library(epaper_logic STATIC ${REPO_ROOT}/components/epaper/epaper_sr.c ${REPO_ROOT}/components/epaper/epaper_frame.c)
+# epaper: the T5 panel's shift-register words, the 1 bpp blit and epdiy's RAM budget build on the host.
+add_library(epaper_logic STATIC ${REPO_ROOT}/components/epaper/epaper_sr.c ${REPO_ROOT}/components/epaper/epaper_frame.c
+            ${REPO_ROOT}/components/epaper/epaper_budget.c)
 target_include_directories(epaper_logic PUBLIC ${REPO_ROOT}/components/epaper/include)
 target_compile_options(epaper_logic PRIVATE ${REFLBO_WARNINGS})
 target_link_libraries(epaper_logic PUBLIC gfx)
@@ -252,6 +253,7 @@ reflbo_host_test(test_pcf85063_regs rtc_logic)
 reflbo_host_test(test_rtc_sysclock rtc_logic)
 reflbo_host_test(test_epaper_sr epaper_logic)
 reflbo_host_test(test_epaper_frame epaper_logic)
+reflbo_host_test(test_epaper_budget epaper_logic)
 reflbo_host_test(test_timekeeping_iso timekeeping_logic)
 reflbo_host_test(test_timekeeping_zones timekeeping_logic)
 reflbo_host_test(test_timekeeping_sync timekeeping_logic)

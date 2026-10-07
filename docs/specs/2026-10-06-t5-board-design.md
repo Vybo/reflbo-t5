@@ -179,6 +179,7 @@ The SHTC3 code is built only with `BOARD_HAS_ENV_SENSOR`. The battery reading ta
 - `components/epdiy/` holds epdiy 2.1.3 (tag `2.1.3`, commit `7c30780`, LGPL-3.0-or-later) with its licence headers, built only for `REFLBO_BOARD_T547`: the ESP32's I2S output path and the `epd_board_lilygo_t5_47` board definition, both as upstream has them.
 - **One patch, P5:** the conversion LUT (64 KB) goes to PSRAM when internal RAM is short, or always with the Kconfig option `EPD_LUT_IN_PSRAM`, instead of `abort()`. The ESP32's internal RAM is tight with Wi-Fi up (§2.5).
 - **The LUT stays in internal RAM** (T1): in PSRAM a full-panel GL16 took 1767 ms against 1101 ms (60 % slower) and a clean update 2.64 s against 2.22 s, so `EPD_LUT_IN_PSRAM` is off. Internal RAM free with epdiy up: about 126 KB with Wi-Fi off, about 58 KB in config mode with the AP up (30 KB the lowest since boot); the LUT fit both times, and P5's fallback covers a shorter day.
+- **epdiy's other allocations have no fallback** (its line queues, feed buffers, task stacks and DMA buffers, about 25 KB, assert). An update starts only with at least 40 KB of internal RAM free and an 8 KB block (`epaper_budget.h`); short of that it's skipped, logged, and the next commit tries again (T1's final review).
 - `components/epdiy/PATCHES.md` records the base and every change; `THIRD_PARTY.md` credits epdiy. The fork's own files stay Apache-2.0.
 
 ### 5.2 The `epaper` component
@@ -417,4 +418,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r1 | 2026-10-06 | First draft from the owner's answers (DT1–DT5) and the agreed design sections |
 | r2 | 2026-10-07 | T0 as built: the capabilities' list (§4.3), `display_init_lost()` (§4.4), the profile's first members (§7.1, §11) |
 | r3 | 2026-10-07 | The board is the ESP32 LilyGo T5-4.7 (DT9) without an RTC (DT10), with a UART console (DT11): the board (§2), the build's per-board target (§4.1), pins (§4.2), the capabilities (§4.3), the RTC (§4.5, §8.1), the ADC (§4.6), epdiy stock on the ESP32 with patch P5 (§5.1, DT4), `epaper` (§5.2), deep sleep (§5.4), wake and buttons (§8.2, §8.3, DT7), the battery (§8.4), the console and tools (§9), the rules at the board (§10.2), T1 (§11), the risks (§12) |
-| r4 | 2026-10-07 | T1 as built: bring-up's findings (§2.5), the LUT (§5.1), the refresh times (§5.3), the slow clock and its drift (§8.1), the current (§8.5, the owner's meter pending); DT12; the risks (§12) |
+| r4 | 2026-10-07 | T1 as built: bring-up's findings (§2.5), the LUT and epdiy's RAM budget (§5.1), the refresh times (§5.3), the slow clock and its drift (§8.1), the current (§8.5, the owner's meter pending); DT12; the risks (§12) |

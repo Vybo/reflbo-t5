@@ -742,6 +742,9 @@ static void app_task(void *arg)
             enter_deep_sleep(sleep_until()); /* returns only if it had to sleep light instead */
             continue;
         case POWER_PLAN_RETRY:
+#if CONFIG_REFLBO_BOARD_T547
+            display_prepare_deep_sleep(); /* the panel's shift register held at rest, as in every deep sleep */
+#endif
             power_sleep_retry(RETRY_S);
             break;
         case POWER_PLAN_ROLLBACK: { /* spec §10.5: the uploaded image failed to start */

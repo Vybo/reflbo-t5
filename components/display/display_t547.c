@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "epaper_board.h"
+#include "epaper_budget.h"
 #include "epaper_frame.h"
 #include "epd_board.h"
 #include "epd_highlevel.h"
@@ -51,9 +52,15 @@ static esp_err_t alloc_fb(void)
 }
 
 /* epdiy is up only while the panel updates: its LUT and line queues want ~80 KB of internal RAM, which
- * Wi-Fi needs the rest of the time (T5 spec §5.2). */
-static void panel_up(void)
+ * Wi-Fi needs the rest of the time (T5 spec §5.2). Short of its budget, the update waits for the next
+ * commit: epdiy would abort on a failed allocation (epaper_budget.h). */
+static esp_err_t panel_up(void)
 {
+    size_t free_internal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+    ESP_RETURN_ON_FALSE(epaper_internal_ram_ok(free_internal, largest), ESP_ERR_NO_MEM, TAG,
+                        "internal RAM short for epdiy: %u free, %u largest; update skipped", (unsigned)free_internal,
+                        (unsigned)largest);
     /* epd_init() sets the board each time and warns from the second on; routine wakes print warnings. P5's
      * LUT fallback logs as "epd" and stays. */
     esp_log_level_set("epdiy", ESP_LOG_ERROR);
@@ -67,6 +74,7 @@ static void panel_up(void)
         s_stats.min_internal = internal;
     }
     epd_poweron();
+    return ESP_OK;
 }
 
 static void panel_down(void)
@@ -87,7 +95,7 @@ static void clear_to_white(void)
 static esp_err_t clean_update(const gfx_fb_t *fb)
 {
     int64_t start = now_ms();
-    panel_up();
+    ESP_RETURN_ON_ERROR(panel_up(), TAG, "panel up");
     int64_t up = now_ms();
     clear_to_white();
     int64_t cleared = now_ms();
@@ -132,8 +140,11 @@ void display_export(display_state_t *out)
     *out = (display_state_t){ .last_crc = s_last_crc, .pushed = s_pushed };
 }
 
+/* Rests the shift register first, as a failed boot's retry sleep may come before display_init (final review
+ * of T1): floating clock and data could switch the rails on through the transparent latch. */
 esp_err_t display_prepare_deep_sleep(void)
 {
+    epaper_board_idle();
     return epaper_board_prepare_deep_sleep();
 }
 
@@ -202,7 +213,11 @@ esp_err_t display_t5_bench(display_t5_bench_t *out)
     gfx_draw_test_pattern(&pattern);
     uint8_t *front;
 
-    panel_up();
+    esp_err_t up_err = panel_up();
+    if (up_err != ESP_OK) {
+        heap_caps_free(buf);
+        return up_err;
+    }
     int64_t t0 = now_ms();
     clear_to_white();
     front = epd_hl_get_framebuffer(&s_hl);
