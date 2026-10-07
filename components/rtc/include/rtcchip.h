@@ -24,10 +24,14 @@ esp_err_t rtcchip_write(time_t utc);
  * BOARD_HAS_RTC_ALARM_WAKE there is nothing to arm: ESP_OK, and the ESP32's timer wakes the board. */
 esp_err_t rtcchip_set_alarm(time_t wake);
 
-#if BOARD_HAS_RTC_TRIM
-/* The PCF85063's precise set, its error against the system clock and its Offset register
- * (spec §7, D25; pcf85063.h). */
+#if BOARD_HAS_RTC_PRECISE_SET
+/* The precise set (STOP holds the prescaler while the next second is written, spec §7) and the RTC's
+ * error against the system clock, timed at its next second. */
 esp_err_t rtcchip_write_precise(int64_t *set_at_ms);
 esp_err_t rtcchip_error_ms(int64_t *error_ms);
+#endif
+
+#if BOARD_HAS_RTC_TRIM
+/* The PCF85063's Offset register (spec §7, D25; pcf85063.h). */
 esp_err_t rtcchip_set_offset(int steps);
 #endif

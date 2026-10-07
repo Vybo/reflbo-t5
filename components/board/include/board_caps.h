@@ -12,6 +12,7 @@
 #define BOARD_HAS_ENV_SENSOR     0 /* no SHTC3 */
 #define BOARD_HAS_AUDIO          0
 #define BOARD_HAS_RTC_TRIM       0 /* PCF8563: no Offset register */
+#define BOARD_HAS_RTC_PRECISE_SET 1 /* the PCF8563's STOP bit, as the PCF85063's (T5 spec §8.1) */
 #define BOARD_HAS_RTC_ALARM_WAKE 0 /* the PCF8563's INT isn't wired: the ESP32's timer wakes the board */
 #define BOARD_HAS_LPM_RATE       0 /* e-paper: no refresh rate to set */
 #else
@@ -19,6 +20,7 @@
 #define BOARD_HAS_ENV_SENSOR     1
 #define BOARD_HAS_AUDIO          1
 #define BOARD_HAS_RTC_TRIM       1
+#define BOARD_HAS_RTC_PRECISE_SET 1
 #define BOARD_HAS_RTC_ALARM_WAKE 1
 #define BOARD_HAS_LPM_RATE       1
 #endif

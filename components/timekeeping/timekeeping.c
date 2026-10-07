@@ -141,16 +141,23 @@ esp_err_t timekeeping_set_utc(time_t utc)
     return ESP_OK;
 }
 
-#else /* an RTC without trim or a precise set (T5 spec §2.4, §8.1) */
+#else /* an RTC without trim but with the precise set (T5 spec §2.4, §8.1) */
+
+_Static_assert(BOARD_HAS_RTC_PRECISE_SET, "timekeeping sets the RTC with its precise set");
 
 esp_err_t timekeeping_apply_true_time(int64_t true_utc_us, int64_t mono_us, int64_t *moved_ms)
 {
+    int64_t error_ms = 0; /* the RTC against the system clock, while the RTC still keeps its time */
+    bool measured = s_valid && rtcchip_error_ms(&error_ms) == ESP_OK;
     int64_t true_now = true_utc_us + (esp_timer_get_time() - mono_us);
     int64_t ahead_ms = (clock_us() - true_now) / 1000; /* the system clock against the truth */
     struct timeval tv = { .tv_sec = (time_t)(true_now / 1000000), .tv_usec = (suseconds_t)(true_now % 1000000) };
     settimeofday(&tv, NULL);
     *moved_ms = -ahead_ms;
-    ESP_RETURN_ON_ERROR(rtcchip_write(tv.tv_sec), TAG, "RTC write"); /* to the second */
+    if (measured) {
+        ESP_LOGI(TAG, "RTC off by %lld ms", (long long)(error_ms + ahead_ms));
+    }
+    ESP_RETURN_ON_ERROR(rtcchip_write_precise(NULL), TAG, "RTC write");
     s_valid = true;
     return ESP_OK;
 }
