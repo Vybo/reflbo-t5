@@ -114,6 +114,12 @@ target_include_directories(rtc_logic PUBLIC ${REPO_ROOT}/components/rtc/include)
 target_compile_options(rtc_logic PRIVATE ${REFLBO_WARNINGS})
 target_link_libraries(rtc_logic PUBLIC util)
 
+# epaper: the T5 panel's shift-register words and the 1 bpp blit build on the host.
+add_library(epaper_logic STATIC ${REPO_ROOT}/components/epaper/epaper_sr.c ${REPO_ROOT}/components/epaper/epaper_frame.c)
+target_include_directories(epaper_logic PUBLIC ${REPO_ROOT}/components/epaper/include)
+target_compile_options(epaper_logic PRIVATE ${REFLBO_WARNINGS})
+target_link_libraries(epaper_logic PUBLIC gfx)
+
 # timekeeping: the ISO 8601 parser, the zone list, the RTC sync rule and the trim build on the host.
 add_library(timekeeping_logic STATIC ${REPO_ROOT}/components/timekeeping/timekeeping_iso.c
             ${REPO_ROOT}/components/timekeeping/timekeeping_zones.c
@@ -244,6 +250,8 @@ reflbo_host_test(test_battery_model sensors_logic)
 reflbo_host_test(test_battery_learn sensors_logic)
 reflbo_host_test(test_pcf85063_regs rtc_logic)
 reflbo_host_test(test_pcf8563_regs rtc_logic)
+reflbo_host_test(test_epaper_sr epaper_logic)
+reflbo_host_test(test_epaper_frame epaper_logic)
 reflbo_host_test(test_timekeeping_iso timekeeping_logic)
 reflbo_host_test(test_timekeeping_zones timekeeping_logic)
 reflbo_host_test(test_timekeeping_sync timekeeping_logic)
