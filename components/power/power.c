@@ -4,6 +4,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "board_caps.h"
 #include "board_pins.h"
 #include "driver/gpio.h"
 #include "driver/rtc_io.h"
@@ -50,7 +51,24 @@ static int64_t s_hold_until_us;
 static int64_t s_awake_since_us; /* esp_timer time this awake phase began; -1 after a stats reset */
 static unsigned s_masked;        /* POWER_BUTTON_* the sleep that just ended left out */
 
+#if BOARD_HAS_RTC_ALARM_WAKE
 static const gpio_num_t k_wake_pins[] = { BOARD_PIN_RTC_INT, BOARD_PIN_KEY, BOARD_PIN_BOOT };
+#define RTC_INT_WAKE_BIT BIT64(BOARD_PIN_RTC_INT)
+#else
+static const gpio_num_t k_wake_pins[] = { BOARD_PIN_KEY, BOARD_PIN_BOOT }; /* INT isn't wired (T5 spec §8.2) */
+#define RTC_INT_WAKE_BIT 0
+#endif
+
+/* The edge each wake pin's interrupt uses while awake: the RTC's INT falls, the buttons go both ways. */
+static gpio_int_type_t awake_edge(gpio_num_t pin)
+{
+#if BOARD_HAS_RTC_ALARM_WAKE
+    return pin == BOARD_PIN_RTC_INT ? GPIO_INTR_NEGEDGE : GPIO_INTR_ANYEDGE;
+#else
+    (void)pin;
+    return GPIO_INTR_ANYEDGE;
+#endif
+}
 
 static void seal(void)
 {
@@ -138,9 +156,11 @@ static power_wake_t decode_boot_wake(void)
         if (pins & BIT64(BOARD_PIN_BOOT)) {
             return POWER_WAKE_BOOT;
         }
+#if BOARD_HAS_RTC_ALARM_WAKE
         if (pins & BIT64(BOARD_PIN_RTC_INT)) {
             return POWER_WAKE_RTC;
         }
+#endif
     }
     return causes & BIT(ESP_SLEEP_WAKEUP_TIMER) ? POWER_WAKE_TIMER : POWER_WAKE_OTHER;
 }
@@ -276,7 +296,7 @@ power_wake_t power_sleep_light(time_t until_utc)
     int64_t woke_us = esp_timer_get_time(); /* esp_timer counts light sleep too */
     for (size_t i = 0; i < sizeof(k_wake_pins) / sizeof(k_wake_pins[0]); i++) {
         gpio_wakeup_disable(k_wake_pins[i]);
-        gpio_set_intr_type(k_wake_pins[i], k_wake_pins[i] == BOARD_PIN_RTC_INT ? GPIO_INTR_NEGEDGE : GPIO_INTR_ANYEDGE);
+        gpio_set_intr_type(k_wake_pins[i], awake_edge(k_wake_pins[i]));
         gpio_intr_enable(k_wake_pins[i]);
     }
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_GPIO);
@@ -291,8 +311,10 @@ power_wake_t power_sleep_light(time_t until_utc)
         wake = POWER_WAKE_KEY;
     } else if (!(held & POWER_BUTTON_BOOT) && gpio_get_level(BOARD_PIN_BOOT) == 0) {
         wake = POWER_WAKE_BOOT;
+#if BOARD_HAS_RTC_ALARM_WAKE
     } else if (gpio_get_level(BOARD_PIN_RTC_INT) == 0) {
         wake = POWER_WAKE_RTC;
+#endif
     } else if (err == ESP_OK && (esp_sleep_get_wakeup_causes() & BIT(ESP_SLEEP_WAKEUP_TIMER))) {
         wake = POWER_WAKE_TIMER;
     }
@@ -337,11 +359,13 @@ void power_sleep_deep(time_t until_utc)
 {
     count_sleep(true);
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
+#if BOARD_HAS_RTC_ALARM_WAKE
     rtc_gpio_pullup_en(BOARD_PIN_RTC_INT); /* INT has no external pull-up */
     rtc_gpio_pulldown_dis(BOARD_PIN_RTC_INT);
+#endif
     unsigned held = held_buttons();
     s_rtc.masked = (uint8_t)held;
-    esp_sleep_enable_ext1_wakeup_io(BIT64(BOARD_PIN_RTC_INT) | button_wake_bits(held), ESP_EXT1_WAKEUP_ANY_LOW);
+    esp_sleep_enable_ext1_wakeup_io(RTC_INT_WAKE_BIT | button_wake_bits(held), ESP_EXT1_WAKEUP_ANY_LOW);
     esp_sleep_enable_timer_wakeup(sleep_us_until(until_utc));
     start_deep_sleep();
 }
