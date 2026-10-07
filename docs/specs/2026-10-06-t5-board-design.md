@@ -1,17 +1,19 @@
-# reflbo on the LilyGo T5-ePaper-S3: design spec
+# reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** Approved by the owner on 2026-10-06 (r1); r2 records T0 as built (§13)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), is a draft for the owner's review (§13)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
 ## 1. Purpose and scope
 
-This fork ports reflbo to a second board, the LilyGo T5-ePaper-S3 (4.7″ e-paper, 960×540, 16 grays), and keeps the Waveshare ESP32-S3-RLCD-4.2 working unchanged. Both boards build from one codebase, chosen at build time, so the fork can merge back into `Vybo/reflbo` later.
+This fork ports reflbo to a second board, the LilyGo T5-4.7 e-paper board (4.7″, 960×540, 16 grays) on a classic ESP32. It keeps the Waveshare ESP32-S3-RLCD-4.2 working unchanged. Both boards build from one codebase, chosen at build time, so the fork can merge back into `Vybo/reflbo` later.
+
+Until T1's bring-up the spec assumed LilyGo's newer T5-ePaper-S3. The board on the owner's desk turned out to be the ESP32 one (DT9), so r3 describes that board. The S3 work (T1 tasks 1–5, through commit `7232440`) stays in git's history; nothing of it is planned.
 
 The fork starts from upstream `0d88d3f` (spec r44). Upstream's later milestones (M7 MQTT and Home Assistant, M8 audio, M9 microSD) are built upstream. The fork takes them when it merges `upstream/main`, before it goes back as one pull request.
 
-The upstream spec stays authoritative for everything this spec doesn't change. This spec covers what the T5 needs and the seams both boards share.
+The upstream spec stays authoritative for everything this spec doesn't change. This spec covers what the T5 needs and the seams both boards share. "The T5" means the LilyGo T5-4.7 throughout.
 
 ### 1.1 Requirements
 
@@ -19,7 +21,7 @@ The upstream spec stays authoritative for everything this spec doesn't change. T
 |---|---|
 | TR1 | The T5 runs the same features as upstream at the fork's base, minus the hardware the board lacks (§2.4): dashboards, presets and cycling, the menu, the schedule and night sleep, Wi-Fi and the web configurator, OTA, sync, weather, air quality, the radars, solar and energy |
 | TR2 | The RLCD build keeps its behaviour, and its host goldens stay byte-identical |
-| TR3 | One codebase; the board is a build-time choice; the fork stays mergeable into upstream |
+| TR3 | One codebase; the board is a build-time choice, each with its own ESP-IDF target; the fork stays mergeable into upstream |
 | TR4 | The T5 draws natively at 960×540, denser than the RLCD (more fields a screen, slightly smaller text), in 16 grays |
 | TR5 | E-paper refresh: fast updates, then a clean refresh after a configurable number of them; the web page states the result in words |
 | TR6 | Agent-verifiable as upstream: screenshots over USB (in gray), host renders and goldens for both boards |
@@ -27,91 +29,97 @@ The upstream spec stays authoritative for everything this spec doesn't change. T
 
 ### 1.2 Decisions
 
-Fork decisions are numbered DT1, DT2, … so they don't collide with upstream's D-numbers.
+Fork decisions are numbered DT1, DT2, … so they don't collide with upstream's D-numbers. A decision later revised keeps its row and says so.
 
 | # | Decision |
 |---|---|
-| DT1 | Owner, 2026-10-06: a fork, `Vybo/reflbo-t5`, based on upstream's current `main`, to be merged into the main repository later; later milestones are handled upstream. The owner's board is revision V2.3 without touch. LGPL is acceptable. Hardware the T5 lacks is dropped on that board |
+| DT1 | Owner, 2026-10-06: a fork, `Vybo/reflbo-t5`, based on upstream's current `main`, to be merged into the main repository later; later milestones are handled upstream. The owner's board is revision V2.3 without touch. LGPL is acceptable. Hardware the T5 lacks is dropped on that board. (Revised by DT9: the board is the ESP32 T5-4.7) |
 | DT2 | Owner, 2026-10-06: the T5 UI is native and dense at 960×540, not a scaled RLCD canvas: about 1.7× the RLCD's pixel sizes, so a screen holds about 1.5× the content and text is about 15 % smaller physically. The owner approves the T5 layouts from host renders before goldens are committed |
 | DT3 | Owner, 2026-10-06: the fork uses the panel's grayscale: a 4 bpp framebuffer, anti-aliased fonts and icons, gray shading. The RLCD stays 1 bpp |
-| DT4 | Owner, 2026-10-06: epdiy (LGPL-3.0) is vendored into the repository with a patch that adds an S3 output path for boards whose panel latch is on a shift register, as on V2.3. This is an exception to "dependencies come from the ESP Component Registry" (AGENTS.md §8) |
+| DT4 | Owner, 2026-10-06: epdiy (LGPL-3.0) is vendored into the repository, an exception to "dependencies come from the ESP Component Registry" (AGENTS.md §8). r3: on the ESP32 it runs its own I2S path and its own `epd_board_lilygo_t5_47` board definition unchanged; the S3 patches are gone, and one patch remains, the LUT's PSRAM fallback (§5.1) |
 | DT5 | Owner, 2026-10-06: routine updates are fast (only the changed area, no flashing); a clean refresh follows a configurable number of them and every preset switch; the web page says what the setting means in words |
 | DT6 | 2026-10-06: the T5 idles in deep sleep (upstream D3 keeps light sleep on the RLCD). Its panel keeps the image without power, and its 3V3 rail is an LDO, so deep sleep saves what it can't on the RLCD (upstream gotcha 23) |
-| DT7 | 2026-10-06: the T5 uses KEY (IO21) and BOOT (IO0) as the two buttons. IO0 also strobes the panel's shift register, so it's read only while the panel is idle. Until the owner can reach them, button behaviour is checked with the console's `btn` |
+| DT7 | 2026-10-06, revised 2026-10-07: the T5's two buttons are KEY on IO34 and BOOT's role on IO35; IO39, the third side button, stays free. The real BOOT (IO0) is never read: it strobes the panel's shift register. Until the owner can reach the side buttons, button behaviour is checked with the console's `btn` |
 | DT8 | 2026-10-06: the fork never flashes the RLCD board, which upstream's sessions use. The fork's RLCD build is checked by its host goldens and a clean build |
+| DT9 | Owner, 2026-10-07: the board on the desk is the ESP32 LilyGo T5-4.7 (ESP32-D0WD-V3 in a WROVER module, CH9102 USB-serial, MAC `34:ab:95:5e:5d:58`), not the T5-ePaper-S3; port to it. The ESP32 becomes the T5's ESP-IDF target |
+| DT10 | Owner, 2026-10-07: no RTC module is added. The T5 keeps time with the ESP32's own clock between syncs (NTP) and loses it at power-off until the next sync (§8.1) |
+| DT11 | 2026-10-07: the T5's console is UART0 through the CH9102. A PC can't be detected on it, so console input keeps the board awake for 5 minutes instead (§9) |
 
 ### 1.3 Out of scope
 
-- Touch (the owner's board has none), board revision V2.4 (§12), audio, the SHTC3's fields, the RTC trim, the microSD (upstream's M9).
+- Touch (the owner's board has none), an RTC module (DT10), audio, the SHTC3's fields, the RTC trim, the microSD (upstream's M9).
+- The T5-ePaper-S3 (§12).
 - A new feature for either board. Anything beyond porting is a proposal for the owner, as upstream (upstream D10).
 
-## 2. The T5-ePaper-S3 (revision V2.3)
+## 2. The LilyGo T5-4.7 (ESP32, revision V2.3)
 
-Sources: the vendor repository's `esp32s3` branch (README pin table, `src/ed047tc1.*`, `src/utilities.h`, schematic `T5-ePaper-S3-V2.3.pdf`), the ED047TC1 datasheet, epdiy's `ED047TC1` display and waveform. Checked on 2026-10-06; the board itself not yet.
+Sources: the vendor repository `Xinyuan-LilyGO/LilyGo-EPD47` (schematic `T5-ePaper.pdf`, `src/utilities.h` and `src/ed047tc1.h` for the ESP32), epdiy's `epd_board_lilygo_t5_47.c`, the ED047TC1 datasheet, and the board itself on 2026-10-07 (esptool: ESP32-D0WD-V3 rev 3.0, 16 MB flash; USB: WCH CH9102, VID 0x1A86, PID 0x55D4).
 
 ### 2.1 Chips
 
 | Part | Role | Bus / address |
 |---|---|---|
-| ESP32-S3-WROOM-1-N16R8 | Same module as the RLCD board: 16 MB flash, 8 MB octal PSRAM, native USB | — |
+| ESP32-WROVER-E (ESP32-D0WD-V3) | Dual-core Xtensa LX6, 240 MHz, Wi-Fi, BT (unused); 16 MB flash, 8 MB PSRAM of which 4 MB is mapped | — |
+| CH9102 | USB-serial on UART0, with the usual DTR/RTS auto-reset to EN and IO0 | USB-C |
 | ED047TC1 | 4.7″ e-paper, 960×540, 16 grays, 8-bit parallel source drivers, no controller: the MCU drives every frame | parallel |
-| 74HCT4094 | 8-bit shift register with output latch: the panel's LE, STV, MODE, OE and the power rails' enables | GPIO 13 (data), 12 (clock), 0 (strobe) |
+| 74HCT4094 | 8-bit shift register with output latch: the panel's LE, STV, MODE, OE, PWR_EN and the rails' enables | IO23 (data), IO18 (clock), IO0 (strobe) |
 | LT1945 + CJ78L15 / CJ79L15 | Panel rails: +22 V, −20 V, +15 V, −15 V | enables on the shift register |
 | LM358 + trimpot | VCOM, set by hand on the board; software can't change it | — |
-| PCF8563 | RTC, with a 32.768 kHz crystal and a rechargeable MS412FE backup cell. INT is not wired to the ESP32 (the schematic's note "主控需增加此IO": the MCU needs this IO added) | I²C `0x51` |
-| HX6610S | Li-ion charger, CHRG and STDBY drive LEDs only | — |
-| AP2112K-3.3 | 3V3 LDO (V2.4: ME6217 or RT9080) | — |
+| HX6610S | Li-ion charger; CHRG and STDBY drive LEDs only | — |
+| AP2112K-3.3 | 3V3 LDO | — |
 
-No temperature or humidity sensor, no audio codec, no speaker.
+No RTC, no temperature or humidity sensor, no audio codec, no speaker.
 
 ### 2.2 GPIO map
 
 | GPIO | Function | Notes |
 |---|---|---|
-| 0 | BOOT button, and the shift register's strobe | Strapping pin. An RTC GPIO: can wake the chip. See §8.3 |
-| 1–8 | Panel D1–D7 (1–7), D0 (8) | i80 data bus |
-| 12 / 13 | Shift register clock / data | Hold low in deep sleep (§5.4) |
-| 14 | BAT_ADC = VBAT × 1/2 (100k/100k) | ADC2_CH3, shared with Wi-Fi (§8.4) |
-| 17 / 18 | I²C SCL / SDA | RTC; touch on boards with it |
-| 19 / 20 | USB D− / D+ | USB-Serial-JTAG, as on the RLCD board |
-| 21 | KEY button | An RTC GPIO: can wake the chip |
-| 38 | Panel CKV | RMT |
-| 40 | Panel STH | |
-| 41 | Panel CKH | i80 WR clock |
-| 47 | Touch INT | Unused (no touch) |
-| 11, 15, 16, 42 | microSD over SPI: SCK, MOSI, MISO, CS | Unused in the fork |
-| 10, 39, 45, 48 | Free | 10 is analog-capable |
+| 0 | The shift register's strobe; also BOOT | Strapping pin; an RTC GPIO. Never read as a button (DT7) |
+| 1 / 3 | UART0 TX / RX | The console, through the CH9102 |
+| 5 | Panel CKH | Strapping pin |
+| 18 / 23 | Shift register clock / data | Digital pads: held through deep sleep with `gpio_deep_sleep_hold_en()` (§5.4) |
+| 25 | Panel CKV | RMT |
+| 26 | Panel STH | |
+| 33, 32, 4, 19, 2, 27, 21, 22 | Panel D0–D7 | I2S1 data. IO2 is a strapping pin |
+| 34 | KEY (side button) | Input only, external 100k pull-up; an RTC GPIO (ext0 wake) |
+| 35 | BOOT's role (side button) | Input only, external 100k pull-up; an RTC GPIO (ext1 wake) |
+| 39 | Third side button | Input only, external 100k pull-up; unused |
+| 36 | BAT_ADC = VBAT × 1/2 (100k/100k, 1 %) | ADC1 channel 0, free of Wi-Fi |
+| 12–15 | microSD over SPI (MISO, MOSI, SCK, CS); the touch connector's I²C on 14 (SCL) and 15 (SDA), INT on 13; the Grove connectors | Unused in the fork. IO12 and IO15 are strapping pins |
 
 ### 2.3 Shift-register bits
 
-The vendor driver pushes eight bits, last first, then raises the strobe: output enable, mode, scan direction, STV, negative rail enable, positive rail enable, power disable, latch enable. Which bit reaches which output (QP0–QP7) is checked against the schematic at T1. Power-on order: power disable off, 100 µs, negative rails on, 500 µs, positive rails on, 100 µs, STV high. Power-off runs it backwards.
+The bits go out last first, then the strobe rises: output enable, mode, PWR_EN (epdiy calls it "scan direction"), STV, negative rails, positive rails, power disable, latch enable. Power-on: PWR_EN on and power disable off, 100 µs, negative rails, 500 µs, positive rails, 100 µs, STV. Power-off runs it backwards and leaves PWR_EN off. epdiy's board definition does all of this; the fork only needs the "all off" word at boot and before deep sleep (§5.2).
 
 ### 2.4 What the T5 lacks, against the RLCD board
 
 | RLCD board | T5 | In the fork |
 |---|---|---|
 | SHTC3 temperature and humidity | none | `env.temp`, `env.hum`, `env.dew` and their minimum and maximum hidden; the settings `sensors.temp_offset_c` and `sensors.hum_offset_pct` hidden |
-| PCF85063 Offset register | none (PCF8563) | No RTC trim (upstream D25): `rtc get` says so, the Info page leaves it out |
-| RTC INT on a GPIO | not wired | Wakes come from the ESP32's timer (§8.2) |
+| PCF85063 RTC | none (DT10) | The time is the ESP32's own clock (§8.1); no trim, no alarm |
+| RTC INT on a GPIO | none | Wakes come from the ESP32's timer (§8.2) |
 | ES8311/ES7210 and a speaker | none | Nothing today; upstream's M8 needs a capability check when it merges |
 | Panel LPM rate, contrast variants | n/a | `panel rate`, `panel fps`, `panel init`, `panel mode` and the menu's and web page's refresh-rate setting hidden |
-| No RTC backup cell (upstream D9) | MS412FE fitted | The time survives a power-off unless the cell is flat; the VL flag says when it didn't |
+| Native USB console | CH9102 USB-serial | The console on UART0 at 115200 (§9) |
 
-### 2.5 Hardware gotchas (known before T1)
+### 2.5 Hardware gotchas
 
-1. **LE and STV are on the shift register** on V2.3, so the S3's LCD peripheral can't generate the latch. Stock epdiy's S3 path needs both on GPIOs (its `lcd_driver.c` routes LE from HSYNC), which V2.4 has (IO48, IO45). Hence DT4.
-2. **IO0 is both BOOT and the strobe.** Pressing BOOT while the driver shifts bits corrupts the latch. Held at reset, it enters download mode (upstream gotcha 22).
-3. **Floating shift-register lines can switch the panel's rails on.** In deep sleep, data and clock must be held low and the strobe kept high by its pull-up (§5.4).
-4. **ADC2 and Wi-Fi share hardware.** While Wi-Fi is on, a battery read can fail (ESP-IDF's ADC2 arbitration).
+1. **No RTC.** Power-off loses the time; the clock reads 1970 until a sync or a manual set (§8.1).
+2. **IO0 is both BOOT and the strobe.** Pressing BOOT while the driver shifts bits corrupts the latch, which the next clean update repairs. Held at reset, it enters download mode.
+3. **Floating shift-register lines can switch the panel's rails on.** In deep sleep, IO18 and IO23 are digital pads: they keep their level only with `gpio_hold_en()` plus `gpio_deep_sleep_hold_en()`; IO0 stays high on its pull-up (§5.4).
+4. **The panel bus uses strapping pins** (IO0, IO2, IO5). They must be inputs or at their boot level at every reset; epdiy releases them when it powers the panel off.
 5. **VCOM is a trimpot.** If contrast looks wrong, it's set by hand on the board, not in software.
 6. **The waveform has one temperature range** (epdiy's `ED047TC1`: 20–30 °C), so the missing temperature sensor costs nothing.
-7. **The owner can reach only one button for now**, likely RESET. RESET boots the board and keeps it awake 2 s for a PC (upstream gotcha 11). Flashing relies on USB-Serial-JTAG's auto-reset; there is no BOOT for download mode.
-8. **Two boards on one Mac** give two `/dev/cu.usbmodem*` ports, so `devlog` can't pick one. The T5's MAC is recorded at T1 and every command names its port (§10.2).
+7. **The ESP32 can't wake on "any of these pins low"** (its ext1 knows ALL_LOW and ANY_HIGH only), so KEY wakes through ext0 and BOOT's role through ext1 with one pin (§8.2).
+8. **The CH9102's DTR/RTS reset the chip.** esptool resets into download mode with them, no button needed. A tool that opens the port must change DTR and RTS together, or it resets the board (§9, §10.2).
+9. **Two boards on one Mac:** the RLCD is `/dev/cu.usbmodem*`, the T5 `/dev/cu.usbserial-*`. `devlog` picks a `usbmodem` port by itself, which is never the T5: every T5 command names its port.
+10. **The ESP32's internal RAM is tighter than the S3's.** epdiy's LUT falls back to PSRAM when internal RAM is short (§5.1); T1 measures the free internal RAM with Wi-Fi and epdiy up.
+11. **The owner can reach only RESET for now.** RESET boots the board and keeps it awake 2 s; esptool needs no button.
 
 ## 3. The fork
 
 - **Remotes.** `origin` is `git@github.com:Vybo/reflbo-t5.git` (public, as upstream). `upstream` is `git@github.com:Vybo/reflbo.git`, fetch only (its push URL is set to `DISABLED`). The local clone is `~/reflbo-t5`, apart from upstream's `~/reflbo`.
-- **Branches.** Work happens on the fork's `main`, one commit per task, Conventional Commits, as upstream (AGENTS.md §8). Plan branches follow upstream's practice (`plan/t1`, …).
+- **Branches.** Work happens on the fork's `main`, one commit per task, Conventional Commits, as upstream (AGENTS.md §8).
 - **Merging back.** When the owner asks: merge `upstream/main` into the fork, resolve, check both boards (§10), then one pull request to upstream. To keep that cheap:
   - shared code changes only where a seam needs it (§4), and mechanical changes (such as `UI_PX()`, §7.1) land as their own commits;
   - the fork's design lives in this file, not in edits across the upstream spec;
@@ -122,18 +130,19 @@ The vendor driver pushes eight bits, last first, then raises the strobe: output 
 
 ### 4.1 Build
 
-- Kconfig choice `REFLBO_BOARD` in `main/Kconfig.projbuild`: `REFLBO_BOARD_RLCD42` (default) or `REFLBO_BOARD_T5S3`.
-- `sdkconfig.defaults.t5` holds the T5's overrides: the board choice, epdiy's options, the T5's idle default.
-- `tools/idf.sh` reads `REFLBO_BOARD` (`rlcd42` by default, or `t5`). For `t5` it adds `-B build-t5 -D SDKCONFIG=sdkconfig.t5 -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.t5"`. Both boards build side by side.
+- Kconfig choice `REFLBO_BOARD` in `main/Kconfig.projbuild`: `REFLBO_BOARD_RLCD42` (default) or `REFLBO_BOARD_T547`.
+- Each board has its own ESP-IDF target: the RLCD's `esp32s3` (in the shared `sdkconfig.defaults`), the T5's `esp32`. `sdkconfig.defaults.t5`, applied after the shared file, sets the T5's target, quad PSRAM, the console on UART0, 240 MHz, epdiy's options and the T5's idle default.
+- `tools/idf.sh` reads `REFLBO_BOARD` (`rlcd42` by default, or `t5`). For `t5` it adds `-B build-t5 -D REFLBO_BOARD=t5 -D SDKCONFIG=sdkconfig.t5 -D IDF_TARGET=esp32`. Both boards build side by side.
 - The partition table is the same: both boards have 16 MB flash. The T5 image carries only the T5's fonts and icons, the RLCD image only the RLCD's.
+- Chip differences live behind ESP-IDF's own feature macros (`SOC_*`, `CONFIG_IDF_TARGET_*`) where the code is chip-specific (the console, CPU power-down in light sleep, the ADC's calibration scheme, the deep-sleep wake), and behind `board_caps.h` where it is the board's.
 
 ### 4.2 Pins
 
-`components/board/include/board_pins.h` includes `board_pins_rlcd42.h` or `board_pins_t5s3.h`. The battery's ADC unit, channel and divider move into the pin headers (today `sensors.c:27` and `:29` hard-code them).
+`components/board/include/board_pins.h` includes `board_pins_rlcd42.h` or `board_pins_t547.h`. The battery's ADC unit, channel and divider are pins too.
 
 ### 4.3 Capabilities
 
-`board_caps.h` states, per board, at compile time: `BOARD_NAME`, `BOARD_HAS_ENV_SENSOR`, `BOARD_HAS_AUDIO`, `BOARD_HAS_RTC_TRIM`, `BOARD_HAS_RTC_ALARM_WAKE`, `BOARD_HAS_LPM_RATE`; `BOARD_GRAYSCALE` joins at T2. The UI's profile carries the same as `UI_CAP_*` bits, and `main` checks with `_Static_assert` that they agree. The catalogue (`/api/layouts`) publishes them with the panel's size, so the web page hides what the board can't do. Fields a board can't fill are left out of its catalogue and its menu's field lists; a preset from another board that names one draws the placeholder (upstream §5.3).
+`board_caps.h` states, per board, at compile time: `BOARD_NAME`, `BOARD_HAS_ENV_SENSOR`, `BOARD_HAS_AUDIO`, `BOARD_HAS_RTC_TRIM`, `BOARD_HAS_RTC_ALARM_WAKE`, `BOARD_HAS_RTC_PRECISE_SET`, `BOARD_HAS_LPM_RATE`; `BOARD_GRAYSCALE` joins at T2. The UI's profile carries the same as `UI_CAP_*` bits, and `main` checks with `_Static_assert` that they agree. The catalogue (`/api/layouts`) publishes them with the panel's size, so the web page hides what the board can't do. Fields a board can't fill are left out of its catalogue and its menu's field lists; a preset from another board that names one draws the placeholder (upstream §5.3).
 
 ### 4.4 Display API
 
@@ -149,33 +158,33 @@ The vendor driver pushes eight bits, last first, then raises the strobe: output 
 
 ### 4.5 RTC
 
-`components/rtc` keeps `pcf85063.c` and gains `pcf8563.c` and a small interface, `rtcchip_*`: read and write the time, the oscillator-lost flag (PCF85063 OSF, PCF8563 VL), and the capabilities (trim, precise set, alarm). `timekeeping.c` and `app.c` call `rtcchip_*` instead of `pcf85063_*`; the trim code runs only with `BOARD_HAS_RTC_TRIM`. On the RLCD every call ends in the same register writes as today.
+`components/rtc` keeps `pcf85063.c` behind a small interface, `rtcchip_*`: read and write the time, the time-lost flag, the alarm, and with the capabilities the precise set, the error against the system clock and the trim. `timekeeping.c` and `app.c` call `rtcchip_*`; the trim code runs only with `BOARD_HAS_RTC_TRIM`. On the RLCD every call ends in the same register writes as before T0. On the T5, `rtcchip_t547.c` is the system clock itself (§8.1).
 
 ### 4.6 Sensors
 
-The SHTC3 code is built only with `BOARD_HAS_ENV_SENSOR`. The battery reading takes its ADC unit, channel and divider from the pin header. The battery model and its learning (`battery_model.c`, `battery_learn.c`) are shared.
+The SHTC3 code is built only with `BOARD_HAS_ENV_SENSOR`. The battery reading takes its ADC unit, channel and divider from the pin header, and the calibration scheme the chip has: curve fitting on the S3, line fitting on the ESP32. The battery model and its learning (`battery_model.c`, `battery_learn.c`) are shared.
 
 ## 5. Display stack on the T5
 
-### 5.1 epdiy, vendored and patched
+### 5.1 epdiy, vendored
 
-- `components/epdiy/` holds epdiy v2.1.3 (upstream commit `42c1612`, LGPL-3.0-or-later) with its licence headers. It is built only for `REFLBO_BOARD_T5S3`. Unused parts (examples, other boards' files, fonts) stay out.
-- `components/epdiy/PATCHES.md` records the base and every change, so a newer epdiy can be taken by reapplying them.
-- **The patch:** a third render method, `RENDER_METHOD_S3_SR`, selected by the Kconfig option `EPD_S3_SHIFT_REGISTER_LATCH`. It follows epdiy's ESP32 path (one row at a time, the latch through the board's `set_ctrl`) on the S3's hardware: each row's bytes over the LCD_CAM i80 bus (8 data lines, CKH as WR) by DMA, CKV pulses from RMT, STH as a GPIO. epdiy's waveform, lookup and high-level code stay as they are.
-- `THIRD_PARTY.md` and `NOTICE` credit epdiy. The fork's own files stay Apache-2.0.
+- `components/epdiy/` holds epdiy 2.1.3 (tag `2.1.3`, commit `7c30780`, LGPL-3.0-or-later) with its licence headers, built only for `REFLBO_BOARD_T547`: the ESP32's I2S output path and the `epd_board_lilygo_t5_47` board definition, both as upstream has them.
+- **One patch, P5:** the conversion LUT (64 KB) goes to PSRAM when internal RAM is short, or always with the Kconfig option `EPD_LUT_IN_PSRAM`, instead of `abort()`. The ESP32's internal RAM is tight with Wi-Fi up (§2.5).
+- `components/epdiy/PATCHES.md` records the base and every change; `THIRD_PARTY.md` credits epdiy. The fork's own files stay Apache-2.0.
 
 ### 5.2 The `epaper` component
 
 Our code, Apache-2.0, built only for the T5:
 
-- The epdiy board definition for T5-S3 V2.3: the shift register (§2.3), the rails' order, `set_ctrl` for LE, STV, MODE and OE, no VCOM setting, a fixed 25 °C for the waveform.
-- The board's side of `display` (§4.4): the 4 bpp framebuffer is the one epdiy's high-level API draws from (§6.1), so nothing is converted.
-- Pure parts with host tests: the shift-register bit sequences, the changed-area search, the update policy (§5.3).
+- **The shift register's "all off" word** (`epaper_sr.c`, pure, host-tested) and the functions that use it outside epdiy: rest at boot (the register powers up random), and the deep-sleep holds (§5.4).
+- **The frame blit** (`epaper_frame.c`, pure, host-tested): the 1 bpp 400×300 frame into epdiy's 4 bpp framebuffer, in the panel's middle, until T3.
+- **The board's side of `display`** (`components/display/display_t547.c`, §4.4), which uses the two: epdiy is brought up only for each update. Its LUT and line queues want ~80 KB of internal RAM, which Wi-Fi needs the rest of the time. From T2 the 4 bpp framebuffer is the one epdiy's high-level API draws from (§6.1), so nothing is converted.
+- From T4: the changed-area search and the update policy (§5.3), pure and host-tested.
 
 ### 5.3 Updates
 
 - **Fast update:** only the bounding box of what changed. DU when every pixel in it is black or white before and after; GL16 (gray, no flashing) otherwise.
-- **Clean update:** GC16 over the whole panel. It flashes.
+- **Clean update:** the panel cleared, then GC16. It flashes.
 - **When a clean update runs:**
   - after `display.clean_after` fast updates (a new setting, 1–240, default 60: hourly at upstream's default 1-minute update);
   - on a preset switch (KEY, the cycle, the schedule);
@@ -193,13 +202,14 @@ Our code, Apache-2.0, built only for the T5:
   - A second line: "Preset switches and leaving the menu flash clean too."
 - **The menu** gets Display ▸ Clean refresh (the same values), in place of the RLCD's refresh rate.
 
-DU, GL16 and GC16's times and currents on this panel are measured at T1 (`docs/power.md`). If GL16 is too slow for the menu, the menu draws black and white only on the T5.
+Until T4 every update is a clean one. DU, GL16 and GC16's times and currents on this panel are measured at T1 (`docs/power.md`). If GL16 is too slow for the menu, the menu draws black and white only on the T5.
 
 ### 5.4 Panel power and deep sleep
 
-- The rails are on only during an update; `display_commit()` turns them on, updates, and turns them off.
-- Before deep sleep: epdiy is de-initialised, the shift register gets all rails off and outputs disabled, data and clock (IO13, IO12) are held low with `gpio_hold_en()` and `gpio_deep_sleep_hold_en()`, IO0 is an input (its 10k pull-up keeps the strobe high, so the latch follows the register, which nothing clocks).
-- After a wake, `epaper` releases the holds and sets the register again before anything else touches the panel.
+- The rails are on only during an update: epdiy powers them up, updates and powers them down, then the fork de-initialises it.
+- At boot, before anything else touches the panel, the shift register gets the "all off" word.
+- Before deep sleep: the shift register's clock and data (IO18, IO23) are driven low and held with `gpio_hold_en()` and `gpio_deep_sleep_hold_en()`; the strobe (IO0) is an input on its 10k pull-up, so the latch follows a register nothing clocks.
+- After a wake, the holds are released before anything else touches the panel.
 
 ### 5.5 The previous frame across deep sleep
 
@@ -280,43 +290,65 @@ The page reads the panel's size, aspect ratio and capabilities from `/api/layout
 
 ## 8. Time, wake, buttons, battery and power on the T5
 
-### 8.1 RTC
+### 8.1 Time without an RTC (DT10)
 
-`pcf8563.c`: the time in BCD, the century bit, the VL flag (the clock may be wrong) cleared when the time is set. No alarm and no CLKOUT use; CLKOUT is switched off at every boot, as upstream does for the PCF85063 (upstream gotcha 7). `rtc set` and SNTP write it to the second; the precise set to the millisecond (upstream D25) needs the PCF85063's STOP-bit timing and is left out.
+- The time is the ESP32's system clock. Its RTC timer counts through deep sleep and software resets on the slow clock; a power-off resets it.
+- `rtcchip_t547.c` is that clock as an RTC chip:
+  - reading returns `time()`, valid once it is past 2026-01-01 (a power-on starts it at 1970);
+  - writing sets it with `settimeofday()`;
+  - the precise set is the system clock's own (`BOARD_HAS_RTC_PRECISE_SET`, trivially);
+  - the error against the system clock is 0;
+  - there is no alarm and no trim.
+- `timekeeping.c` is unchanged on top of that.
+- A sync's log line "RTC off by N ms" is then the system clock's drift since the last sync.
+- After a power-off the time is invalid until a sync. If Wi-Fi is set up, the app syncs at boot; otherwise it asks for the time (upstream §7).
+- The slow clock is the internal 150 kHz RC oscillator by default, or the 8MD256 source. T1 measures both against the Mac's clock over several deep-sleep cycles and makes the steadier one the T5's default. If the drift comes to minutes a day, a time-only sync more often than daily is proposed to the owner, not built.
 
 ### 8.2 Wake timing
 
-- Wakes come from the ESP32's timer, whose slow clock (the internal RC oscillator) drifts with temperature.
-- The board wakes early by a margin, reads the RTC, and waits in light sleep for the minute it renders.
-- The margin is learned: after each wake the app compares where the timer woke it with the RTC, and keeps a correction in the snapshot. A pure function, host-tested.
-- The RC clock's drift on this board is measured at T1; if it is large, the 8MD256 source is measured as an alternative.
+- Every wake comes from the ESP32's timer or a button. The timer and the clock run on the same slow clock, so a wake lands on the clock's minute however much that clock drifts. Upstream's RTC-alarm backup logic is off on boards without the alarm (T0: `ALARM_BACKUP_S` 0).
+- No wake margin is needed, unlike r2's plan for the S3 board with its separate RTC.
+- **Deep sleep:** KEY (IO34) wakes through ext0, BOOT's role (IO35) through ext1 with that one pin, ALL_LOW (§2.5). A button held at sleep time is left out of the wake sources, as upstream (D16).
+- **Light sleep:** both buttons wake through GPIO wakeup, and the console's UART wakes it too (§9).
 
 ### 8.3 Buttons
 
-- KEY on IO21, BOOT on IO0, both active low with external pull-ups, with the same gestures and timings as upstream (upstream §5.6).
-- IO0 is read only while the panel is idle: `epaper` tells the buttons task when it drives the strobe, and the task ignores IO0 then. A press that spans an update counts from the end of the update.
-- Both are ext1 wake sources in deep sleep, and both wake light sleep.
+- KEY on IO34, BOOT's role on IO35, both active low with external 100k pull-ups, with the same gestures and timings as upstream (upstream §5.6).
+- IO39 stays free. IO0 is never read (DT7).
 
 ### 8.4 Battery
 
-GPIO14, ADC2 channel 3, 12 dB, divider 2 (the factor setting as upstream). The reading is taken right after a wake, before Wi-Fi starts; with Wi-Fi on, a failed read keeps the last value and is logged. The voltage-to-level model, the manual calibration and the learned curve are upstream's.
+GPIO36, ADC1 channel 0, 12 dB, divider 2 (the factor setting as upstream), line-fitting calibration. ADC1 doesn't conflict with Wi-Fi. The voltage-to-level model, the manual calibration and the learned curve are upstream's.
 
 ### 8.5 Power
 
-The T5 idles in deep sleep (DT6). `docs/power.md` gets a T5 section: the deep-sleep floor (the vendor says about 380 µA; others report about 170 µA), each refresh mode's charge, a minute update's total, a sync's, and the average for upstream's default settings. Upstream's N2 goal (below 2 mA on average) is the yardstick.
+The T5 idles in deep sleep (DT6) and runs at 240 MHz while awake, epdiy's speed. `docs/power.md` gets a T5 section:
+- the deep-sleep floor;
+- each refresh mode's charge;
+- a minute update's total, a sync's;
+- the average for upstream's default settings;
+- the slow clock's drift.
+
+Upstream's N2 goal (below 2 mA on average) is the yardstick.
 
 ## 9. Settings, menu, web and console
 
 - **Settings:** `display.clean_after` (1–240, default 60) joins `display.*`, default in `components/storage` (AGENTS.md §8). On the T5, `display.lpm_hz`, `display.contrast`, `sensors.temp_offset_c` and `sensors.hum_offset_pct` stay in the file but nothing reads or shows them.
 - **Menu:** Display ▸ Clean refresh on the T5, in place of Display ▸ Refresh rate. Items for missing hardware are hidden.
 - **Web:** the Display page's clean refresh and sentence (§5.3); the capabilities hide the rest (§4.3).
-- **Console** on the T5:
-  - `panel status`: fast updates since the last clean one, the last update's mode, area and time.
+- **Console on the T5** (DT11):
+  - UART0 at 115200 through the CH9102, line mode as upstream.
+  - Console input keeps the board awake for 5 minutes. A PC can't be detected on UART, so this replaces upstream's tethered mode on this board.
+  - The UART wakes light sleep; `power idle light` keeps a bench board reachable.
+  - `panel status`: the updates since boot and the last one's time; from T4, fast updates since the last clean one and the last update's mode and area.
   - `panel clean`: a clean update now.
-  - `panel test`: the test pattern, then a 16-step gray ramp.
+  - `panel test`: the test pattern; from T2 also a 16-step gray ramp.
+  - `panel bench`: the clean, GL16 and DU times (T1).
   - `panel sleep|wake` as upstream.
+  - `rtc get|set` on the system clock.
   - `panel mode|rate|fps|init`, `sensors`' SHTC3 part and the trim lines of `rtc get` are absent.
-  - `screenshot`: PGM (§6.5).
+  - `screenshot`: PBM until T2, then PGM (§6.5).
+- **Tools:** `tools/devlog.py` and `tools/screenshot.py` take `-p` for a `/dev/cu.usbserial-*` port. On such a port they open without resetting the board, changing DTR and RTS together, and `--reset` pulses RTS to reset it.
 
 ## 10. Testing and verification
 
@@ -325,17 +357,20 @@ The T5 idles in deep sleep (DT6). `docs/power.md` gets a T5 section: the deep-sl
 As upstream (AGENTS.md §7), for both boards:
 
 1. **Build:** `tools/idf.sh build` and `REFLBO_BOARD=t5 tools/idf.sh build`, with no new warnings.
-2. **Host:** ctest builds the UI for both profiles. The RLCD's goldens must not change, in every task. New tests: the PCF8563 codec, the shift-register sequences, the changed-area search and the update policy, the clean-refresh sentence, the wake margin, 4 bpp primitives and blending, the 4-bit font format, the RLCD's fonts in the wider format drawing the same.
-3. **Device (T5):** flash, boot log, console, screenshots compared with the goldens. The test pattern and the gray ramp at T1 and T2.
+2. **Host:**
+   - ctest builds the UI for both profiles.
+   - The RLCD's goldens must not change, in every task.
+   - New tests: the shift register's "all off" word, the frame blit, the changed-area search and the update policy, the clean-refresh sentence, the system-clock RTC's validity rule, 4 bpp primitives and blending, the 4-bit font format, the RLCD's fonts in the wider format drawing the same, and the tools' port handling.
+3. **Device (T5):** flash, boot log, console, screenshots compared with the goldens. The test pattern at T1, the gray ramp at T2.
 4. **Owner:** the panel's look (contrast, ghosting, legibility of the dense layouts), current, and the buttons once reachable.
 
 ### 10.2 Rules at the board
 
-- The T5's port is identified by its MAC (`esptool read_mac`), recorded in AGENTS.md at T1. Every `devlog`, `screenshot` and `flash` names its port.
-- Never the RLCD board's port (DT8). If unsure which port is which, read the MAC first.
-- No T5 image may turn the USB console off or sleep before it has been up 2 s after a reset: RESET is the only way back while BOOT can't be reached.
+- The T5 is `/dev/cu.usbserial-52D60046741`, MAC `34:ab:95:5e:5d:58` (2026-10-07). If the port name changes, the MAC decides (`esptool read_mac` resets only the board it talks to). Every `devlog`, `screenshot`, `esptool` and `flash` call names its port.
+- Never the RLCD board's port (DT8).
+- No T5 image may silence the console or sleep before it has been up 2 s after a reset.
 - Deep-sleep tests wake by timer.
-- Nothing erases flash, NVS or the storage partition without the owner's word (upstream rule 3).
+- Nothing erases flash, NVS or the storage partition without the owner's word (upstream rule 3). The factory flash is backed up before the first write.
 
 ## 11. Milestones
 
@@ -343,24 +378,24 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 
 | # | Milestone | Done when |
 |---|---|---|
-| T0 | The seams: the Kconfig board choice, `idf.sh`'s `REFLBO_BOARD`, the pin headers, capabilities, the display, RTC and sensor seams, the UI profile with the panel's size, status bar, board and capabilities; the T5 builds with a display that draws nothing and the RLCD's profile | Both boards build clean; the RLCD's goldens byte-identical; host tests pass |
-| T1 | Bring-up: vendored epdiy with its patch, `epaper`, rails and deep sleep, the PCF8563, the buttons, the battery; every update clean; DU, GL16 and GC16 measured. Until T3 the app still draws the RLCD's 400×300 1 bpp frame, which `epaper` places in the panel's centre | The test pattern and the clock on the panel (owner confirms); the T5's MAC and the timings recorded |
+| T0 | The seams: the Kconfig board choice, `idf.sh`'s `REFLBO_BOARD`, the pin headers, capabilities, the display, RTC and sensor seams, the UI profile with the panel's size, status bar, board and capabilities; the T5 builds with a display that draws nothing and the RLCD's profile | Both boards build clean; the RLCD's goldens byte-identical; host tests pass (done 2026-10-07) |
+| T1 | Port and bring-up: the T5 as an ESP32 board (target, pins, console, wake, the ADC's scheme, the system-clock RTC, the tools); epdiy's ESP32 path with its board and patch P5, `epaper`, rails and deep sleep; every update clean; DU, GL16 and GC16, the slow clock's drift and the sleep current measured. Until T3 the app draws the RLCD's 400×300 1 bpp frame, which `epaper` places in the panel's middle | The test pattern and the clock on the panel (owner confirms); the timings, drift and current recorded |
 | T2 | Grayscale gfx: 4 bpp, anti-aliased fonts and icons, PGM screenshots, gray BMPs | The gray ramp and anti-aliased text on the panel match their screenshots |
 | T3 | The dense UI: the T5 profile, layouts, menu, screens, presets, the web page | The owner approves the renders; the T5's goldens committed; every layout on the panel |
-| T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep, wake timing; power | Fast updates without artifacts across wakes; the average current measured |
+| T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured |
 
 ## 12. Risks and open items
 
-- **The epdiy patch** reaches into its render internals; a newer epdiy may need the patch reworked (`PATCHES.md`). If it proves unworkable at T1, the fallback is our own driver on epdiy's waveform data (the option the owner didn't pick).
+- **The ESP32's internal RAM** with Wi-Fi, TLS, the web server and epdiy's update all at once. T1 measures it; the LUT falls back to PSRAM, and epdiy is up only for updates.
+- **The slow clock's drift** without an RTC may need more frequent time syncs (DT10); T1 measures it.
 - **Refresh times and currents are unknown** until T1. They set `clean_after`'s default, the menu's mode and the radar loop's frame time.
 - **Ghosting** from fast updates between clean ones; the default may need lowering after the owner sees the panel.
-- **The RC clock's drift** may need a larger wake margin, costing awake time.
-- **BOOT on the strobe:** a press during an update could glitch the panel's control lines for that update; the next clean update repairs it.
-- **Image size:** T5 fonts at 4 bits and up to 220 px; the app has about 1.5 MB free in its 4 MB slot at the fork's base.
-- **Radar frames at 960 px** are about 2.4 times the RLCD's pixels; the frame file and decode buffers grow with them (upstream gotcha 36 caps snapshot blocks, not the radar's file).
+- **The CH9102's auto-reset:** a tool that opens the port the wrong way resets the board (§2.5).
+- **Image size:** T5 fonts at 4 bits and up to 220 px; the app has about 1.5 MB free in its 4 MB slot.
+- **Radar frames at 960 px** are about 2.4 times the RLCD's pixels; the frame file and decode buffers grow with them, in 4 MB of mapped PSRAM.
 - **Merge conflicts** with upstream's M7 in `components/ui`, mostly from `UI_PX()`. Merging `upstream/main` into the fork after each upstream milestone keeps them small.
-- **V2.4 support** would use stock epdiy's S3 path (LE on IO48, STV on IO45) through a third board choice. Not planned.
-- **Second button:** the owner can reach only one button (likely RESET) for now; the buttons' owner check waits.
+- **The T5-ePaper-S3** (LilyGo's newer board) would be a third board choice. Its V2.3 needs the S3 output patch from the fork's history (commit `7232440`); its V2.4 runs stock epdiy. Not planned.
+- **Buttons:** the owner can reach only RESET for now; the buttons' owner check waits.
 
 ## 13. Revision history
 
@@ -368,3 +403,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 |---|---|---|
 | r1 | 2026-10-06 | First draft from the owner's answers (DT1–DT5) and the agreed design sections |
 | r2 | 2026-10-07 | T0 as built: the capabilities' list (§4.3), `display_init_lost()` (§4.4), the profile's first members (§7.1, §11) |
+| r3 | 2026-10-07 | The board is the ESP32 LilyGo T5-4.7 (DT9) without an RTC (DT10), with a UART console (DT11): the board (§2), the build's per-board target (§4.1), pins (§4.2), the capabilities (§4.3), the RTC (§4.5, §8.1), the ADC (§4.6), epdiy stock on the ESP32 with patch P5 (§5.1, DT4), `epaper` (§5.2), deep sleep (§5.4), wake and buttons (§8.2, §8.3, DT7), the battery (§8.4), the console and tools (§9), the rules at the board (§10.2), T1 (§11), the risks (§12) |
