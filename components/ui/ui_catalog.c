@@ -5,10 +5,8 @@
 
 #include "cJSON.h"
 #include "ui_layout.h"
+#include "ui_profile.h"
 #include "ui_split.h"
-
-#define PANEL_W 400
-#define PANEL_H 300
 
 static const char *const k_kinds[UI_FK_COUNT] = {
     [UI_FK_TIME] = "time",
@@ -79,9 +77,18 @@ static void add_split(cJSON *root)
 size_t ui_catalog_layouts_json(char *out, size_t size)
 {
     cJSON *root = cJSON_CreateObject();
-    cJSON_AddNumberToObject(root, "width", PANEL_W);
-    cJSON_AddNumberToObject(root, "height", PANEL_H);
-    cJSON_AddNumberToObject(root, "status_h", UI_STATUS_H);
+    const ui_profile_t *p = ui_profile();
+    cJSON_AddStringToObject(root, "board", p->board);
+    cJSON_AddNumberToObject(root, "width", p->width);
+    cJSON_AddNumberToObject(root, "height", p->height);
+    cJSON_AddNumberToObject(root, "status_h", p->status_h);
+    cJSON *caps = cJSON_AddArrayToObject(root, "caps");
+    for (uint32_t bit = 1; bit != 0; bit <<= 1) {
+        const char *name = ui_cap_name(bit);
+        if ((p->caps & bit) != 0 && name != NULL) {
+            cJSON_AddItemToArray(caps, cJSON_CreateString(name));
+        }
+    }
     cJSON *layouts = cJSON_AddArrayToObject(root, "layouts");
     for (int l = 0; l < UI_LAYOUT_COUNT; l++) {
         const ui_layout_t *layout = ui_layout((ui_layout_id_t)l);

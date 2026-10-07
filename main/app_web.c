@@ -19,6 +19,7 @@
 #include "timekeeping.h"
 #include "ui_catalog.h"
 #include "ui_dashboard.h"
+#include "ui_profile.h"
 #include "util_time.h"
 #include "webui.h"
 
@@ -303,11 +304,12 @@ static gfx_fb_t *preview_fb(void)
     static gfx_fb_t fb;
     static uint8_t *buf;
     if (buf == NULL) {
-        buf = heap_caps_malloc(gfx_fb_size(400, 300), MALLOC_CAP_SPIRAM);
+        const ui_profile_t *p = ui_profile();
+        buf = heap_caps_malloc(gfx_fb_size(p->width, p->height), MALLOC_CAP_SPIRAM);
         if (buf == NULL) {
             return NULL;
         }
-        gfx_fb_init(&fb, buf, 400, 300);
+        gfx_fb_init(&fb, buf, p->width, p->height);
     }
     return &fb;
 }

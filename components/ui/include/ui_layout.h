@@ -4,10 +4,11 @@
 
 #include "gfx.h"
 #include "ui_fields.h"
+#include "ui_profile.h"
 
 /* Layouts (spec §5.2): fixed slot rectangles below a 20 px status bar. Pure C, host-buildable. */
 
-#define UI_STATUS_H 20
+#define UI_STATUS_H (ui_profile()->status_h) /* 20 on the RLCD (T5 spec §7.1) */
 #define UI_SLOT_MAX 24 /* the split layout's cells (ui_split.h, M6c); the fixed layouts use up to 6 */
 
 typedef enum {

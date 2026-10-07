@@ -4,9 +4,6 @@
 
 /* The split layout's geometry and its cells' sizes (spec §5.2, D31). */
 
-#define PANEL_W 400
-#define PANEL_H 300
-
 static const char *const k_ratio_names[] = { [UI_RATIO_1_4] = "1/4", [UI_RATIO_1_3] = "1/3", [UI_RATIO_1_2] = "1/2",
                                              [UI_RATIO_2_3] = "2/3", [UI_RATIO_3_4] = "3/4" };
 static const uint8_t k_ratio_num[] = { [UI_RATIO_1_4] = 1, [UI_RATIO_1_3] = 1, [UI_RATIO_1_2] = 1,
@@ -45,7 +42,8 @@ static const struct {
 
 gfx_rect_t ui_split_area(void)
 {
-    return (gfx_rect_t){ 0, UI_STATUS_H + 1, PANEL_W, PANEL_H - UI_STATUS_H - 1 };
+    const ui_profile_t *p = ui_profile();
+    return (gfx_rect_t){ 0, (int16_t)(p->status_h + 1), p->width, (int16_t)(p->height - p->status_h - 1) };
 }
 
 int ui_split_first(int length, int ratio)

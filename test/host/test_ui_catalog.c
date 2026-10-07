@@ -5,6 +5,7 @@
 #include "cJSON.h"
 #include "context_fixtures.h"
 #include "ui_catalog.h"
+#include "ui_profile.h"
 #include "ui_split.h"
 #include "unity.h"
 
@@ -201,11 +202,48 @@ static void test_a_buffer_too_small_gives_nothing(void)
     TEST_ASSERT_EQUAL_UINT(0, ui_catalog_fields_json(&ctx, s_out, 64));
 }
 
+static bool has_string(const cJSON *array, const char *text)
+{
+    const cJSON *item;
+    cJSON_ArrayForEach(item, array)
+    {
+        if (cJSON_IsString(item) && strcmp(item->valuestring, text) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* T5 spec §4.3: the page learns the board and what it has from the catalogue. */
+static void test_layouts_name_the_board_and_its_capabilities(void)
+{
+    TEST_ASSERT_TRUE(ui_catalog_layouts_json(s_out, sizeof(s_out)) > 0);
+    s_root = cJSON_Parse(s_out);
+    TEST_ASSERT_NOT_NULL(s_root);
+    TEST_ASSERT_EQUAL_STRING("rlcd42", str(s_root, "board"));
+    TEST_ASSERT_EQUAL_INT(20, num(s_root, "status_h"));
+    const cJSON *caps = cJSON_GetObjectItemCaseSensitive(s_root, "caps");
+    TEST_ASSERT_EQUAL_INT(5, cJSON_GetArraySize(caps));
+    TEST_ASSERT_TRUE(has_string(caps, "env_sensor"));
+    TEST_ASSERT_TRUE(has_string(caps, "lpm_rate"));
+    cJSON_Delete(s_root);
+
+    ui_profile_use(&ui_profile_t5s3);
+    TEST_ASSERT_TRUE(ui_catalog_layouts_json(s_out, sizeof(s_out)) > 0);
+    ui_profile_use(NULL);
+    s_root = cJSON_Parse(s_out);
+    TEST_ASSERT_NOT_NULL(s_root);
+    TEST_ASSERT_EQUAL_STRING("t5s3", str(s_root, "board"));
+    TEST_ASSERT_EQUAL_INT(400, num(s_root, "width"));
+    TEST_ASSERT_EQUAL_INT(0, cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(s_root, "caps")));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_layouts_list_their_slots_with_rectangles_sizes_and_kinds);
     RUN_TEST(test_layouts_publish_the_split_rules);
+    RUN_TEST(test_layouts_name_the_board_and_its_capabilities);
     RUN_TEST(test_fields_carry_their_kind_label_and_current_value);
     RUN_TEST(test_a_buffer_too_small_gives_nothing);
     return UNITY_END();

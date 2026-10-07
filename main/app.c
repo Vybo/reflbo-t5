@@ -36,6 +36,7 @@
 #include "sensors.h"
 #include "storage.h"
 #include "timekeeping.h"
+#include "ui_profile.h"
 #include "ui_screens.h"
 #include "util_snapshot.h"
 #include "util_ticks.h"
@@ -67,6 +68,20 @@
 #define NVS_KEY_RESUME    "resume_cfg" /* in `sys`: come back in config mode (spec §10.2) */
 
 static const char *TAG = "app";
+
+/* The UI's profile of this board (T5 spec §4.3, §7.1); its capabilities must say what board_caps.h says. */
+#if CONFIG_REFLBO_BOARD_T5S3
+#define UI_PROFILE_BOARD ui_profile_t5s3
+#define UI_CAPS_BOARD    UI_CAPS_T5S3
+#else
+#define UI_PROFILE_BOARD ui_profile_rlcd42
+#define UI_CAPS_BOARD    UI_CAPS_RLCD42
+#endif
+_Static_assert(((UI_CAPS_BOARD & UI_CAP_ENV_SENSOR) != 0) == BOARD_HAS_ENV_SENSOR, "UI caps: env sensor");
+_Static_assert(((UI_CAPS_BOARD & UI_CAP_AUDIO) != 0) == BOARD_HAS_AUDIO, "UI caps: audio");
+_Static_assert(((UI_CAPS_BOARD & UI_CAP_RTC_TRIM) != 0) == BOARD_HAS_RTC_TRIM, "UI caps: RTC trim");
+_Static_assert(((UI_CAPS_BOARD & UI_CAP_RTC_ALARM_WAKE) != 0) == BOARD_HAS_RTC_ALARM_WAKE, "UI caps: RTC alarm");
+_Static_assert(((UI_CAPS_BOARD & UI_CAP_LPM_RATE) != 0) == BOARD_HAS_LPM_RATE, "UI caps: LPM rate");
 
 typedef enum {
     EV_RTC_ALARM,
@@ -571,6 +586,7 @@ static void *json_malloc(size_t size)
 
 static esp_err_t boot(void)
 {
+    ui_profile_use(&UI_PROFILE_BOARD);
     esp_err_t err = power_init();
     power_wake_t wake = power_boot_wake();
     esp_ota_img_states_t ota = ESP_OTA_IMG_UNDEFINED;
