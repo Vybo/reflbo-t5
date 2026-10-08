@@ -70,5 +70,15 @@ A routine deep-sleep minute keeps the chip awake about 2.2 s, nearly all of it t
 | 150 kHz RC (ESP-IDF default) | T1 bring-up, `CONFIG_RTC_CLK_SRC_INT_RC` | 16:15:47–16:49:06 UTC | +17 to +19 s (the start set ±1 s) | about +9000 ppm, 13 min a day fast |
 | 8MD256 (the T5's default) | T1 bring-up, `CONFIG_RTC_CLK_SRC_INT_8MD256` (as cc1d27e) | 16:51:28–17:23:46 UTC | −1.96 s | about −1000 ppm, 85 s a day slow |
 
-**Current:** to be measured by the owner (T1, the USB meter): the deep-sleep floor between updates, a clean update's peak and length, a minute's mAh.
+**Current on USB** (2026-10-08, the owner's USB meter between a wall charger and the board, the LiPo charged; the clock unset, so no redraws):
+
+| Build | State | Current at 5.03 V | Notes |
+|---|---|---|---|
+| cc1d27e | idle light, 12 h+ | ~61 mA, steady | the light-sleep spin (T5 gotcha T8) likely held it awake |
+| 2bf1d25 | `sleep test light 15` | 138 mA | the spin: 1 light sleep in 2 h |
+| 69c2369 | held awake by a console line | 107 mA | the ESP32 at 240 MHz on top of the floor |
+| 69c2369 | light sleep (46–50 s a minute, 7 ms awake) | ~67 mA | flat on the meter's chart |
+| 69c2369 | deep sleep (`sleep test deep 15`) | ~65 mA | the same with either shift-register rest word |
+
+The ~65 mA is the hardware with USB in: VBUS holds the panel's switched rail on and the USB-serial chip runs (T5 spec §2.5 gotcha 20). The T5's sleep current is a battery-side measurement, still to be made (an ammeter in series with the LiPo); LilyGo quotes about 380 µA.
 

@@ -124,6 +124,7 @@ The bits go out last first, then the strobe rises: output enable, mode, PWR_EN (
 17. **`epd_init()` sets the board every time**, and epdiy warns "EPD board can only be set once!" from the second update on, routine wakes included. The fork sets epdiy's log tag to errors; P5's fallback logs as `epd` and still shows.
 18. **The battery reads about 4.78 V with USB in**, the LiPo's charger voltage, so the gauge shows full while USB is connected and the battery's own voltage once unplugged. As upstream, charging is invisible to the firmware.
 19. **The ESP32 refuses a light sleep of a millisecond** (`ESP_ERR_SLEEP_TOO_SHORT_SLEEP_DURATION`, which is `ESP_ERR_INVALID_ARG`). A light sleep that woke just before its minute asked for that much, got refused, and the loop went straight back to it without ticking: the board spun awake at 240 MHz for good (115–138 mA on the owner's meter). The app ticks a wake that has come (`sched_wake_due()`) instead of planning a sleep for it. The S3 sleeps that millisecond, so the RLCD never showed it; the shared fix goes upstream with the merge.
+20. **USB power keeps the panel's rail on.** In LilyGo's schematic (`T5-4.7.pdf`, the CP2104 revision), the switched `3V3` that feeds the panel, its LT1945 boost converter, the ±15 V regulators, the VCOM amplifier and the blue LED is turned on through Q2 by either POWER_EN (D6, the shift register) or VBUS (D7). With USB in, it stays on whatever the firmware does, and the USB-serial chip runs too: the owner's USB meter read about 65 mA with the ESP32 in deep sleep and 67 mA in light sleep (T1, 2026-10-08), both the hardware's floor. The sleep current exists only on battery, where POWER_EN switches the rail off; LilyGo quotes about 380 µA. A USB meter can't measure it (§8.5).
 
 ## 3. The fork
 
@@ -343,7 +344,7 @@ The T5 idles in deep sleep (DT6) and runs at 240 MHz while awake, epdiy's speed.
 
 Upstream's N2 goal (below 2 mA on average) is the yardstick.
 
-T1 (2026-10-07): a deep-sleep minute wakes for about 2.2 s, the clean update's length. The deep-sleep current, a clean update's peak and charge, and a minute's total wait for the owner's USB meter.
+T1 (2026-10-07/08): a deep-sleep minute wakes for about 2.2 s, the clean update's length. On USB the owner's meter reads the hardware's floor, not the sleep current (§2.5 gotcha 20): about 107 mA awake at 240 MHz, 67 mA in light sleep, 65 mA in deep sleep. The sleep current needs a measurement on the battery side (an ammeter in series with the LiPo), which waits for the owner.
 
 ## 9. Settings, menu, web and console
 
