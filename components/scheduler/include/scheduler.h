@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <time.h>
 
 /*
@@ -45,3 +46,6 @@ time_t sched_local_to_utc(int year, int month, int day, int minute);
 /* The first time strictly after `after` when the local clock reads `at_min` on one of `days`
  * (bit 0 Monday ... bit 6 Sunday); 0 if `days` is empty. */
 time_t sched_next_weekly(time_t after, int at_min, unsigned days);
+/* Whether a wake set for `when` (UTC seconds) has come at `now_ms` (UTC milliseconds). A due wake is
+ * ticked, not slept to: the ESP32 refuses a light sleep that short (T5 spec §2.5). */
+bool sched_wake_due(int64_t now_ms, time_t when);

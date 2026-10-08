@@ -123,6 +123,7 @@ The bits go out last first, then the strobe rises: output enable, mode, PWR_EN (
 16. **The slow clock drifts.** Over 30 one-minute deep-sleep cycles the 150 kHz RC ran about 0.9 % fast (13 minutes a day), the 8MD256 source about 0.1 % slow (85 s a day): the T5 uses 8MD256 (§8.1).
 17. **`epd_init()` sets the board every time**, and epdiy warns "EPD board can only be set once!" from the second update on, routine wakes included. The fork sets epdiy's log tag to errors; P5's fallback logs as `epd` and still shows.
 18. **The battery reads about 4.78 V with USB in**, the LiPo's charger voltage, so the gauge shows full while USB is connected and the battery's own voltage once unplugged. As upstream, charging is invisible to the firmware.
+19. **The ESP32 refuses a light sleep of a millisecond** (`ESP_ERR_SLEEP_TOO_SHORT_SLEEP_DURATION`, which is `ESP_ERR_INVALID_ARG`). A light sleep that woke just before its minute asked for that much, got refused, and the loop went straight back to it without ticking: the board spun awake at 240 MHz for good (115–138 mA on the owner's meter). The app ticks a wake that has come (`sched_wake_due()`) instead of planning a sleep for it. The S3 sleeps that millisecond, so the RLCD never showed it; the shared fix goes upstream with the merge.
 
 ## 3. The fork
 
@@ -418,4 +419,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r1 | 2026-10-06 | First draft from the owner's answers (DT1–DT5) and the agreed design sections |
 | r2 | 2026-10-07 | T0 as built: the capabilities' list (§4.3), `display_init_lost()` (§4.4), the profile's first members (§7.1, §11) |
 | r3 | 2026-10-07 | The board is the ESP32 LilyGo T5-4.7 (DT9) without an RTC (DT10), with a UART console (DT11): the board (§2), the build's per-board target (§4.1), pins (§4.2), the capabilities (§4.3), the RTC (§4.5, §8.1), the ADC (§4.6), epdiy stock on the ESP32 with patch P5 (§5.1, DT4), `epaper` (§5.2), deep sleep (§5.4), wake and buttons (§8.2, §8.3, DT7), the battery (§8.4), the console and tools (§9), the rules at the board (§10.2), T1 (§11), the risks (§12) |
-| r4 | 2026-10-07 | T1 as built: bring-up's findings (§2.5), the LUT and epdiy's RAM budget (§5.1), the refresh times (§5.3), the slow clock and its drift (§8.1), the current (§8.5, the owner's meter pending); DT12; the risks (§12) |
+| r4 | 2026-10-08 | T1 as built: bring-up's findings (§2.5), the LUT and epdiy's RAM budget (§5.1), the refresh times (§5.3), the slow clock and its drift (§8.1), the current (§8.5, the owner's meter pending); DT12; the risks (§12) |

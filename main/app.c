@@ -734,7 +734,14 @@ static void app_task(void *arg)
                 continue;
             }
         }
-        switch (power_plan(pending)) {
+        power_plan_t plan = power_plan(pending);
+        if ((plan == POWER_PLAN_LIGHT || plan == POWER_PLAN_DEEP) && sched_wake_due(now_ms(), sleep_until())) {
+            /* The wake has come, e.g. a light sleep woke a millisecond early: tick now. A sleep that short
+             * is refused on the ESP32, and the loop came straight back to it (T5 spec §2.5). */
+            on_tick(false, false);
+            continue;
+        }
+        switch (plan) {
         case POWER_PLAN_LIGHT:
             handle_wake(power_sleep_light(sleep_until()));
             continue;

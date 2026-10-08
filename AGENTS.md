@@ -465,3 +465,4 @@ This repository is the fork `Vybo/reflbo-t5`. It adds a second board, the LilyGo
   - T5. The slow clock drifts: the 150 kHz RC about +0.9 %, 8MD256 (the T5's) about −0.1 %, 85 s a day; one NTP sync a day bounds it (DT12).
   - T6. `epd_init()` sets the board every time and epdiy warns about it; epdiy's log tag is set to errors.
   - T7. VBAT reads about 4.78 V while USB charges the LiPo, so the gauge shows full on USB.
+  - T8. The ESP32 refuses a 1 ms light sleep as too short, so a light sleep that woke just before its minute made the loop spin awake for good; the loop now ticks a due wake (`sched_wake_due()`) instead of sleeping for it. Shared code: it reaches the RLCD with the merge.

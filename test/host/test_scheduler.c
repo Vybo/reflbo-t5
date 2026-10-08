@@ -186,6 +186,23 @@ static void test_a_sync_between_display_slots_wakes_the_board(void)
     TEST_ASSERT_EQUAL_UINT(SCHED_DISPLAY | SCHED_SENSORS, scheduler_next_wake(&in).reasons); /* 05:30 */
 }
 
+/* T1 bring-up: a light sleep that woke a millisecond before its minute asked for a 1 ms sleep, which the
+ * ESP32 refuses as too short; the loop then spun awake for good. A wake that has come is due, not slept to. */
+static void test_a_wake_a_millisecond_away_is_not_due(void)
+{
+    TEST_ASSERT_FALSE(sched_wake_due((int64_t)1000 * 1000 - 1, 1000));
+}
+
+static void test_a_wake_at_its_second_is_due(void)
+{
+    TEST_ASSERT_TRUE(sched_wake_due((int64_t)1000 * 1000, 1000));
+}
+
+static void test_a_wake_in_the_past_is_due(void)
+{
+    TEST_ASSERT_TRUE(sched_wake_due((int64_t)1060 * 1000 + 5, 1000));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -204,5 +221,8 @@ int main(void)
     RUN_TEST(test_weekly_entries_find_their_next_day);
     RUN_TEST(test_a_weekly_entry_in_the_spring_gap_fires_at_the_first_valid_minute);
     RUN_TEST(test_the_next_schedule_entry_sets_the_alarm);
+    RUN_TEST(test_a_wake_a_millisecond_away_is_not_due);
+    RUN_TEST(test_a_wake_at_its_second_is_due);
+    RUN_TEST(test_a_wake_in_the_past_is_due);
     return UNITY_END();
 }

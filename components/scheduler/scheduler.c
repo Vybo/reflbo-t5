@@ -98,3 +98,8 @@ sched_wake_t scheduler_next_wake(const sched_input_t *in)
                    (entry == wake.when ? SCHED_ENTRY : 0) | (sync == wake.when ? SCHED_SYNC : 0);
     return wake;
 }
+
+bool sched_wake_due(int64_t now_ms, time_t when)
+{
+    return now_ms >= (int64_t)when * 1000;
+}
