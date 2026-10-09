@@ -72,6 +72,10 @@ typedef struct {
     const struct ui_layout *layouts;                   /* [UI_LAYOUT_COUNT] */
     ui_menu_geometry_t menu;
     ui_split_limits_t split;
+    /* The owner's tuning of the T5's renders (T3a review), the RLCD's as it was: */
+    uint8_t sun_s_font; /* ui_font_id_t: the sun's times in an S cell, before smaller faces */
+    uint8_t sun_s_icon; /* ui_icon_class_t: the sunrise and sunset icons beside them */
+    bool sun_s_top;     /* in a narrow S cell the sun stacks from the top like the other S widgets; else centred */
 } ui_profile_t;
 
 extern const ui_profile_t ui_profile_rlcd42;

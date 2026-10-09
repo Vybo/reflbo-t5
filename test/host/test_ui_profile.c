@@ -358,10 +358,40 @@ static void test_a_frame_matches_the_profile_only_in_size_and_format(void)
     TEST_ASSERT_FALSE(ui_profile_matches(&fb));
 }
 
+/* Owner, T3a render review (2026-10-09): on the T5 the sun's times in a narrow S cell start at the top, level with
+ * the other stacked S widgets' symbols (UI_PX(12) down), in a face a step larger than the RLCD's. */
+static void test_the_t5_sun_in_a_narrow_cell_stacks_from_the_top_in_a_larger_face(void)
+{
+    static uint8_t buf[960 * 540 / 2];
+    ui_profile_use(&ui_profile_t547);
+    ui_context_t ctx;
+    ui_preset_t preset;
+    TEST_ASSERT_TRUE(fixture_dashboard("home", &ctx, &preset));
+    TEST_ASSERT_EQUAL(UI_FIELD_SUN_TIMES, preset.slots[4]); /* Classic's s3 */
+    gfx_rect_t r = ui_layout(UI_LAYOUT_CLASSIC)->slots[4].rect;
+    gfx_fb_t fb;
+    gfx_fb_init_fmt(&fb, buf, 960, 540, GFX_FMT_4BPP);
+    ui_draw_dashboard(&fb, &ctx, &preset);
+    int top = -1, left = r.x + r.w, right = -1;
+    for (int y = r.y; y < r.y + r.h; y++) {
+        for (int x = r.x + 2; x < r.x + r.w - 2; x++) { /* clear of the separators at the cell's edges */
+            if (gfx_get_level(&fb, x, y) < 15) {
+                top = top < 0 ? y : top;
+                left = x < left ? x : left;
+                right = x > right ? x : right;
+            }
+        }
+    }
+    TEST_ASSERT_TRUE(top >= 0);
+    TEST_ASSERT_INT_WITHIN(8, r.y + ui_px(12) + 4, top);
+    TEST_ASSERT_TRUE(right - left + 1 >= ui_icon_px(16) + ui_px(6) + gfx_text_width(UI_FONT(UI_F_BOLD_20), "06:44") - 4);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_the_rlcd_is_the_default_profile);
+    RUN_TEST(test_the_t5_sun_in_a_narrow_cell_stacks_from_the_top_in_a_larger_face);
     RUN_TEST(test_a_frame_matches_the_profile_only_in_size_and_format);
     RUN_TEST(test_the_t5_layouts_fit_the_screen);
     RUN_TEST(test_a_scale_of_three_thirds_draws_every_rlcd_golden);
