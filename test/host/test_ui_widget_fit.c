@@ -11,6 +11,7 @@
 #include "gfx_icons.h"
 #include "ui_internal.h"
 #include "ui_layout.h"
+#include "ui_profile.h"
 #include "ui_split.h"
 #include "unity.h"
 
@@ -948,6 +949,55 @@ static void test_bitmap_ink_reads_1bpp_bits_msb_first(void)
     }
 }
 
+/* Owner, T3a board check (2026-10-10): on the T5 "New moon" was cut to "New m…" beside the disc in Sky's 240 px
+ * grid cell; where the name doesn't fit beside the full disc, the disc shrinks instead. */
+static void test_a_moon_name_too_wide_beside_its_disc_shrinks_the_disc(void)
+{
+    static uint8_t buf[960 * 540 / 2];
+    ui_profile_use(&ui_profile_t547);
+    gfx_fb_t fb;
+    gfx_fb_init_fmt(&fb, buf, 960, 540, GFX_FMT_4BPP);
+    gfx_clear(&fb, GFX_WHITE);
+    ui_value_t v = { .field = UI_FIELD_MOON_PHASE, .kind = UI_FK_MOON, .state = UI_VALUE_FRESH, .label = "Moon" };
+    snprintf(v.text, sizeof(v.text), "New moon");
+    snprintf(v.extra, sizeof(v.extra), "1%%");
+    snprintf(v.short_text, sizeof(v.short_text), "New");
+    v.moon.age = 0.01;
+    gfx_rect_t r = { 240, 35, 240, 252 }; /* Grid's g2 */
+    ui_widget_draw(&fb, r, UI_SIZE_M, &v, UI_STALE_STALE, lang_get("en"));
+    /* the name's line: the columns with ink in the band above the disc's middle, right of the disc */
+    const gfx_font_t *f = UI_FONT(UI_F_SANS_16);
+    int w_name = gfx_text_width(f, "New moon");
+    int body_y = r.y + ui_px(6) + UI_FONT(UI_F_SANS_12)->line_height; /* under M's label */
+    int cy = body_y + (r.y + r.h - body_y) / 2;
+    int top = cy - ui_px(2) - f->ascent, bottom = cy - ui_px(2);
+    bool ink[960] = { false };
+    for (int x = r.x + 1; x < r.x + r.w - 1; x++) {
+        for (int y = top; y <= bottom && !ink[x]; y++) {
+            ink[x] = gfx_get_level(&fb, x, y) < 15;
+        }
+    }
+    int x = r.x + 1;
+    while (x < r.x + r.w && !ink[x]) { /* the gap before the disc */
+        x++;
+    }
+    while (x < r.x + r.w && ink[x]) { /* the disc */
+        x++;
+    }
+    int gap = 0;
+    while (x < r.x + r.w && !ink[x]) {
+        x++, gap++;
+    }
+    int left = x, right = left;
+    for (; x < r.x + r.w; x++) {
+        right = ink[x] ? x : right;
+    }
+    ui_profile_use(NULL);
+    TEST_ASSERT_TRUE(gap >= 4);
+    TEST_ASSERT_TRUE_MESSAGE(right - left + 1 >= w_name - 4, "the name is cut");
+    TEST_ASSERT_TRUE(right < r.x + r.w - 2);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -972,6 +1022,7 @@ int main(void)
     RUN_TEST(test_the_solar_fields_show_their_symbols);
     RUN_TEST(test_the_grid_shows_which_way_its_power_goes);
     RUN_TEST(test_bitmap_ink_reads_4bit_coverage_from_half_up);
+    RUN_TEST(test_a_moon_name_too_wide_beside_its_disc_shrinks_the_disc);
     RUN_TEST(test_bitmap_ink_reads_1bpp_bits_msb_first);
     return UNITY_END();
 }

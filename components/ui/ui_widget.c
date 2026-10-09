@@ -906,6 +906,11 @@ static void draw_labelled(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_v
 
     if (v->kind == UI_FK_MOON && v->state != UI_VALUE_MISSING) { /* disc, then the phase name */
         int d = UI_PX(size == UI_SIZE_M ? 40 : 64);
+        int name_w = gfx_text_width(UI_FONT(UI_F_SANS_16), v->text);
+        int room = body.w - UI_PX(20) - UI_PX(6) - name_w; /* what the name leaves the disc */
+        if (room < d) { /* a name too wide beside it: the disc gives way, to half its size (T3a board check) */
+            d = room > d / 2 ? room : d / 2;
+        }
         int cx = body.x + UI_PX(10) + d / 2, cy = body.y + body.h / 2;
         ui_draw_moon(fb, cx, cy, d / 2 - 1, v->moon.age);
         int x = body.x + UI_PX(20) + d;
