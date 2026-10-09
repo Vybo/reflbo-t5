@@ -294,6 +294,7 @@ reflbo_host_test(test_storage_file storage_logic)
 target_compile_definitions(test_storage_file PRIVATE TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/storage_tmp")
 reflbo_host_test(test_storage_backup storage_logic)
 
+reflbo_host_test(test_golden_io ZLIB::ZLIB)
 reflbo_host_test(test_test_pattern_golden gfx)
 target_compile_definitions(test_test_pattern_golden PRIVATE GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
 
@@ -301,19 +302,19 @@ add_executable(render_test_pattern render_test_pattern.c)
 target_compile_options(render_test_pattern PRIVATE ${REFLBO_WARNINGS})
 target_link_libraries(render_test_pattern PRIVATE gfx)
 
-reflbo_host_test(test_ui_dashboard_golden ui)
+reflbo_host_test(test_ui_dashboard_golden ui ZLIB::ZLIB)
 target_compile_definitions(test_ui_dashboard_golden PRIVATE GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
 
 add_executable(render_dashboard render_dashboard.c)
 target_compile_options(render_dashboard PRIVATE ${REFLBO_WARNINGS})
-target_link_libraries(render_dashboard PRIVATE ui)
+target_link_libraries(render_dashboard PRIVATE ui ZLIB::ZLIB)
 
-reflbo_host_test(test_ui_screens_golden ui) # the time zones through ui's solar and energy
+reflbo_host_test(test_ui_screens_golden ui ZLIB::ZLIB) # the time zones through ui's solar and energy
 target_compile_definitions(test_ui_screens_golden PRIVATE GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
 
 add_executable(render_screen render_screen.c)
 target_compile_options(render_screen PRIVATE ${REFLBO_WARNINGS})
-target_link_libraries(render_screen PRIVATE ui)
+target_link_libraries(render_screen PRIVATE ui ZLIB::ZLIB)
 
 # Python tool tests (stdlib unittest; pyserial is not needed).
 find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)

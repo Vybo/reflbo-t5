@@ -475,3 +475,7 @@ static const char *const k_dashboard_fixtures[] = { "home", "indoor", "weather",
                                                     "solar_cs", "solar_none", "energy", "energy_battery",
                                                     "energy_night_cs", "energy_none", "energy_low",
                                                     "grid_solar_low", "solar_evening" };
+
+/* The fixtures with a T5 golden (test/host/golden/t5/dash_<name>.pgm.gz), NULL-terminated: each joins once the
+ * owner has approved its render (T5 spec DT2). */
+static const char *const k_t5_dashboard_fixtures[] = { NULL };

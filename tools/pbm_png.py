@@ -2,6 +2,7 @@
 """Convert binary PBM (P4) and 8-bit PGM (P5) images to PNG using only the standard library.
   python3 tools/pbm_png.py IN.pbm|IN.pgm OUT.png
 """
+import gzip
 import struct
 import sys
 import zlib
@@ -81,7 +82,9 @@ def png_from_pgm(data):
 
 
 def png_from_image(data):
-    """PNG from a P4 PBM or a P5 PGM."""
+    """PNG from a P4 PBM or a P5 PGM, either one gzip-compressed or not (the T5's goldens)."""
+    if data[:2] == b"\x1f\x8b":
+        data = gzip.decompress(data)
     return png_from_pgm(data) if data[:2] == b"P5" else png_from_pbm(data)
 
 

@@ -1,3 +1,4 @@
+import gzip
 import struct
 import unittest
 import zlib
@@ -45,6 +46,10 @@ class PgmTest(unittest.TestCase):
 
     def test_png_from_image_still_reads_pbm(self):
         self.assertEqual(pbm_png.png_from_image(b"P4\n8 2\n\xF0\x0F"), pbm_png.png_from_pbm(b"P4\n8 2\n\xF0\x0F"))
+
+    def test_png_from_image_reads_a_gzip_compressed_image(self):
+        pgm = b"P5\n3 1\n255\n\x00\x77\xFF"
+        self.assertEqual(pbm_png.png_from_image(gzip.compress(pgm)), pbm_png.png_from_image(pgm))
 
 
 if __name__ == "__main__":

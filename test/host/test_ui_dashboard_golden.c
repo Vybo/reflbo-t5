@@ -5,58 +5,68 @@
 
 #include "dashboard_fixtures.h"
 #include "gfx.h"
+#include "golden_io.h"
+#include "ui_profile.h"
 #include "unity.h"
 
-/* Each fixture must match test/host/golden/dash_<name>.pbm byte for byte. After an intentional
- * change: build-host/render_dashboard <name> test/host/golden/dash_<name>.pbm for each fixture,
- * look at the PNGs (python3 tools/render.py), commit. */
+/* Each fixture must match test/host/golden/dash_<name>.pbm byte for byte, and each of k_t5_dashboard_fixtures
+ * test/host/golden/t5/dash_<name>.pgm.gz once unpacked. After an intentional change: build-host/render_dashboard
+ * [--board t5] <name> <golden> for each fixture, look at the PNGs (python3 tools/render.py [--board t5]), commit. */
 
-static uint8_t s_buf[400 * 300 / 8];
-static uint8_t s_pbm[16000];
-static uint8_t s_golden[16000];
+static uint8_t s_buf[960 * 540 / 2];
+static uint8_t s_img[960 * 540 + 32];
+static uint8_t s_golden[960 * 540 + 32];
 
 void setUp(void) {}
 void tearDown(void) {}
 
-static void check(const char *name)
+/* Renders name under the profile in use and compares it with dir/dash_<name><ext>; a mismatch leaves
+ * <prefix>dash_<name>.actual<ext> in the working directory. */
+static void check(const char *name, const char *dir, const char *prefix, const char *ext)
 {
     ui_context_t ctx;
     ui_preset_t preset;
     TEST_ASSERT_TRUE_MESSAGE(fixture_dashboard(name, &ctx, &preset), name);
+    const ui_profile_t *p = ui_profile();
     gfx_fb_t fb;
-    gfx_fb_init(&fb, s_buf, 400, 300);
+    gfx_fb_init_fmt(&fb, s_buf, p->width, p->height, p->format);
     ui_draw_dashboard(&fb, &ctx, &preset);
-    size_t n = gfx_pbm_encode(&fb, s_pbm, sizeof(s_pbm));
+    size_t n = p->format == GFX_FMT_4BPP ? gfx_pgm_encode(&fb, s_img, sizeof(s_img))
+                                         : gfx_pbm_encode(&fb, s_img, sizeof(s_img));
 
     char path[256];
-    snprintf(path, sizeof(path), "%s/dash_%s.pbm", GOLDEN_DIR, name);
-    FILE *f = fopen(path, "rb");
-    TEST_ASSERT_NOT_NULL_MESSAGE(f, path);
-    size_t golden = fread(s_golden, 1, sizeof(s_golden), f);
-    fclose(f);
-    if (golden != n || memcmp(s_golden, s_pbm, n) != 0) {
-        char actual[64];
-        snprintf(actual, sizeof(actual), "dash_%s.actual.pbm", name);
-        FILE *out = fopen(actual, "wb");
-        if (out != NULL) {
-            fwrite(s_pbm, 1, n, out);
-            fclose(out);
-        }
+    snprintf(path, sizeof(path), "%s/dash_%s%s", dir, name, ext);
+    size_t golden = golden_read(path, s_golden, sizeof(s_golden));
+    TEST_ASSERT_TRUE_MESSAGE(golden > 0, path);
+    if (golden != n || memcmp(s_golden, s_img, n) != 0) {
+        char actual[96];
+        snprintf(actual, sizeof(actual), "%sdash_%s.actual%s", prefix, name, ext);
+        golden_write(actual, s_img, n);
     }
     TEST_ASSERT_EQUAL_INT_MESSAGE((int)n, (int)golden, path);
-    TEST_ASSERT_EQUAL_MEMORY_MESSAGE(s_golden, s_pbm, n, path);
+    TEST_ASSERT_EQUAL_MEMORY_MESSAGE(s_golden, s_img, n, path);
 }
 
 static void test_every_fixture_matches_its_golden(void)
 {
     for (size_t i = 0; i < sizeof(k_dashboard_fixtures) / sizeof(k_dashboard_fixtures[0]); i++) {
-        check(k_dashboard_fixtures[i]);
+        check(k_dashboard_fixtures[i], GOLDEN_DIR, "", ".pbm");
     }
+}
+
+static void test_every_t5_fixture_matches_its_golden(void)
+{
+    ui_profile_use(&ui_profile_t547);
+    for (size_t i = 0; k_t5_dashboard_fixtures[i] != NULL; i++) {
+        check(k_t5_dashboard_fixtures[i], GOLDEN_DIR "/t5", "t5_", ".pgm.gz");
+    }
+    ui_profile_use(NULL);
 }
 
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_every_fixture_matches_its_golden);
+    RUN_TEST(test_every_t5_fixture_matches_its_golden);
     return UNITY_END();
 }
