@@ -16,24 +16,116 @@ static int max_int(int a, int b)
 
 size_t gfx_fb_size(int16_t width, int16_t height)
 {
-    return (size_t)((width + 7) / 8) * (size_t)height;
+    return gfx_fb_size_fmt(GFX_FMT_1BPP, width, height);
+}
+
+size_t gfx_fb_size_fmt(gfx_format_t format, int16_t width, int16_t height)
+{
+    int stride = format == GFX_FMT_4BPP ? (width + 1) / 2 : (width + 7) / 8;
+    return (size_t)stride * (size_t)height;
 }
 
 void gfx_fb_init(gfx_fb_t *fb, uint8_t *buf, int16_t width, int16_t height)
 {
+    gfx_fb_init_fmt(fb, buf, width, height, GFX_FMT_1BPP);
+}
+
+void gfx_fb_init_fmt(gfx_fb_t *fb, uint8_t *buf, int16_t width, int16_t height, gfx_format_t format)
+{
     fb->buf = buf;
     fb->width = width;
     fb->height = height;
-    fb->stride = (int16_t)((width + 7) / 8);
+    fb->format = (uint8_t)format;
+    fb->stride = (int16_t)(format == GFX_FMT_4BPP ? (width + 1) / 2 : (width + 7) / 8);
     gfx_reset_clip(fb);
+}
+
+/* 4×4 Bayer thresholds for grays on 1 bpp. */
+static const uint8_t k_bayer4[4][4] = {
+    { 0, 8, 2, 10 },
+    { 12, 4, 14, 6 },
+    { 3, 11, 1, 9 },
+    { 15, 7, 13, 5 },
+};
+
+/* The level an ink paints: 0 black, 15 white, n for GFX_GRAY(n). */
+static uint8_t ink_level(gfx_color_t color)
+{
+    if (color == GFX_BLACK) {
+        return 0;
+    }
+    if (color >= GFX_GRAY_BASE) {
+        int n = (int)color - GFX_GRAY_BASE;
+        return (uint8_t)(n > 15 ? 15 : n);
+    }
+    return 15;
+}
+
+static void put1(gfx_fb_t *fb, int x, int y, gfx_color_t color)
+{
+    uint8_t *byte = &fb->buf[y * fb->stride + (x >> 3)];
+    uint8_t mask = (uint8_t)(0x80u >> (x & 7));
+    if (color >= GFX_GRAY_BASE) { /* (15 − n) / 15 of the pixels black, by the 4×4 thresholds */
+        color = k_bayer4[y & 3][x & 3] * 15 < (15 - ink_level(color)) * 16 ? GFX_BLACK : GFX_WHITE;
+    }
+    switch (color) {
+    case GFX_BLACK:
+        *byte |= mask;
+        break;
+    case GFX_WHITE:
+        *byte &= (uint8_t)~mask;
+        break;
+    case GFX_INVERT:
+        *byte ^= mask;
+        break;
+    default:
+        break;
+    }
+}
+
+static void put4_level(gfx_fb_t *fb, int x, int y, uint8_t level)
+{
+    uint8_t *byte = &fb->buf[y * fb->stride + (x >> 1)];
+    int shift = (x & 1) ? 4 : 0; /* the even pixel in the low nibble */
+    *byte = (uint8_t)((*byte & ~(0x0Fu << shift)) | ((unsigned)level << shift));
+}
+
+static uint8_t level4(const gfx_fb_t *fb, int x, int y)
+{
+    return (uint8_t)((fb->buf[y * fb->stride + (x >> 1)] >> ((x & 1) ? 4 : 0)) & 0x0F);
+}
+
+static void put4(gfx_fb_t *fb, int x, int y, gfx_color_t color)
+{
+    put4_level(fb, x, y, color == GFX_INVERT ? (uint8_t)(15 - level4(fb, x, y)) : ink_level(color));
+}
+
+typedef void (*put_fn)(gfx_fb_t *fb, int x, int y, gfx_color_t color);
+
+static put_fn writer(const gfx_fb_t *fb)
+{
+    return fb->format == GFX_FMT_4BPP ? put4 : put1;
 }
 
 void gfx_clear(gfx_fb_t *fb, gfx_color_t color)
 {
-    size_t size = gfx_fb_size(fb->width, fb->height);
-    if (color == GFX_INVERT) {
+    size_t size = (size_t)fb->stride * (size_t)fb->height;
+    if (color == GFX_INVERT) { /* 1 bpp flips each bit, 4 bpp makes each nibble 15 − v */
         for (size_t i = 0; i < size; i++) {
             fb->buf[i] ^= 0xFF;
+        }
+        return;
+    }
+    if (fb->format == GFX_FMT_4BPP) {
+        uint8_t v = ink_level(color);
+        memset(fb->buf, (int)(v | (v << 4)), size);
+        return;
+    }
+    if (color >= GFX_GRAY_BASE) {
+        for (int y = 0; y < fb->height; y++) {
+            for (int x = 0; x < fb->width; x++) {
+                put1(fb, x, y, color);
+            }
         }
         return;
     }
@@ -62,53 +154,84 @@ void gfx_reset_clip(gfx_fb_t *fb)
     fb->clip = (gfx_rect_t){ 0, 0, fb->width, fb->height };
 }
 
-void gfx_pixel(gfx_fb_t *fb, int x, int y, gfx_color_t color)
+static bool visible(const gfx_fb_t *fb, int x, int y)
 {
     const gfx_rect_t *c = &fb->clip;
     if (x < c->x || y < c->y || x >= c->x + c->w || y >= c->y + c->h) {
-        return;
+        return false;
     }
+    return x >= 0 && y >= 0 && x < fb->width && y < fb->height; /* a clip set by hand may reach outside */
+}
+
+void gfx_pixel(gfx_fb_t *fb, int x, int y, gfx_color_t color)
+{
+    if (visible(fb, x, y)) {
+        writer(fb)(fb, x, y, color);
+    }
+}
+
+uint8_t gfx_get_level(const gfx_fb_t *fb, int x, int y)
+{
     if (x < 0 || y < 0 || x >= fb->width || y >= fb->height) {
-        return; /* a clip set by hand, not through gfx_set_clip(), may reach outside the buffer */
+        return 15;
     }
-    uint8_t *byte = &fb->buf[y * fb->stride + (x >> 3)];
-    uint8_t mask = (uint8_t)(0x80u >> (x & 7));
-    switch (color) {
-    case GFX_BLACK:
-        *byte |= mask;
-        break;
-    case GFX_WHITE:
-        *byte &= (uint8_t)~mask;
-        break;
-    case GFX_INVERT:
-        *byte ^= mask;
-        break;
+    if (fb->format == GFX_FMT_4BPP) {
+        return level4(fb, x, y);
     }
+    return (fb->buf[y * fb->stride + (x >> 3)] & (0x80u >> (x & 7))) ? 0 : 15;
 }
 
 bool gfx_get_pixel(const gfx_fb_t *fb, int x, int y)
 {
-    if (x < 0 || y < 0 || x >= fb->width || y >= fb->height) {
-        return false;
+    return gfx_get_level(fb, x, y) < 8;
+}
+
+void gfx_pixel_coverage(gfx_fb_t *fb, int x, int y, gfx_color_t color, uint8_t coverage)
+{
+    if (coverage == 0) {
+        return;
     }
-    return (fb->buf[y * fb->stride + (x >> 3)] & (0x80u >> (x & 7))) != 0;
+    if (fb->format != GFX_FMT_4BPP || coverage >= 15) {
+        if (coverage >= 8) {
+            gfx_pixel(fb, x, y, color);
+        }
+        return;
+    }
+    if (!visible(fb, x, y)) {
+        return;
+    }
+    int d = level4(fb, x, y);
+    int t = color == GFX_INVERT ? 15 - d : ink_level(color);
+    int num = (t - d) * coverage;
+    int step = num >= 0 ? (num + 7) / 15 : -((-num + 7) / 15); /* rounded half away from zero */
+    put4_level(fb, x, y, (uint8_t)(d + step));
 }
 
 void gfx_hline(gfx_fb_t *fb, int x, int y, int w, gfx_color_t color)
 {
-    int x0 = max_int(x, fb->clip.x);
-    int x1 = min_int(x + w, fb->clip.x + fb->clip.w);
+    const gfx_rect_t *c = &fb->clip;
+    if (y < c->y || y >= c->y + c->h || y < 0 || y >= fb->height) {
+        return;
+    }
+    int x0 = max_int(max_int(x, c->x), 0);
+    int x1 = min_int(min_int(x + w, c->x + c->w), fb->width);
+    put_fn put = writer(fb);
     for (int i = x0; i < x1; i++) {
-        gfx_pixel(fb, i, y, color);
+        put(fb, i, y, color);
     }
 }
 
 void gfx_vline(gfx_fb_t *fb, int x, int y, int h, gfx_color_t color)
 {
-    int y0 = max_int(y, fb->clip.y);
-    int y1 = min_int(y + h, fb->clip.y + fb->clip.h);
+    const gfx_rect_t *c = &fb->clip;
+    if (x < c->x || x >= c->x + c->w || x < 0 || x >= fb->width) {
+        return;
+    }
+    int y0 = max_int(max_int(y, c->y), 0);
+    int y1 = min_int(min_int(y + h, c->y + c->h), fb->height);
+    put_fn put = writer(fb);
     for (int i = y0; i < y1; i++) {
-        gfx_pixel(fb, x, i, color);
+        put(fb, x, i, color);
     }
 }
 

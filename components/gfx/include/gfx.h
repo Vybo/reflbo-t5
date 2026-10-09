@@ -7,8 +7,10 @@
 #include "gfx_font.h"
 
 /*
- * 1-bpp drawing (spec §4.3). Framebuffer: row-major, MSB = leftmost pixel, bit 1 = black,
- * which is the PBM P4 raster layout. Pure C with no ESP-IDF headers, so it builds on the host.
+ * Drawing (spec §4.3, T5 spec §6). Two framebuffer formats:
+ * - GFX_FMT_1BPP: row-major, MSB = leftmost pixel, bit 1 = black, the PBM P4 raster layout;
+ * - GFX_FMT_4BPP: epdiy's, row-major, two pixels a byte, the even one in the low nibble, 0 = black, 15 = white.
+ * Primitives pick the format's writer once per call. Pure C with no ESP-IDF headers, so it builds on the host.
  */
 
 typedef enum {
@@ -16,6 +18,16 @@ typedef enum {
     GFX_BLACK = 1,
     GFX_INVERT = 2,
 } gfx_color_t;
+
+/* Grays between black and white, the panel's levels: n = 1 (darkest) to 14 (lightest). On a 1 bpp buffer a
+ * gray is a 4×4 ordered dither, (15 − n) / 15 of its pixels black (T5 spec §6.2). */
+#define GFX_GRAY_BASE 16
+#define GFX_GRAY(n) ((gfx_color_t)(GFX_GRAY_BASE + (n)))
+
+typedef enum {
+    GFX_FMT_1BPP = 0,
+    GFX_FMT_4BPP = 1,
+} gfx_format_t;
 
 typedef struct {
     int16_t x;
@@ -28,12 +40,15 @@ typedef struct {
     uint8_t *buf;
     int16_t width;
     int16_t height;
-    int16_t stride;  /* bytes per row: (width + 7) / 8 */
+    int16_t stride;  /* bytes per row: (width + 7) / 8 at 1 bpp, (width + 1) / 2 at 4 bpp */
     gfx_rect_t clip; /* drawing is limited to this rectangle */
+    uint8_t format;  /* gfx_format_t; a zeroed struct is 1 bpp */
 } gfx_fb_t;
 
-size_t gfx_fb_size(int16_t width, int16_t height);
-void gfx_fb_init(gfx_fb_t *fb, uint8_t *buf, int16_t width, int16_t height);
+size_t gfx_fb_size(int16_t width, int16_t height);                         /* 1 bpp */
+void gfx_fb_init(gfx_fb_t *fb, uint8_t *buf, int16_t width, int16_t height); /* 1 bpp */
+size_t gfx_fb_size_fmt(gfx_format_t format, int16_t width, int16_t height);
+void gfx_fb_init_fmt(gfx_fb_t *fb, uint8_t *buf, int16_t width, int16_t height, gfx_format_t format);
 void gfx_clear(gfx_fb_t *fb, gfx_color_t color); /* whole buffer; ignores the clip */
 
 gfx_rect_t gfx_rect_intersect(gfx_rect_t a, gfx_rect_t b); /* empty result has w = h = 0 */
@@ -42,6 +57,12 @@ void gfx_reset_clip(gfx_fb_t *fb);
 
 void gfx_pixel(gfx_fb_t *fb, int x, int y, gfx_color_t color);
 bool gfx_get_pixel(const gfx_fb_t *fb, int x, int y); /* true = black; false outside the buffer */
+/* The pixel's level: 0 black to 15 white (1 bpp: 0 or 15); 15 outside the buffer. gfx_get_pixel() is level < 8. */
+uint8_t gfx_get_level(const gfx_fb_t *fb, int x, int y);
+/* Ink `color` at `coverage` (0 none to 15 full) over what's there, clipped like gfx_pixel(). 4 bpp moves the
+ * level towards the ink's (towards 15 − v for GFX_INVERT) by coverage / 15, rounded; 1 bpp inks the pixel
+ * from coverage 8 (T5 spec §6.2). */
+void gfx_pixel_coverage(gfx_fb_t *fb, int x, int y, gfx_color_t color, uint8_t coverage);
 void gfx_hline(gfx_fb_t *fb, int x, int y, int w, gfx_color_t color);
 void gfx_vline(gfx_fb_t *fb, int x, int y, int h, gfx_color_t color);
 void gfx_line(gfx_fb_t *fb, int x0, int y0, int x1, int y1, gfx_color_t color);

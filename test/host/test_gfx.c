@@ -269,6 +269,164 @@ static void test_a_filled_triangle_covers_its_inside_in_any_order_and_clips(void
     assert_guards_intact();
 }
 
+/* T5 spec §6.1: 4 bpp is epdiy's layout, two pixels a byte, the even one in the low nibble, 0 black. */
+static uint8_t s_buf4[16];
+static gfx_fb_t s_fb4;
+
+static void fb4(int16_t w, int16_t h)
+{
+    memset(s_buf4, 0xFF, sizeof(s_buf4));
+    gfx_fb_init_fmt(&s_fb4, s_buf4, w, h, GFX_FMT_4BPP);
+}
+
+static void test_sizes_follow_the_format(void)
+{
+    TEST_ASSERT_EQUAL_UINT32(9, gfx_fb_size_fmt(GFX_FMT_4BPP, 5, 3));
+    TEST_ASSERT_EQUAL_UINT32(4, gfx_fb_size_fmt(GFX_FMT_1BPP, 9, 2));
+    TEST_ASSERT_EQUAL_UINT32(gfx_fb_size(400, 300), gfx_fb_size_fmt(GFX_FMT_1BPP, 400, 300));
+    fb4(5, 3);
+    TEST_ASSERT_EQUAL_INT(3, s_fb4.stride);
+    TEST_ASSERT_EQUAL_INT(GFX_FMT_4BPP, s_fb4.format);
+}
+
+static void test_4bpp_pixels_pack_two_a_byte_even_in_the_low_nibble(void)
+{
+    fb4(4, 1);
+    gfx_pixel(&s_fb4, 0, 0, GFX_BLACK);
+    TEST_ASSERT_EQUAL_HEX8(0xF0, s_buf4[0]);
+    gfx_pixel(&s_fb4, 1, 0, GFX_GRAY(5));
+    TEST_ASSERT_EQUAL_HEX8(0x50, s_buf4[0]);
+    gfx_pixel(&s_fb4, 2, 0, GFX_GRAY(9));
+    TEST_ASSERT_EQUAL_HEX8(0xF9, s_buf4[1]);
+    TEST_ASSERT_EQUAL_UINT8(5, gfx_get_level(&s_fb4, 1, 0));
+    TEST_ASSERT_EQUAL_UINT8(15, gfx_get_level(&s_fb4, 3, 0));
+    TEST_ASSERT_EQUAL_UINT8(15, gfx_get_level(&s_fb4, 9, 0)); /* outside */
+}
+
+/* Review Focus 2: the last pixel of an odd width owns only its nibble; a clip at a nibble edge holds. */
+static void test_4bpp_odd_width_and_a_clip_at_a_nibble_edge(void)
+{
+    fb4(5, 1);
+    gfx_hline(&s_fb4, -3, 0, 20, GFX_BLACK);
+    TEST_ASSERT_EQUAL_HEX8(0x00, s_buf4[0]);
+    TEST_ASSERT_EQUAL_HEX8(0x00, s_buf4[1]);
+    TEST_ASSERT_EQUAL_HEX8(0xF0, s_buf4[2]); /* the padding nibble stays white */
+    TEST_ASSERT_EQUAL_HEX8(0xFF, s_buf4[3]);
+    fb4(5, 1);
+    gfx_set_clip(&s_fb4, (gfx_rect_t){ 1, 0, 3, 1 });
+    gfx_hline(&s_fb4, 0, 0, 5, GFX_GRAY(4));
+    TEST_ASSERT_EQUAL_HEX8(0x4F, s_buf4[0]);
+    TEST_ASSERT_EQUAL_HEX8(0x44, s_buf4[1]);
+    TEST_ASSERT_EQUAL_HEX8(0xFF, s_buf4[2]);
+}
+
+static void test_4bpp_invert_flips_the_level_and_clear_fills_both_nibbles(void)
+{
+    fb4(4, 2);
+    gfx_clear(&s_fb4, GFX_GRAY(3));
+    TEST_ASSERT_EQUAL_HEX8(0x33, s_buf4[0]);
+    gfx_pixel(&s_fb4, 0, 0, GFX_INVERT);
+    TEST_ASSERT_EQUAL_UINT8(12, gfx_get_level(&s_fb4, 0, 0));
+    gfx_pixel(&s_fb4, 0, 0, GFX_INVERT);
+    TEST_ASSERT_EQUAL_UINT8(3, gfx_get_level(&s_fb4, 0, 0));
+    gfx_clear(&s_fb4, GFX_INVERT);
+    TEST_ASSERT_EQUAL_HEX8(0xCC, s_buf4[3]);
+    gfx_clear(&s_fb4, GFX_WHITE);
+    TEST_ASSERT_EQUAL_HEX8(0xFF, s_buf4[0]);
+    gfx_clear(&s_fb4, GFX_BLACK);
+    TEST_ASSERT_EQUAL_HEX8(0x00, s_buf4[0]);
+}
+
+static void test_get_pixel_and_level_read_both_formats(void)
+{
+    fb4(2, 1);
+    gfx_pixel(&s_fb4, 0, 0, GFX_GRAY(7));
+    gfx_pixel(&s_fb4, 1, 0, GFX_GRAY(8));
+    TEST_ASSERT_TRUE(gfx_get_pixel(&s_fb4, 0, 0)); /* level < 8 reads as black */
+    TEST_ASSERT_FALSE(gfx_get_pixel(&s_fb4, 1, 0));
+    uint8_t one[2] = { 0 };
+    gfx_fb_t fb1;
+    gfx_fb_init(&fb1, one, 8, 2);
+    TEST_ASSERT_EQUAL_INT(GFX_FMT_1BPP, fb1.format);
+    gfx_pixel(&fb1, 3, 1, GFX_BLACK);
+    TEST_ASSERT_EQUAL_UINT8(0, gfx_get_level(&fb1, 3, 1));
+    TEST_ASSERT_EQUAL_UINT8(15, gfx_get_level(&fb1, 2, 1));
+}
+
+/* T5 spec §6.2: a gray on 1 bpp is a 4×4 ordered dither: (15 − n) / 15 of the pixels black. */
+static void test_a_gray_on_1bpp_is_an_ordered_dither(void)
+{
+    const struct {
+        int n;
+        int black;
+    } cases[] = { { 1, 15 }, { 8, 8 }, { 14, 2 } };
+    for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        uint8_t one[4] = { 0 };
+        gfx_fb_t fb1;
+        gfx_fb_init(&fb1, one, 4, 4);
+        gfx_fill_rect(&fb1, (gfx_rect_t){ 0, 0, 4, 4 }, GFX_GRAY(cases[i].n));
+        int black = 0;
+        for (int y = 0; y < 4; y++) {
+            for (int x = 0; x < 4; x++) {
+                black += gfx_get_pixel(&fb1, x, y) ? 1 : 0;
+            }
+        }
+        TEST_ASSERT_EQUAL_INT(cases[i].black, black);
+    }
+}
+
+/* Review Focus 3: coverage blends towards the ink; 0 leaves it, 15 paints it, INVERT aims at 15 − v. */
+static void test_coverage_blends_towards_the_ink_on_4bpp(void)
+{
+    fb4(8, 1);
+    gfx_pixel_coverage(&s_fb4, 0, 0, GFX_BLACK, 8);
+    gfx_pixel_coverage(&s_fb4, 1, 0, GFX_BLACK, 5);
+    gfx_pixel_coverage(&s_fb4, 2, 0, GFX_BLACK, 0);
+    gfx_pixel_coverage(&s_fb4, 3, 0, GFX_BLACK, 15);
+    TEST_ASSERT_EQUAL_UINT8(7, gfx_get_level(&s_fb4, 0, 0));
+    TEST_ASSERT_EQUAL_UINT8(10, gfx_get_level(&s_fb4, 1, 0));
+    TEST_ASSERT_EQUAL_UINT8(15, gfx_get_level(&s_fb4, 2, 0));
+    TEST_ASSERT_EQUAL_UINT8(0, gfx_get_level(&s_fb4, 3, 0));
+    gfx_pixel(&s_fb4, 4, 0, GFX_BLACK);
+    gfx_pixel_coverage(&s_fb4, 4, 0, GFX_WHITE, 8); /* towards white: 0 + 15 × 8 / 15 */
+    TEST_ASSERT_EQUAL_UINT8(8, gfx_get_level(&s_fb4, 4, 0));
+    gfx_pixel(&s_fb4, 5, 0, GFX_GRAY(4));
+    gfx_pixel_coverage(&s_fb4, 5, 0, GFX_INVERT, 15);
+    TEST_ASSERT_EQUAL_UINT8(11, gfx_get_level(&s_fb4, 5, 0));
+    gfx_pixel(&s_fb4, 6, 0, GFX_GRAY(4));
+    gfx_pixel_coverage(&s_fb4, 6, 0, GFX_INVERT, 8); /* 4 + (11 − 4) × 8 / 15, rounded */
+    TEST_ASSERT_EQUAL_UINT8(8, gfx_get_level(&s_fb4, 6, 0));
+    gfx_set_clip(&s_fb4, (gfx_rect_t){ 0, 0, 7, 1 });
+    gfx_pixel_coverage(&s_fb4, 7, 0, GFX_BLACK, 15); /* clipped */
+    TEST_ASSERT_EQUAL_UINT8(15, gfx_get_level(&s_fb4, 7, 0));
+}
+
+/* Review Focus 5's base: on 1 bpp, coverage of 8 or more inks the pixel. */
+static void test_coverage_on_1bpp_inks_from_half(void)
+{
+    uint8_t one[1] = { 0 };
+    gfx_fb_t fb1;
+    gfx_fb_init(&fb1, one, 8, 1);
+    gfx_pixel_coverage(&fb1, 0, 0, GFX_BLACK, 7);
+    gfx_pixel_coverage(&fb1, 1, 0, GFX_BLACK, 8);
+    TEST_ASSERT_EQUAL_HEX8(0x40, one[0]);
+}
+
+/* Review Focus 1: the 1 bpp writer is the old one, byte for byte, for every primitive. */
+static void test_1bpp_primitives_write_the_same_bytes(void)
+{
+    uint8_t one[2 * 6] = { 0 };
+    gfx_fb_t fb1;
+    gfx_fb_init(&fb1, one, 16, 6);
+    gfx_hline(&fb1, 1, 0, 9, GFX_BLACK);
+    gfx_vline(&fb1, 15, 0, 6, GFX_BLACK);
+    gfx_fill_rect(&fb1, (gfx_rect_t){ 2, 2, 4, 2 }, GFX_BLACK);
+    gfx_fill_rect(&fb1, (gfx_rect_t){ 3, 3, 4, 2 }, GFX_INVERT);
+    gfx_pixel(&fb1, 1, 0, GFX_WHITE);
+    const uint8_t want[] = { 0x3F, 0xC1, 0x00, 0x01, 0x3C, 0x01, 0x22, 0x01, 0x1E, 0x01, 0x00, 0x01 };
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(want, one, sizeof(want));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -287,5 +445,14 @@ int main(void)
     RUN_TEST(test_filled_circle_covers_its_outline);
     RUN_TEST(test_bitmap_draws_ink_only_and_clips);
     RUN_TEST(test_a_filled_triangle_covers_its_inside_in_any_order_and_clips);
+    RUN_TEST(test_sizes_follow_the_format);
+    RUN_TEST(test_4bpp_pixels_pack_two_a_byte_even_in_the_low_nibble);
+    RUN_TEST(test_4bpp_odd_width_and_a_clip_at_a_nibble_edge);
+    RUN_TEST(test_4bpp_invert_flips_the_level_and_clear_fills_both_nibbles);
+    RUN_TEST(test_get_pixel_and_level_read_both_formats);
+    RUN_TEST(test_a_gray_on_1bpp_is_an_ordered_dither);
+    RUN_TEST(test_coverage_blends_towards_the_ink_on_4bpp);
+    RUN_TEST(test_coverage_on_1bpp_inks_from_half);
+    RUN_TEST(test_1bpp_primitives_write_the_same_bytes);
     return UNITY_END();
 }
