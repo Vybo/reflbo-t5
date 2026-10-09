@@ -481,4 +481,12 @@ static const char *const k_dashboard_fixtures[] = { "home", "indoor", "weather",
 
 /* The fixtures with a T5 golden (test/host/golden/t5/dash_<name>.pgm.gz), NULL-terminated: each joins once the
  * owner has approved its render (T5 spec DT2). */
-static const char *const k_t5_dashboard_fixtures[] = { NULL };
+static const char *const k_t5_dashboard_fixtures[] = {
+    "home", "home_invalid", "home_stale", "home_12h_charging", "home_battery_details", "home_inverted",
+    "home_frost", "home_cs", "home_holiday_cs", "home_low_battery", "home_web", "home_stale_web",
+    "home_forecast", "home_syncing", "home_sync_failed", "home_always", "home_always_rejoining",
+    "home_temp_main", "home_temp_main_cs", "home_energy", "indoor", "indoor_cold", "indoor_hot_f",
+    "indoor_frost", "grid_clock_12h", "indoor_cs", "air_grid", "air_grid_cs", "grid_sun_uv", "grid_rain_cs",
+    "weather", "weather_now", "weather_noon_cs", "weather_stale", "weather_rain", "weather_frost_cs",
+    "weather_hot_f", "focus", "focus_seconds", "focus_forecast", "focus_rain_now", NULL
+};

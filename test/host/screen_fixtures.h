@@ -208,4 +208,10 @@ static const char *const k_screen_fixtures[] = { "menu_root_en", "menu_root_cs",
 
 /* The fixtures with a T5 golden (test/host/golden/t5/screen_<name>.pgm.gz), NULL-terminated: each joins once the
  * owner has approved its render (T5 spec DT2). */
-static const char *const k_t5_screen_fixtures[] = { NULL };
+static const char *const k_t5_screen_fixtures[] = {
+    "menu_root_en", "menu_root_cs", "menu_presets_cs", "menu_edit_zone_en", "menu_edit_offset_cs",
+    "menu_info_en", "menu_system_cs", "menu_datetime_cs", "menu_confirm_cs", "toast_preset_cs", "critical_en",
+    "critical_cs", "menu_wifi_en", "menu_confirm_password_cs", "config_ap_en", "config_ap_url_cs",
+    "config_starting_en", "config_joining_en", "config_station_en", "config_station_ap_cs",
+    "config_station_back_en", "config_station_back_cs", "first_run_en", "first_run_invalid_cs", NULL
+};
