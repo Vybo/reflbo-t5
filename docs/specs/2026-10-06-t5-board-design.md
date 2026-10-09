@@ -344,7 +344,7 @@ The T5 idles in deep sleep (DT6) and runs at 240 MHz while awake, epdiy's speed.
 
 Upstream's N2 goal (below 2 mA on average) is the yardstick.
 
-T1 (2026-10-07/08): a deep-sleep minute wakes for about 2.2 s, the clean update's length. On USB the owner's meter reads the hardware's floor, not the sleep current (§2.5 gotcha 20): about 107 mA awake at 240 MHz, 67 mA in light sleep, 65 mA in deep sleep. The sleep current needs a measurement on the battery side (an ammeter in series with the LiPo), which waits for the owner.
+T1 (2026-10-07/08): a deep-sleep minute wakes for about 2.2 s, the clean update's length. On USB the owner's meter reads the hardware's floor, not the sleep current (§2.5 gotcha 20): about 107 mA awake at 240 MHz, 67 mA in light sleep, 65 mA in deep sleep. On battery (owner's multimeter in series with the LiPo, 2026-10-09): 0.3 mA in deep sleep and about 150 mA for the 2 s clean redraw each minute, about 6 mA on average at a 1-minute update; N2 (below 2 mA) needs T4's fast updates at that interval, and holds at 5 minutes and more with clean redraws (`docs/power.md`).
 
 ## 9. Settings, menu, web and console
 

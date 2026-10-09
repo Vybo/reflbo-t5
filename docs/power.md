@@ -80,5 +80,14 @@ A routine deep-sleep minute keeps the chip awake about 2.2 s, nearly all of it t
 | 69c2369 | light sleep (46–50 s a minute, 7 ms awake) | ~67 mA | flat on the meter's chart |
 | 69c2369 | deep sleep (`sleep test deep 15`) | ~65 mA | the same with either shift-register rest word |
 
-The ~65 mA is the hardware with USB in: VBUS holds the panel's switched rail on and the USB-serial chip runs (T5 spec §2.5 gotcha 20). The T5's sleep current is a battery-side measurement, still to be made (an ammeter in series with the LiPo); LilyGo quotes about 380 µA.
+The ~65 mA is the hardware with USB in: VBUS holds the panel's switched rail on and the USB-serial chip runs (T5 spec §2.5 gotcha 20).
+
+**Current on battery** (2026-10-09, the owner's Extol 8831251 multimeter on its 200 mA range in series with the LiPo at 4.2 V, USB out; a measurement build of 69c2369 that never shows the critical screen and starts an unset clock at midnight, so each minute redraws; deep idle):
+
+| State | Current | Length |
+|---|---|---|
+| Deep sleep between minutes | 0.3 mA | about 57.5 s a minute |
+| A minute's clean redraw | about 150 mA | about 2 s |
+
+That is about 6 mA on average at the default 1-minute update (0.09 mAh a minute in the redraw against 0.005 mAh in sleep), and about 0.7 mA at 15 minutes. Upstream's N2 goal (below 2 mA) needs T4's fast updates at a 1-minute update. The meter's burden voltage on that range sagged the battery node enough at the first boot that the single reading came out critical (≤ 3300 mV) and the board showed "Charge me", hence the measurement build; with the battery connected directly it boots normally.
 
