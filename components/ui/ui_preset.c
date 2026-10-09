@@ -65,6 +65,11 @@ void ui_presets_defaults(ui_presets_t *p)
     p->cycle_enabled = false;
     p->cycle_interval_s = 60;
     ui_presets_offer_builtins(p); /* the radars (M6), Solar and Energy (M6d) */
+    if (!(ui_profile()->caps & UI_CAP_ENV_SENSOR)) { /* the T5: its views at 960×540 come with T3b */
+        for (int i = 4; i < p->count; i++) {
+            p->presets[i].in_cycle = false;
+        }
+    }
 }
 
 /* The built-ins added after M5, whose layouts have no slots: the two radars (D28) in the cycle, Solar and Energy

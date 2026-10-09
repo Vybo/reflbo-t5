@@ -24,6 +24,9 @@ static inline ui_preset_t fixture_preset(const char *id)
     ui_presets_t all;
     ui_presets_defaults(&all);
     int i = ui_presets_find(&all, id);
+    if (i < 0 && strcmp(id, "indoor") == 0) {
+        i = ui_presets_find(&all, "sky"); /* the T5's grid preset in Indoor's place (T5 spec §7.3) */
+    }
     return all.presets[i < 0 ? 0 : i];
 }
 
