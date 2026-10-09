@@ -89,8 +89,13 @@ void gfx_bitmap(gfx_fb_t *fb, int x, int y, const gfx_bitmap_t *bm, gfx_color_t 
 /* PBM P4 image of the framebuffer: header "P4\n<w> <h>\n" followed by the raster. */
 size_t gfx_pbm_size(const gfx_fb_t *fb);
 size_t gfx_pbm_encode(const gfx_fb_t *fb, uint8_t *out, size_t out_size); /* 0 if out_size is too small */
+/* PGM P5 image of the framebuffer, either format: "P5\n<w> <h>\n255\n", then a byte a pixel, level × 17
+ * (T5 spec §6.5). gfx_pbm_*() take 1 bpp only (4 bpp: size and encode return 0). */
+size_t gfx_pgm_size(const gfx_fb_t *fb);
+size_t gfx_pgm_encode(const gfx_fb_t *fb, uint8_t *out, size_t out_size); /* 0 if out_size is too small */
 
-/* 1-bit BMP of the framebuffer, for browsers (the web UI's preview and screenshot). */
+/* BMP of the framebuffer, for browsers (the web UI's preview and screenshot): 1-bit at 1 bpp, 4-bit with a
+ * 16-gray palette at 4 bpp (T5 spec §6.5). */
 size_t gfx_bmp_size(const gfx_fb_t *fb);
 size_t gfx_bmp_encode(const gfx_fb_t *fb, uint8_t *out, size_t out_size); /* 0 if out_size is too small */
 

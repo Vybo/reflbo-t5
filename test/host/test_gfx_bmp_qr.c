@@ -75,6 +75,32 @@ static void test_text_too_long_for_a_qr_code_draws_nothing(void)
     TEST_ASSERT_EQUAL_INT(0, gfx_qr_side(NULL, 1));
 }
 
+/* T5 spec §6.5: a 4 bpp framebuffer gives a 4-bit BMP with a 16-gray palette; its rows bottom-up, the
+ * left pixel in the high nibble (BMP's order, the swap of epdiy's). */
+static void test_bmp_of_a_4bpp_frame_is_4bit_gray(void)
+{
+    uint8_t buf[4];
+    memset(buf, 0xFF, sizeof(buf));
+    gfx_fb_t fb;
+    gfx_fb_init_fmt(&fb, buf, 3, 2, GFX_FMT_4BPP);
+    gfx_pixel(&fb, 0, 0, GFX_BLACK);
+    gfx_pixel(&fb, 1, 0, GFX_GRAY(5));
+    gfx_pixel(&fb, 2, 1, GFX_GRAY(9));
+    uint8_t out[160];
+    size_t n = gfx_bmp_encode(&fb, out, sizeof(out));
+    TEST_ASSERT_EQUAL_UINT32(14 + 40 + 64 + 4 * 2, n);
+    TEST_ASSERT_EQUAL_UINT32(n, gfx_bmp_size(&fb));
+    TEST_ASSERT_EQUAL_UINT8(4, out[28]);   /* bits per pixel */
+    TEST_ASSERT_EQUAL_UINT8(16, out[46]);  /* colours */
+    TEST_ASSERT_EQUAL_UINT8(118, out[10]); /* where the pixels start */
+    const uint8_t gray5[] = { 85, 85, 85, 0 };
+    TEST_ASSERT_EQUAL_MEMORY(gray5, out + 54 + 5 * 4, 4);
+    const uint8_t bottom[] = { 0xFF, 0x9F, 0, 0 }; /* row 1: 15 15 | 9 (pad) */
+    const uint8_t top[] = { 0x05, 0xFF, 0, 0 };    /* row 0: 0 5 | 15 (pad) */
+    TEST_ASSERT_EQUAL_MEMORY(bottom, out + 118, 4);
+    TEST_ASSERT_EQUAL_MEMORY(top, out + 122, 4);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -82,5 +108,6 @@ int main(void)
     RUN_TEST(test_the_screen_as_bmp_is_15662_bytes);
     RUN_TEST(test_a_qr_code_is_drawn_with_its_quiet_zone_and_finders);
     RUN_TEST(test_text_too_long_for_a_qr_code_draws_nothing);
+    RUN_TEST(test_bmp_of_a_4bpp_frame_is_4bit_gray);
     return UNITY_END();
 }

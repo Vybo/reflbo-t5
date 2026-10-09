@@ -45,3 +45,8 @@ void gfx_draw_test_pattern(gfx_fb_t *fb)
     gfx_line(fb, 220, 200, 360, 260, GFX_BLACK);
     gfx_line(fb, 220, 260, 360, 200, GFX_BLACK);
 }
+
+void gfx_draw_test_pattern_t5(gfx_fb_t *fb) /* Task 5 of T2 replaces this stub */
+{
+    gfx_draw_test_pattern(fb);
+}

@@ -443,6 +443,31 @@ static void test_a_4bit_bitmap_blends_on_4bpp_and_thresholds_on_1bpp(void)
     TEST_ASSERT_EQUAL_HEX8(0xA0, one[0]);
 }
 
+/* T5 spec §6.5: PGM P5, 8 bits a pixel, level × 17, from either format. */
+static void test_pgm_has_header_and_8bit_levels(void)
+{
+    fb4(3, 1);
+    gfx_pixel(&s_fb4, 0, 0, GFX_BLACK);
+    gfx_pixel(&s_fb4, 1, 0, GFX_GRAY(7));
+    uint8_t out[32];
+    size_t n = gfx_pgm_encode(&s_fb4, out, sizeof(out));
+    const char header[] = "P5\n3 1\n255\n";
+    TEST_ASSERT_EQUAL_UINT32(sizeof(header) - 1 + 3, n);
+    TEST_ASSERT_EQUAL_UINT32(n, gfx_pgm_size(&s_fb4));
+    TEST_ASSERT_EQUAL_MEMORY(header, out, sizeof(header) - 1);
+    TEST_ASSERT_EQUAL_UINT8(0, out[n - 3]);
+    TEST_ASSERT_EQUAL_UINT8(119, out[n - 2]);
+    TEST_ASSERT_EQUAL_UINT8(255, out[n - 1]);
+    uint8_t one[1] = { 0x80 };
+    gfx_fb_t fb1;
+    gfx_fb_init(&fb1, one, 2, 1);
+    n = gfx_pgm_encode(&fb1, out, sizeof(out));
+    TEST_ASSERT_EQUAL_UINT8(0, out[n - 2]);
+    TEST_ASSERT_EQUAL_UINT8(255, out[n - 1]);
+    TEST_ASSERT_EQUAL_UINT32(0, gfx_pgm_encode(&fb1, out, 4)); /* too small */
+    TEST_ASSERT_EQUAL_UINT32(0, gfx_pbm_encode(&s_fb4, out, sizeof(out))); /* PBM is 1 bpp only */
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -471,5 +496,6 @@ int main(void)
     RUN_TEST(test_coverage_on_1bpp_inks_from_half);
     RUN_TEST(test_1bpp_primitives_write_the_same_bytes);
     RUN_TEST(test_a_4bit_bitmap_blends_on_4bpp_and_thresholds_on_1bpp);
+    RUN_TEST(test_pgm_has_header_and_8bit_levels);
     return UNITY_END();
 }
