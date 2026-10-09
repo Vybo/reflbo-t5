@@ -6,7 +6,6 @@ import unittest
 
 UI_DIR = pathlib.Path(__file__).resolve().parents[2] / "components" / "ui"
 PROFILES = {"ui_profile_rlcd42.c", "ui_profile_t547.c"}
-ICONS = False  # Task 5 of the T3a plan turns the icons' half on
 
 
 def offenders(pattern):
@@ -22,12 +21,11 @@ def offenders(pattern):
 
 class UiSourcesTest(unittest.TestCase):
     def test_no_font_is_named_outside_the_profiles(self):
-        found = offenders(r"&gfx_font_")
+        found = offenders(r"\bgfx_font_(sans|num|t5)_")
         self.assertEqual(found, [], f"{len(found)} font references:\n" + "\n".join(found))
 
-    @unittest.skipUnless(ICONS, "the icons follow in T3a Task 5")
     def test_no_icon_is_named_outside_the_profiles(self):
-        found = offenders(r"&gfx_icon_")
+        found = offenders(r"\bgfx_icon_[a-z]")
         self.assertEqual(found, [], f"{len(found)} icon references:\n" + "\n".join(found))
 
 

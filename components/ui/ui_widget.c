@@ -57,52 +57,54 @@ static int digit_height(const gfx_font_t *f)
     return g != NULL ? g->height : f->ascent;
 }
 
+/* The field's icon in the class of a `size` px symbol on the RLCD (16, 24, 48; the profile's on the T5), NULL for
+ * none. */
 static const gfx_bitmap_t *field_icon(ui_field_id_t field, int size)
 {
-    const gfx_bitmap_t *s16 = NULL, *s24 = NULL, *s48 = NULL;
+    int id = -1;
     switch (field) {
     case UI_FIELD_ENV_TEMP:
     case UI_FIELD_ENV_TEMP_MIN:
     case UI_FIELD_ENV_TEMP_MAX:
-        s16 = &gfx_icon_thermometer_16, s24 = &gfx_icon_thermometer_24, s48 = &gfx_icon_thermometer_48;
+        id = UI_ICON_thermometer;
         break;
     case UI_FIELD_ENV_HUM:
-        s16 = &gfx_icon_drop_16, s24 = &gfx_icon_drop_24, s48 = &gfx_icon_drop_48;
+        id = UI_ICON_drop;
         break;
     case UI_FIELD_ENV_DEW:
-        s16 = &gfx_icon_dew_16, s24 = &gfx_icon_dew_24, s48 = &gfx_icon_dew_48;
+        id = UI_ICON_dew;
         break;
     case UI_FIELD_TIME_CLOCK:
-        s16 = &gfx_icon_clock_16, s24 = &gfx_icon_clock_24, s48 = &gfx_icon_clock_48;
+        id = UI_ICON_clock;
         break;
     case UI_FIELD_DATE_DAY:
     case UI_FIELD_DATE_WEEK:
-        s16 = &gfx_icon_calendar_16, s24 = &gfx_icon_calendar_24, s48 = &gfx_icon_calendar_48;
+        id = UI_ICON_calendar;
         break;
     case UI_FIELD_DATE_NAMEDAY:
-        s16 = &gfx_icon_person_16, s24 = &gfx_icon_person_24, s48 = &gfx_icon_person_48;
+        id = UI_ICON_person;
         break;
     case UI_FIELD_DATE_HOLIDAY:
-        s16 = &gfx_icon_celebration_16, s24 = &gfx_icon_celebration_24, s48 = &gfx_icon_celebration_48;
+        id = UI_ICON_celebration;
         break;
     case UI_FIELD_WX_NOW:
     case UI_FIELD_WX_TODAY:
     case UI_FIELD_WX_HOURLY:
     case UI_FIELD_WX_DAILY: /* missing: drawn as the placeholder */
-        s16 = &gfx_icon_cloud_16, s24 = &gfx_icon_cloud_24, s48 = &gfx_icon_cloud_48;
+        id = UI_ICON_cloud;
         break;
     case UI_FIELD_SUN_TIMES:
-        s16 = &gfx_icon_sunrise_16, s24 = &gfx_icon_sunrise_24, s48 = &gfx_icon_sunrise_48;
+        id = UI_ICON_sunrise;
         break;
     case UI_FIELD_AQ_INDEX:
-        s16 = &gfx_icon_air_16, s24 = &gfx_icon_air_24, s48 = &gfx_icon_air_48;
+        id = UI_ICON_air;
         break;
     case UI_FIELD_AQ_PM25:
     case UI_FIELD_AQ_PM10:
-        s16 = &gfx_icon_particles_16, s24 = &gfx_icon_particles_24, s48 = &gfx_icon_particles_48;
+        id = UI_ICON_particles;
         break;
     case UI_FIELD_AQ_UV:
-        s16 = &gfx_icon_uv_16, s24 = &gfx_icon_uv_24, s48 = &gfx_icon_uv_48;
+        id = UI_ICON_uv;
         break;
     case UI_FIELD_POLLEN_TOP:
     case UI_FIELD_POLLEN_ALDER:
@@ -111,7 +113,7 @@ static const gfx_bitmap_t *field_icon(ui_field_id_t field, int size)
     case UI_FIELD_POLLEN_MUGWORT:
     case UI_FIELD_POLLEN_OLIVE:
     case UI_FIELD_POLLEN_RAGWEED:
-        s16 = &gfx_icon_pollen_16, s24 = &gfx_icon_pollen_24, s48 = &gfx_icon_pollen_48;
+        id = UI_ICON_pollen;
         break;
     case UI_FIELD_PV_NOW: /* the forecast: a sun; what the panels make: the panels (spec §5.1, D35) */
     case UI_FIELD_PV_TODAY:
@@ -119,28 +121,28 @@ static const gfx_bitmap_t *field_icon(ui_field_id_t field, int size)
     case UI_FIELD_PV_TOMORROW:
     case UI_FIELD_PV_PEAK:
     case UI_FIELD_PV_CHART:
-        s16 = &gfx_icon_forecast_16, s24 = &gfx_icon_forecast_24, s48 = &gfx_icon_forecast_48;
+        id = UI_ICON_forecast;
         break;
     case UI_FIELD_EN_PV:
     case UI_FIELD_EN_YIELD:
-        s16 = &gfx_icon_solar_16, s24 = &gfx_icon_solar_24, s48 = &gfx_icon_solar_48;
+        id = UI_ICON_solar;
         break;
     case UI_FIELD_EN_LOAD:
     case UI_FIELD_EN_FLOW:
-        s16 = &gfx_icon_house_16, s24 = &gfx_icon_house_24, s48 = &gfx_icon_house_48;
+        id = UI_ICON_house;
         break;
     case UI_FIELD_EN_GRID:
     case UI_FIELD_EN_EXPORT:
     case UI_FIELD_EN_IMPORT:
-        s16 = &gfx_icon_grid_16, s24 = &gfx_icon_grid_24, s48 = &gfx_icon_grid_48;
+        id = UI_ICON_grid;
         break;
     case UI_FIELD_EN_SELF:
-        s16 = &gfx_icon_self_use_16, s24 = &gfx_icon_self_use_24, s48 = &gfx_icon_self_use_48;
+        id = UI_ICON_self_use;
         break;
     default:
         break;
     }
-    return size >= 48 ? s48 : size >= 24 ? s24 : s16;
+    return id >= 0 ? ui_icon((ui_icon_id_t)id, ui_icon_class(size)) : NULL;
 }
 
 /* How far `text`'s ink reaches below the baseline in `f`: a comma's tail, the "g" of "µg/m³". */
@@ -276,14 +278,22 @@ void ui_format_age(const lang_t *lang, uint32_t age_s, char *out, size_t size)
     }
 }
 
+bool ui_bitmap_ink(const gfx_bitmap_t *b, int x, int y)
+{
+    if (b->bpp == 4) {
+        uint8_t byte = b->bits[y * ((b->width + 1) / 2) + x / 2];
+        return (x % 2 == 0 ? byte >> 4 : byte & 0x0F) >= 8;
+    }
+    return (b->bits[y * ((b->width + 7) / 8) + x / 8] >> (7 - x % 8)) & 1;
+}
+
 /* The box of a bitmap's ink, offset from its top left. */
 static void bitmap_ink_box(const gfx_bitmap_t *b, int *x0, int *y0, int *x1, int *y1)
 {
-    int rb = (b->width + 7) / 8;
     *x0 = b->width, *y0 = b->height, *x1 = -1, *y1 = -1;
     for (int y = 0; y < b->height; y++) {
         for (int x = 0; x < b->width; x++) {
-            if ((b->bits[y * rb + x / 8] >> (7 - x % 8)) & 1) {
+            if (ui_bitmap_ink(b, x, y)) {
                 *x0 = x < *x0 ? x : *x0, *x1 = x > *x1 ? x : *x1;
                 *y0 = y < *y0 ? y : *y0, *y1 = y > *y1 ? y : *y1;
             }
@@ -315,14 +325,16 @@ static void draw_age(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const lang
     int w = gfx_text_width(f, age);
     int x = r.x + r.w - 6 - w;
     int baseline = r.y + r.h - 6 - (f->line_height - f->ascent);
+    const gfx_bitmap_t *stale = ui_icon(UI_ICON_stale, UI_IC16);
+    int sx = x - UI_PX(2) - stale->width, sy = baseline + UI_PX(3) - stale->height;
     int ix0, iy0, ix1, iy1;
-    bitmap_ink_box(&gfx_icon_stale_16, &ix0, &iy0, &ix1, &iy1);
-    if (ink_near(fb, x - 18 + ix0, baseline - 13 + iy0, x - 18 + ix1, baseline - 13 + iy1) ||
+    bitmap_ink_box(stale, &ix0, &iy0, &ix1, &iy1);
+    if (ink_near(fb, sx + ix0, sy + iy0, sx + ix1, sy + iy1) ||
         ink_near(fb, x, baseline - ink_above(f, age), x + w - 1, baseline + ink_below(f, age))) {
         return;
     }
     gfx_text(fb, f, x, baseline, age, GFX_BLACK);
-    gfx_bitmap(fb, x - 18, baseline - 13, &gfx_icon_stale_16, GFX_BLACK);
+    gfx_bitmap(fb, sx, sy, stale, GFX_BLACK);
 }
 
 static void draw_min_max_mark(gfx_fb_t *fb, const ui_value_t *v, int x, int y)
@@ -333,27 +345,36 @@ static void draw_min_max_mark(gfx_fb_t *fb, const ui_value_t *v, int x, int y)
     }
 }
 
-/* The small visual that stands for the field: an icon, a battery (its bolt while it charges, with `bolt`), or the
- * Moon. Returns its width. */
+/* The pixels a symbol of nominal `size` takes: `size` on the RLCD; on the T5 its icon class's, or for a size
+ * between classes (the Moon's 28) the pixel scale's. */
+static int symbol_px(int size)
+{
+    return size == 16 || size == 24 || size == 48 ? ui_icon_px(size) : UI_PX(size);
+}
+
+/* The small visual that stands for the field, `size` px nominal (symbol_px()): an icon, a battery (its bolt while
+ * it charges, with `bolt`), or the Moon. Returns its width. */
 static int draw_symbol(gfx_fb_t *fb, const ui_value_t *v, int x, int y, int size, bool bolt)
 {
+    int px = symbol_px(size);
     if (v->kind == UI_FK_BATTERY) {
-        int w = size * 3 / 2, h = size * 3 / 4;
-        ui_draw_battery(fb, x, y + (size - h) / 2, w, h, v->state == UI_VALUE_MISSING ? -1 : v->percent);
+        int w = px * 3 / 2, h = px * 3 / 4;
+        ui_draw_battery(fb, x, y + (px - h) / 2, w, h, v->state == UI_VALUE_MISSING ? -1 : v->percent);
         if (bolt && v->battery == DS_BAT_CHARGING) {
-            gfx_bitmap(fb, x + w + 2, y + (size - 16) / 2, &gfx_icon_bolt_16, GFX_BLACK);
-            return w + 18;
+            const gfx_bitmap_t *b = ui_icon(UI_ICON_bolt, UI_IC16);
+            gfx_bitmap(fb, x + w + UI_PX(2), y + (px - b->height) / 2, b, GFX_BLACK);
+            return w + UI_PX(2) + b->width;
         }
         return w;
     }
     if (v->kind == UI_FK_MOON) {
-        int r = size / 2 - 1;
+        int r = px / 2 - 1;
         if (v->state == UI_VALUE_MISSING) {
-            gfx_circle(fb, x + size / 2, y + size / 2, r, GFX_BLACK);
+            gfx_circle(fb, x + px / 2, y + px / 2, r, GFX_BLACK);
         } else {
-            ui_draw_moon(fb, x + size / 2, y + size / 2, r, v->moon.age);
+            ui_draw_moon(fb, x + px / 2, y + px / 2, r, v->moon.age);
         }
-        return size;
+        return px;
     }
     const gfx_bitmap_t *icon = field_icon(v->field, size);
     if (icon == NULL) {
@@ -364,14 +385,15 @@ static int draw_symbol(gfx_fb_t *fb, const ui_value_t *v, int x, int y, int size
     return icon->width;
 }
 
-/* The width draw_symbol() takes at `size` px. */
+/* The width draw_symbol() takes at `size` px nominal. */
 static int symbol_width(const ui_value_t *v, int size, bool bolt)
 {
     if (v->kind == UI_FK_BATTERY) {
-        return size * 3 / 2 + (bolt && v->battery == DS_BAT_CHARGING ? 18 : 0);
+        return symbol_px(size) * 3 / 2 +
+               (bolt && v->battery == DS_BAT_CHARGING ? UI_PX(2) + ui_icon(UI_ICON_bolt, UI_IC16)->width : 0);
     }
     if (v->kind == UI_FK_MOON) {
-        return size;
+        return symbol_px(size);
     }
     const gfx_bitmap_t *icon = field_icon(v->field, size);
     return icon != NULL ? icon->width : 0;
@@ -408,7 +430,7 @@ static void draw_small_beside(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
 {
     const ui_fonts_t fs = size_fonts(UI_SIZE_S), *f = &fs;
     int pad = r.w < 150 ? 6 : 14, gap = r.w < 150 ? 6 : 10;
-    int sym_y = r.y + (r.h - f->icon) / 2;
+    int sym_y = r.y + (r.h - symbol_px(f->icon)) / 2;
     char fit[48];
     if (!numeric(v)) {
         const gfx_font_t *vf = v->state == UI_VALUE_MISSING ? f->value : f->text;
@@ -490,19 +512,19 @@ static void draw_small(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
     /* a name on two lines ends 84 px down: it stacks from 86 px, its tails 2 px clear */
     bool two_lines = !numeric(v) && v->kind != UI_FK_MOON && gfx_text_width(vf, value) > r.w - 8;
     if (r.w < 150 && r.h >= (two_lines ? 86 : 80)) { /* narrow and tall: symbol above, value below, the arrow beside */
-        int sym_size = v->kind == UI_FK_MOON ? 28 : f->icon;
-        int sym_w = v->kind == UI_FK_BATTERY ? sym_size * 3 / 2 : sym_size;
+        int sym_size = v->kind == UI_FK_MOON ? 28 : f->icon, sym_px = symbol_px(sym_size);
+        int sym_w = v->kind == UI_FK_BATTERY ? sym_px * 3 / 2 : sym_px;
         int sym_x = r.x + (r.w - sym_w) / 2;
         draw_symbol(fb, v, sym_x, r.y + 12, sym_size, true);
         if (shown.trend) {
-            gfx_text(fb, UI_FONT(UI_F_BOLD_16), sym_x + sym_w + 4, r.y + 12 + sym_size - 4,
+            gfx_text(fb, UI_FONT(UI_F_BOLD_16), sym_x + sym_w + 4, r.y + 12 + sym_px - 4,
                      shown.trend > 0 ? ARROW_UP : ARROW_DOWN, GFX_BLACK);
             shown.trend = 0;
         }
         if (v->kind == UI_FK_MOON && v->state != UI_VALUE_MISSING) { /* the phase name, small */
             const char *name = gfx_text_width(UI_FONT(UI_F_SANS_12), v->text) <= r.w - 8 ? v->text : v->short_text;
             gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), name, r.w - 8, fit, sizeof(fit));
-            gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12), (gfx_rect_t){ r.x, (int16_t)(r.y + 12 + sym_size + 14), r.w, 20 },
+            gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12), (gfx_rect_t){ r.x, (int16_t)(r.y + 12 + sym_px + 14), r.w, 20 },
                              GFX_ALIGN_CENTER, fit, GFX_BLACK);
             return;
         }
@@ -511,7 +533,7 @@ static void draw_small(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
             const gfx_font_t *tf = f->unit;
             char second[sizeof(fit)];
             ui_split_two_lines(tf, value, max_w, fit, second, sizeof(fit));
-            int top = r.y + 12 + f->icon + 10;
+            int top = r.y + 12 + symbol_px(f->icon) + 10;
             gfx_text_in_rect(fb, tf, (gfx_rect_t){ r.x, (int16_t)top, r.w, tf->line_height }, GFX_ALIGN_CENTER, fit,
                              GFX_BLACK);
             gfx_text_in_rect(fb, tf, (gfx_rect_t){ r.x, (int16_t)(top + tf->line_height), r.w, tf->line_height },
@@ -525,7 +547,7 @@ static void draw_small(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
             vf = fit_number(f, k_fit_s, 3, &shown, &value, max_w, 0, 0, fit, sizeof(fit));
         }
         int w = group_width(f, vf, &shown, value);
-        int baseline = r.y + 12 + f->icon + 14 + digit_height(vf);
+        int baseline = r.y + 12 + symbol_px(f->icon) + 14 + digit_height(vf);
         draw_group(fb, f, vf, &shown, value, r.x + (r.w - w) / 2, baseline);
         return;
     }
@@ -636,11 +658,11 @@ static bool tiny_bolt(const ui_value_t *v)
  * battery, not its icon's box. */
 static void bolt_ink(int *x0, int *w)
 {
-    const gfx_bitmap_t *b = &gfx_icon_bolt_16;
-    int rb = (b->width + 7) / 8, lo = b->width, hi = -1;
+    const gfx_bitmap_t *b = ui_icon(UI_ICON_bolt, UI_IC16);
+    int lo = b->width, hi = -1;
     for (int y = 0; y < b->height; y++) {
         for (int x = 0; x < b->width; x++) {
-            if ((b->bits[y * rb + x / 8] >> (7 - x % 8)) & 1) {
+            if (ui_bitmap_ink(b, x, y)) {
                 lo = x < lo ? x : lo;
                 hi = x > hi ? x : hi;
             }
@@ -649,18 +671,20 @@ static void bolt_ink(int *x0, int *w)
     *x0 = lo, *w = hi - lo + 1;
 }
 
-/* The symbol's size at `sym` px, its marks included: the battery's outline and bolt, the Moon, or the field's icon
- * and its arrow; 0 × 0 for a time and for a field without one. */
+/* The symbol's size at `sym` px nominal (symbol_px()), its marks included: the battery's outline and bolt, the
+ * Moon, or the field's icon and its arrow; 0 × 0 for a time and for a field without one. */
 static void tiny_symbol_size(const ui_value_t *v, int sym, int *w, int *h)
 {
     *w = *h = 0;
+    int px = symbol_px(sym);
     if (v->kind == UI_FK_BATTERY) {
         int bolt_x, bolt_w;
         bolt_ink(&bolt_x, &bolt_w);
-        *w = sym + 6 + (tiny_bolt(v) ? 2 + bolt_w : 0), *h = sym / 2 + 2;
-        *h = tiny_bolt(v) && *h < 16 ? 16 : *h;
+        *w = px + 6 + (tiny_bolt(v) ? 2 + bolt_w : 0), *h = px / 2 + 2;
+        int bolt_h = ui_icon(UI_ICON_bolt, UI_IC16)->height;
+        *h = tiny_bolt(v) && *h < bolt_h ? bolt_h : *h;
     } else if (v->kind == UI_FK_MOON) {
-        *w = *h = sym;
+        *w = *h = px;
     } else if (v->kind != UI_FK_TIME) {
         const gfx_bitmap_t *icon = field_icon(v->field, sym);
         if (icon != NULL) {
@@ -673,20 +697,21 @@ static void tiny_symbol_size(const ui_value_t *v, int sym, int *w, int *h)
 /* The symbol with its top left at (x, y), `h` px tall as tiny_symbol_size() gave it. */
 static void draw_tiny_symbol(gfx_fb_t *fb, const ui_value_t *v, int x, int y, int sym, int h)
 {
-    int cy = y + h / 2;
+    int cy = y + h / 2, px = symbol_px(sym);
     if (v->kind == UI_FK_BATTERY) {
-        int bh = sym / 2 + 2;
-        ui_draw_battery(fb, x, cy - bh / 2, sym + 6, bh, v->state == UI_VALUE_MISSING ? -1 : v->percent);
+        int bh = px / 2 + 2;
+        ui_draw_battery(fb, x, cy - bh / 2, px + 6, bh, v->state == UI_VALUE_MISSING ? -1 : v->percent);
         if (tiny_bolt(v)) {
             int bolt_x, bolt_w;
             bolt_ink(&bolt_x, &bolt_w);
-            gfx_bitmap(fb, x + sym + 6 + 2 - bolt_x, cy - 8, &gfx_icon_bolt_16, GFX_BLACK);
+            const gfx_bitmap_t *b = ui_icon(UI_ICON_bolt, UI_IC16);
+            gfx_bitmap(fb, x + px + 6 + 2 - bolt_x, cy - b->height / 2, b, GFX_BLACK);
         }
     } else if (v->kind == UI_FK_MOON) {
         if (v->state == UI_VALUE_MISSING) {
-            gfx_circle(fb, x + sym / 2, cy, sym / 2 - 1, GFX_BLACK);
+            gfx_circle(fb, x + px / 2, cy, px / 2 - 1, GFX_BLACK);
         } else {
-            ui_draw_moon(fb, x + sym / 2, cy, sym / 2 - 1, v->moon.age);
+            ui_draw_moon(fb, x + px / 2, cy, px / 2 - 1, v->moon.age);
         }
     } else if (v->kind != UI_FK_TIME) {
         const gfx_bitmap_t *icon = field_icon(v->field, sym);

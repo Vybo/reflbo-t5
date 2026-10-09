@@ -17,6 +17,7 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
     ui_resolve(ctx, UI_FIELD_BAT_DAYS, &days);
     any_stale |= bat.state == UI_VALUE_STALE; /* the battery shown here counts too */
     int left = 4; /* where the next mark on the left goes */
+    int step = ui_icon_px(16) + UI_PX(4); /* a mark and the gap after it */
     if (!ctx->time_valid) {
         const gfx_font_t *f = UI_FONT(UI_F_BOLD_16);
         const char *text = lang_str(ctx->lang, LS_SET_TIME);
@@ -25,20 +26,20 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
         gfx_text_in_rect(fb, f, (gfx_rect_t){ 6, 0, (int16_t)(w - 6), UI_STATUS_H }, GFX_ALIGN_LEFT, text, GFX_WHITE);
         left = w + 4;
     } else if (any_stale) {
-        gfx_bitmap(fb, left, 2, &gfx_icon_stale_16, GFX_BLACK);
-        left += 20;
+        gfx_bitmap(fb, left, 2, ui_icon(UI_ICON_stale, UI_IC16), GFX_BLACK);
+        left += step;
     }
     if (ctx->web_session) {
-        gfx_bitmap(fb, left, 2, &gfx_icon_web_16, GFX_BLACK);
-        left += 20;
+        gfx_bitmap(fb, left, 2, ui_icon(UI_ICON_web, UI_IC16), GFX_BLACK);
+        left += step;
     }
     if (ctx->sync != UI_SYNC_IDLE) { /* spec §5.2: a sync running, or the last one failed */
-        gfx_bitmap(fb, left, 2, ctx->sync == UI_SYNC_RUNNING ? &gfx_icon_sync_16 : &gfx_icon_sync_failed_16,
+        gfx_bitmap(fb, left, 2, ctx->sync == UI_SYNC_RUNNING ? ui_icon(UI_ICON_sync, UI_IC16) : ui_icon(UI_ICON_sync_failed, UI_IC16),
                    GFX_BLACK);
-        left += 20;
+        left += step;
     }
     if (ctx->wifi != UI_WIFI_NONE) { /* sync mode `always` (D19) */
-        gfx_bitmap(fb, left, 2, ctx->wifi == UI_WIFI_ON ? &gfx_icon_wifi_16 : &gfx_icon_wifi_off_16, GFX_BLACK);
+        gfx_bitmap(fb, left, 2, ctx->wifi == UI_WIFI_ON ? ui_icon(UI_ICON_wifi, UI_IC16) : ui_icon(UI_ICON_wifi_off, UI_IC16), GFX_BLACK);
     }
 
     if (preset->status_clock && ctx->time_valid) {
@@ -53,8 +54,9 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
     int x = fb->width - 6 - 26;
     ui_draw_battery(fb, x, 5, 26, 11, bat.state == UI_VALUE_MISSING ? -1 : bat.percent);
     if (bat.battery == DS_BAT_CHARGING) {
-        x -= 16;
-        gfx_bitmap(fb, x, 2, &gfx_icon_bolt_16, GFX_BLACK);
+        const gfx_bitmap_t *bolt = ui_icon(UI_ICON_bolt, UI_IC16);
+        x -= bolt->width;
+        gfx_bitmap(fb, x, 2, bolt, GFX_BLACK);
     } else if (bat.state != UI_VALUE_MISSING && bat.percent <= UI_BATTERY_LOW_PCT) { /* spec §8: low */
         x -= 10;
         gfx_text(fb, UI_FONT(UI_F_BOLD_16), x + 2, 16, "!", GFX_BLACK);

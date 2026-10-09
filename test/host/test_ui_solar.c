@@ -7,6 +7,7 @@
 #include "gfx.h"
 #include "gfx_fonts.h"
 #include "gfx_icons.h"
+#include "ui_internal.h"
 #include "ui_split.h"
 #include "unity.h"
 
@@ -36,13 +37,12 @@ static void draw(gfx_rect_t r, ui_field_id_t field)
 /* Where `icon` is drawn whole in `area`, a blank pixel or the edge all round it; false if nowhere. */
 static bool find_icon(gfx_rect_t area, const gfx_bitmap_t *icon, int *x, int *y)
 {
-    int rb = (icon->width + 7) / 8;
     for (int y0 = area.y; y0 + icon->height <= area.y + area.h; y0++) {
         for (int x0 = area.x; x0 + icon->width <= area.x + area.w; x0++) {
             bool same = true;
             for (int iy = 0; same && iy < icon->height; iy++) {
                 for (int ix = 0; same && ix < icon->width; ix++) {
-                    bool ink = (icon->bits[iy * rb + ix / 8] >> (7 - ix % 8)) & 1;
+                    bool ink = ui_bitmap_ink(icon, ix, iy);
                     same = gfx_get_pixel(&s_fb, x0 + ix, y0 + iy) == ink;
                 }
             }

@@ -434,7 +434,7 @@ static bool has_ellipsis(gfx_rect_t r)
 
 static bool icon_ink(const gfx_bitmap_t *icon, int x, int y)
 {
-    return (icon->bits[y * ((icon->width + 7) / 8) + x / 8] >> (7 - x % 8)) & 1;
+    return ui_bitmap_ink(icon, x, y);
 }
 
 /* Whether `icon` shows in `area` of cell `r`: its whole box matched, ink and blank alike (a solid bar holds every
@@ -923,6 +923,31 @@ static void test_the_grid_shows_which_way_its_power_goes(void)
     TEST_ASSERT_FALSE(inked(pen + 1, m.x + m.w - 1, m.y, m.y + 6 + gfx_font_sans_12.line_height)); /* no arrow */
 }
 
+/* T3a: ink in a 4-bit icon is coverage of 8 or more, the first pixel in the high nibble. */
+static void test_bitmap_ink_reads_4bit_coverage_from_half_up(void)
+{
+    static const uint8_t bits[] = { 0xF0, 0x80 };
+    const gfx_bitmap_t b = { bits, 3, 1, 4 };
+    TEST_ASSERT_TRUE(ui_bitmap_ink(&b, 0, 0));
+    TEST_ASSERT_FALSE(ui_bitmap_ink(&b, 1, 0));
+    TEST_ASSERT_TRUE(ui_bitmap_ink(&b, 2, 0));
+    static const uint8_t faint[] = { 0x70 };
+    const gfx_bitmap_t f = { faint, 1, 1, 4 };
+    TEST_ASSERT_FALSE(ui_bitmap_ink(&f, 0, 0));
+}
+
+static void test_bitmap_ink_reads_1bpp_bits_msb_first(void)
+{
+    static const uint8_t bits[] = { 0xA0, 0x00, 0x00, 0x40 };
+    const gfx_bitmap_t b = { bits, 10, 2, 1 };
+    for (int y = 0; y < 2; y++) {
+        for (int x = 0; x < 10; x++) {
+            bool expected = (bits[y * 2 + x / 8] >> (7 - x % 8)) & 1;
+            TEST_ASSERT_EQUAL(expected, ui_bitmap_ink(&b, x, y));
+        }
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -946,5 +971,7 @@ int main(void)
     RUN_TEST(test_short_s_cells_show_a_short_form_before_cutting);
     RUN_TEST(test_the_solar_fields_show_their_symbols);
     RUN_TEST(test_the_grid_shows_which_way_its_power_goes);
+    RUN_TEST(test_bitmap_ink_reads_4bit_coverage_from_half_up);
+    RUN_TEST(test_bitmap_ink_reads_1bpp_bits_msb_first);
     return UNITY_END();
 }

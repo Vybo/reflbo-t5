@@ -30,6 +30,8 @@ bool ui_resolve_forecast(const ui_context_t *ctx, ui_field_id_t field, ui_value_
 bool ui_forecast_draw(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_value_t *v);
 /* A sky's icon at 16, 24 or 48 px, its night variant where it has one. */
 const gfx_bitmap_t *ui_sky_icon(int sky, bool night, int size);
+/* Whether (x, y) of `b` is ink: a set bit at 1 bpp, coverage of 8 or more at 4 bpp (T3a). */
+bool ui_bitmap_ink(const gfx_bitmap_t *b, int x, int y);
 
 /* XS draws the symbol over the value in a cell narrower than 120 px and at least 44 tall, else one line
  * (ui_widget.c, D34). */
