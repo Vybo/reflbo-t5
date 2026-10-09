@@ -1,3 +1,7 @@
+#include <string.h>
+
+#include "gfx_fonts.h"
+#include "gfx_icons.h"
 #include "ui_layout.h"
 #include "ui_profile.h"
 #include "ui_split.h"
@@ -29,15 +33,19 @@ static void test_use_switches_the_profile_and_null_restores_the_rlcd(void)
     TEST_ASSERT_EQUAL_PTR(&ui_profile_rlcd42, ui_profile());
 }
 
-/* T0 (T5 spec §11): the T5 keeps the RLCD's geometry until T3 and differs only in what it has. */
-static void test_the_t5_has_the_rlcd_geometry_and_none_of_its_capabilities(void)
+/* T3a (T5 spec §7.1-7.3): the T5's own geometry, and none of the RLCD's capabilities. */
+static void test_the_t5_has_its_own_geometry_and_none_of_the_rlcds_capabilities(void)
 {
-    TEST_ASSERT_EQUAL_INT(400, ui_profile_t547.width);
-    TEST_ASSERT_EQUAL_INT(300, ui_profile_t547.height);
-    TEST_ASSERT_EQUAL_INT(20, ui_profile_t547.status_h);
+    TEST_ASSERT_EQUAL_INT(960, ui_profile_t547.width);
+    TEST_ASSERT_EQUAL_INT(540, ui_profile_t547.height);
+    TEST_ASSERT_EQUAL_INT(34, ui_profile_t547.status_h);
+    TEST_ASSERT_EQUAL_INT(GFX_FMT_4BPP, ui_profile_t547.format);
     TEST_ASSERT_EQUAL_HEX32(0, ui_profile_t547.caps);
     TEST_ASSERT_EQUAL_HEX32(UI_CAP_ENV_SENSOR | UI_CAP_AUDIO | UI_CAP_RTC_TRIM | UI_CAP_RTC_ALARM_WAKE | UI_CAP_LPM_RATE,
                             ui_profile_rlcd42.caps);
+    TEST_ASSERT_EQUAL_STRING("lpm_rate", ui_cap_name(UI_CAP_LPM_RATE));
+    TEST_ASSERT_NULL(ui_cap_name(1u << 31));
+    TEST_ASSERT_NULL(ui_cap_name(UI_CAP_AUDIO | UI_CAP_RTC_TRIM)); /* one bit at a time */
 }
 
 static void test_the_rlcd_split_area_is_unchanged(void)
@@ -51,7 +59,8 @@ static void test_the_rlcd_split_area_is_unchanged(void)
 
 static void test_the_split_area_and_status_bar_follow_the_profile(void)
 {
-    static const ui_profile_t wide = { "test", 960, 540, 34, 0 };
+    ui_profile_t wide = ui_profile_t547; /* a copy: positional initializers break as the profile grows */
+    wide.status_h = 34;
     ui_profile_use(&wide);
     TEST_ASSERT_EQUAL_INT(34, UI_STATUS_H);
     gfx_rect_t a = ui_split_area();
@@ -72,14 +81,174 @@ static void test_each_capability_has_a_name(void)
     TEST_ASSERT_NULL(ui_cap_name(UI_CAP_AUDIO | UI_CAP_RTC_TRIM)); /* one bit at a time */
 }
 
+
+/* UI_PX() (T5 spec §7.1): the identity on the RLCD, × 1.7 rounded half away from zero on the T5. */
+static void test_ui_px_is_the_identity_on_the_rlcd_and_1_7_on_the_t5(void)
+{
+    for (int n = -5; n <= 400; n++) {
+        TEST_ASSERT_EQUAL_INT(n, ui_px(n));
+    }
+    ui_profile_use(&ui_profile_t547);
+    TEST_ASSERT_EQUAL_INT(0, UI_PX(0));
+    TEST_ASSERT_EQUAL_INT(2, UI_PX(1));
+    TEST_ASSERT_EQUAL_INT(7, UI_PX(4));
+    TEST_ASSERT_EQUAL_INT(17, UI_PX(10));
+    TEST_ASSERT_EQUAL_INT(34, UI_PX(20));
+    TEST_ASSERT_EQUAL_INT(-10, UI_PX(-6));
+}
+
+/* Review Focus 1: the RLCD's tables are today's literals. */
+static void test_the_rlcd_fonts_and_icons_are_todays(void)
+{
+    const gfx_font_t *const want[UI_F_COUNT] = { &gfx_font_sans_12, &gfx_font_sans_16, &gfx_font_sans_20,
+                                                 &gfx_font_sans_bold_16, &gfx_font_sans_bold_20, &gfx_font_sans_bold_28,
+                                                 &gfx_font_num_cb_48, &gfx_font_num_cb_72, &gfx_font_num_cb_110,
+                                                 &gfx_font_num_cb_130 };
+    for (int i = 0; i < UI_F_COUNT; i++) {
+        TEST_ASSERT_EQUAL_PTR(want[i], UI_FONT(i));
+    }
+    TEST_ASSERT_EQUAL_PTR(&gfx_icon_thermometer_48, ui_icon(UI_ICON_thermometer, UI_IC48));
+    TEST_ASSERT_EQUAL_PTR(&gfx_icon_wx_rain_24, ui_icon(UI_ICON_wx_rain, UI_IC24));
+    TEST_ASSERT_EQUAL_PTR(&gfx_icon_bolt_24, ui_icon(UI_ICON_bolt, UI_IC48));
+    TEST_ASSERT_EQUAL_PTR(&gfx_icon_web_16, ui_icon(UI_ICON_web, UI_IC24));
+    for (int id = 0; id < UI_ICON_COUNT; id++) {
+        for (int c = 0; c < UI_IC_CLASSES; c++) {
+            TEST_ASSERT_NOT_NULL(ui_icon((ui_icon_id_t)id, (ui_icon_class_t)c));
+        }
+    }
+    TEST_ASSERT_EQUAL_INT(16, ui_icon_px(16));
+    TEST_ASSERT_EQUAL_INT(24, ui_icon_px(24));
+    TEST_ASSERT_EQUAL_INT(48, ui_icon_px(48));
+    TEST_ASSERT_EQUAL_INT(UI_IC24, ui_icon_class(47));
+    TEST_ASSERT_EQUAL_INT(UI_IC16, ui_icon_class(23));
+    TEST_ASSERT_NULL(ui_icon(UI_ICON_COUNT, UI_IC16));
+}
+
+static void assert_slots(const ui_layout_t *l, const ui_slot_t *want, int n)
+{
+    TEST_ASSERT_EQUAL_INT(n, l->slot_count);
+    for (int i = 0; i < n; i++) {
+        TEST_ASSERT_EQUAL_STRING(want[i].name, l->slots[i].name);
+        TEST_ASSERT_EQUAL_MEMORY(&want[i].rect, &l->slots[i].rect, sizeof(gfx_rect_t));
+        TEST_ASSERT_EQUAL_INT(want[i].size, l->slots[i].size);
+        TEST_ASSERT_EQUAL_HEX32(want[i].kinds, l->slots[i].kinds);
+    }
+}
+
+static void assert_seps(const ui_layout_t *l, const ui_sep_t *want, int n)
+{
+    TEST_ASSERT_EQUAL_INT(n, l->sep_count);
+    for (int i = 0; i < n; i++) {
+        TEST_ASSERT_EQUAL_INT(want[i].x, l->seps[i].x);
+        TEST_ASSERT_EQUAL_INT(want[i].y, l->seps[i].y);
+        TEST_ASSERT_EQUAL_INT(want[i].len, l->seps[i].len);
+        TEST_ASSERT_EQUAL_INT(want[i].vertical, l->seps[i].vertical);
+    }
+}
+
+/* The RLCD's layouts as ui_layout.c and ui_dashboard.c had them before T3a. */
+static void test_the_rlcd_layouts_and_separators_are_todays(void)
+{
+    const ui_slot_t classic[] = {
+        { "main", { 0, 21, 400, 125 }, UI_SIZE_XL, UI_KINDS_XL },
+        { "sub", { 0, 146, 400, 40 }, UI_SIZE_M, UI_KIND(UI_FK_DATE) | UI_KIND(UI_FK_TEXT) },
+        { "s1", { 0, 189, 100, 111 }, UI_SIZE_S, UI_KINDS_S },
+        { "s2", { 100, 189, 100, 111 }, UI_SIZE_S, UI_KINDS_S },
+        { "s3", { 200, 189, 100, 111 }, UI_SIZE_S, UI_KINDS_S },
+        { "s4", { 300, 189, 100, 111 }, UI_SIZE_S, UI_KINDS_S },
+    };
+    const ui_slot_t weather[] = {
+        { "now", { 0, 21, 200, 160 }, UI_SIZE_L, UI_KINDS_L },
+        { "today", { 200, 21, 200, 80 }, UI_SIZE_M, UI_KINDS_M },
+        { "hourly", { 200, 101, 200, 80 }, UI_SIZE_M, UI_KINDS_M },
+        { "s1", { 0, 182, 200, 118 }, UI_SIZE_S, UI_KINDS_S },
+        { "s2", { 200, 182, 200, 118 }, UI_SIZE_S, UI_KINDS_S },
+    };
+    const ui_slot_t grid[] = {
+        { "g1", { 0, 21, 133, 139 }, UI_SIZE_M, UI_KINDS_M },   { "g2", { 133, 21, 134, 139 }, UI_SIZE_M, UI_KINDS_M },
+        { "g3", { 267, 21, 133, 139 }, UI_SIZE_M, UI_KINDS_M }, { "g4", { 0, 160, 133, 140 }, UI_SIZE_M, UI_KINDS_M },
+        { "g5", { 133, 160, 134, 140 }, UI_SIZE_M, UI_KINDS_M }, { "g6", { 267, 160, 133, 140 }, UI_SIZE_M, UI_KINDS_M },
+    };
+    const ui_slot_t focus[] = {
+        { "main", { 0, 21, 400, 190 }, UI_SIZE_XL, UI_KINDS_XL },
+        { "s1", { 0, 212, 200, 88 }, UI_SIZE_M, UI_KINDS_M },
+        { "s2", { 200, 212, 200, 88 }, UI_SIZE_M, UI_KINDS_M },
+    };
+    assert_slots(ui_layout(UI_LAYOUT_CLASSIC), classic, 6);
+    assert_slots(ui_layout(UI_LAYOUT_WEATHER), weather, 5);
+    assert_slots(ui_layout(UI_LAYOUT_GRID), grid, 6);
+    assert_slots(ui_layout(UI_LAYOUT_FOCUS), focus, 3);
+    const ui_sep_t c_sep[] = { { 12, 188, 376, 0 }, { 100, 199, 90, 1 }, { 200, 199, 90, 1 }, { 300, 199, 90, 1 } };
+    const ui_sep_t w_sep[] = { { 200, 29, 144, 1 }, { 208, 101, 184, 0 }, { 12, 181, 376, 0 }, { 200, 190, 102, 1 } };
+    const ui_sep_t g_sep[] = { { 133, 29, 263, 1 }, { 267, 29, 263, 1 }, { 8, 160, 384, 0 } };
+    const ui_sep_t f_sep[] = { { 12, 211, 376, 0 }, { 200, 220, 72, 1 } };
+    assert_seps(ui_layout(UI_LAYOUT_CLASSIC), c_sep, 4);
+    assert_seps(ui_layout(UI_LAYOUT_WEATHER), w_sep, 4);
+    assert_seps(ui_layout(UI_LAYOUT_GRID), g_sep, 3);
+    assert_seps(ui_layout(UI_LAYOUT_FOCUS), f_sep, 2);
+    for (int id = UI_LAYOUT_RADAR; id < UI_LAYOUT_COUNT; id++) {
+        TEST_ASSERT_EQUAL_INT(0, ui_layout((ui_layout_id_t)id)->slot_count);
+        TEST_ASSERT_EQUAL_INT(0, ui_layout((ui_layout_id_t)id)->sep_count);
+    }
+    const ui_profile_t *p = ui_profile();
+    TEST_ASSERT_EQUAL_INT(GFX_FMT_1BPP, p->format);
+    TEST_ASSERT_EQUAL_INT(30, p->menu.header_h);
+    TEST_ASSERT_EQUAL_INT(36, p->menu.row_y0);
+    TEST_ASSERT_EQUAL_INT(34, p->menu.row_h);
+    TEST_ASSERT_EQUAL_INT(7, p->menu.rows);
+    TEST_ASSERT_EQUAL_INT(40, p->split.min_w);
+    TEST_ASSERT_EQUAL_INT(20, p->split.min_h);
+    TEST_ASSERT_EQUAL_INT(150, p->split.narrow_w);
+    TEST_ASSERT_EQUAL_INT(8, p->split.inset);
+}
+
+/* T5 spec §7.2-7.3: the T5's 4-bit assets, its menu, split limits and fixed layouts. */
+static void test_the_t5_tables(void)
+{
+    ui_profile_use(&ui_profile_t547);
+    const ui_profile_t *p = ui_profile();
+    for (int i = 0; i < UI_F_COUNT; i++) {
+        TEST_ASSERT_EQUAL_UINT8(4, UI_FONT(i)->bpp);
+    }
+    for (int id = 0; id < UI_ICON_COUNT; id++) {
+        for (int c = 0; c < UI_IC_CLASSES; c++) {
+            const gfx_bitmap_t *b = ui_icon((ui_icon_id_t)id, (ui_icon_class_t)c);
+            TEST_ASSERT_NOT_NULL(b);
+            TEST_ASSERT_EQUAL_UINT8(4, b->bpp);
+            TEST_ASSERT_EQUAL_INT(p->icon_px[c], b->width);
+        }
+    }
+    TEST_ASSERT_EQUAL_INT(26, ui_icon_px(16));
+    TEST_ASSERT_EQUAL_INT(40, ui_icon_px(24));
+    TEST_ASSERT_EQUAL_INT(80, ui_icon_px(48));
+    TEST_ASSERT_EQUAL_INT(51, p->menu.header_h);
+    TEST_ASSERT_EQUAL_INT(61, p->menu.row_y0);
+    TEST_ASSERT_EQUAL_INT(55, p->menu.row_h);
+    TEST_ASSERT_EQUAL_INT(8, p->menu.rows);
+    TEST_ASSERT_EQUAL_INT(68, p->split.min_w);
+    TEST_ASSERT_EQUAL_INT(34, p->split.min_h);
+    TEST_ASSERT_EQUAL_INT(255, p->split.narrow_w);
+    TEST_ASSERT_EQUAL_INT(14, p->split.inset);
+    TEST_ASSERT_EQUAL_INT(8, ui_layout(UI_LAYOUT_CLASSIC)->slot_count);
+    TEST_ASSERT_EQUAL_INT(6, ui_layout(UI_LAYOUT_WEATHER)->slot_count);
+    TEST_ASSERT_EQUAL_INT(8, ui_layout(UI_LAYOUT_GRID)->slot_count);
+    TEST_ASSERT_EQUAL_INT(4, ui_layout(UI_LAYOUT_FOCUS)->slot_count);
+    TEST_ASSERT_EQUAL_INT(UI_LAYOUT_CLASSIC, ui_layout_by_name("classic"));
+    TEST_ASSERT_EQUAL_INT(7, ui_slot_by_name(ui_layout(UI_LAYOUT_CLASSIC), "s6"));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_the_rlcd_is_the_default_profile);
     RUN_TEST(test_use_switches_the_profile_and_null_restores_the_rlcd);
-    RUN_TEST(test_the_t5_has_the_rlcd_geometry_and_none_of_its_capabilities);
+    RUN_TEST(test_the_t5_has_its_own_geometry_and_none_of_the_rlcds_capabilities);
     RUN_TEST(test_the_rlcd_split_area_is_unchanged);
     RUN_TEST(test_the_split_area_and_status_bar_follow_the_profile);
     RUN_TEST(test_each_capability_has_a_name);
+    RUN_TEST(test_ui_px_is_the_identity_on_the_rlcd_and_1_7_on_the_t5);
+    RUN_TEST(test_the_rlcd_fonts_and_icons_are_todays);
+    RUN_TEST(test_the_rlcd_layouts_and_separators_are_todays);
+    RUN_TEST(test_the_t5_tables);
     return UNITY_END();
 }

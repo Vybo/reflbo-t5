@@ -6,10 +6,11 @@
 #include "ui_fields.h"
 #include "ui_profile.h"
 
-/* Layouts (spec §5.2): fixed slot rectangles below a 20 px status bar. Pure C, host-buildable. */
+/* Layouts (spec §5.2): fixed slot rectangles below the status bar, the board's own (T5 spec §7.3: in its
+ * profile). Pure C, host-buildable. */
 
-#define UI_STATUS_H (ui_profile()->status_h) /* 20 on the RLCD (T5 spec §7.1) */
-#define UI_SLOT_MAX 24 /* the split layout's cells (ui_split.h, M6c); the fixed layouts use up to 6 */
+#define UI_STATUS_H (ui_profile()->status_h) /* 20 on the RLCD, 34 on the T5 (T5 spec §7.1) */
+#define UI_SLOT_MAX 24 /* the split layout's cells (ui_split.h, M6c); the fixed layouts use up to 8 */
 
 typedef enum {
     UI_LAYOUT_CLASSIC,
@@ -50,10 +51,18 @@ typedef struct {
     uint32_t kinds; /* UI_KIND() bits of the field kinds the slot accepts */
 } ui_slot_t;
 
+/* A separator line (spec §5.2): from (x, y), `len` pixels long, across or down. */
 typedef struct {
+    int16_t x, y, len;
+    uint8_t vertical;
+} ui_sep_t;
+
+typedef struct ui_layout {
     const char *id; /* "classic" */
     const ui_slot_t *slots;
     int slot_count;
+    const ui_sep_t *seps; /* the fixed layouts' separators (T3a: from the board's profile) */
+    int sep_count;
 } ui_layout_t;
 
 const ui_layout_t *ui_layout(ui_layout_id_t id); /* NULL if out of range */

@@ -234,7 +234,9 @@ static void test_layouts_name_the_board_and_its_capabilities(void)
     s_root = cJSON_Parse(s_out);
     TEST_ASSERT_NOT_NULL(s_root);
     TEST_ASSERT_EQUAL_STRING("t547", str(s_root, "board"));
-    TEST_ASSERT_EQUAL_INT(400, num(s_root, "width"));
+    TEST_ASSERT_EQUAL_INT(960, num(s_root, "width"));
+    TEST_ASSERT_EQUAL_INT(540, num(s_root, "height"));
+    TEST_ASSERT_EQUAL_INT(34, num(s_root, "status_h"));
     TEST_ASSERT_EQUAL_INT(0, cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(s_root, "caps")));
 }
 
