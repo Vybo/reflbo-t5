@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2 (§13)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a (§13)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -125,6 +125,7 @@ The bits go out last first, then the strobe rises: output enable, mode, PWR_EN (
 18. **The battery reads about 4.78 V with USB in**, the LiPo's charger voltage, so the gauge shows full while USB is connected and the battery's own voltage once unplugged. As upstream, charging is invisible to the firmware.
 19. **The ESP32 refuses a light sleep of a millisecond** (`ESP_ERR_SLEEP_TOO_SHORT_SLEEP_DURATION`, which is `ESP_ERR_INVALID_ARG`). A light sleep that woke just before its minute asked for that much, got refused, and the loop went straight back to it without ticking: the board spun awake at 240 MHz for good (115–138 mA on the owner's meter). The app ticks a wake that has come (`sched_wake_due()`) instead of planning a sleep for it. The S3 sleeps that millisecond, so the RLCD never showed it; the shared fix goes upstream with the merge.
 20. **USB power keeps the panel's rail on.** In LilyGo's schematic (`T5-4.7.pdf`, the CP2104 revision), the switched `3V3` that feeds the panel, its LT1945 boost converter, the ±15 V regulators, the VCOM amplifier and the blue LED is turned on through Q2 by either POWER_EN (D6, the shift register) or VBUS (D7). With USB in, it stays on whatever the firmware does, and the USB-serial chip runs too: the owner's USB meter read about 65 mA with the ESP32 in deep sleep and 67 mA in light sleep (T1, 2026-10-08), both the hardware's floor. The sleep current exists only on battery, where POWER_EN switches the rail off; LilyGo quotes about 380 µA. A USB meter can't measure it (§8.5).
+21. **UART input sent during a clean update is lost** (T3a's board check). Each menu step on the T5 redraws clean for about 2.2 s, and console lines that arrive meanwhile don't reach the REPL, so a script that sends `btn` commands back to back loses most of them. Scripts wait for each update to finish (1.5 s without output) before the next command.
 
 ## 3. The fork
 
@@ -268,8 +269,8 @@ On the owner's panel (T2, 2026-10-09) the waveform's levels 0–8 are distinct a
 
 - `screenshot` prints a PGM (P5, 8-bit) between `-----BEGIN RLCD PGM-----` and `-----END RLCD PGM-----` on a 4 bpp board, and the PBM as today on 1 bpp. `tools/screenshot.py` reads both and writes a PNG.
 - `/api/screenshot.bmp` and `/api/preview.bmp` send a 4-bit BMP with a 16-gray palette on the T5.
-- The T5's goldens are PGM files in `test/host/golden/t5/`; `render_dashboard` and `render_screen` take `--board t5`. `tools/render.py` and `tools/docs_images.py` handle both.
-- The T5 keeps a 960×540 4 bpp panel frame, epdiy's layout, that `display_screenshot_fb()` returns (T2). A T5 screenshot is about 690 KB of base64, about a minute at 115200 baud (66 s measured); `/api/screenshot.bmp`'s reply buffer is 264 KB on the T5.
+- The T5's goldens are gzip-compressed PGMs (`.pgm.gz`, as a plain one is 518 KB) in `test/host/golden/t5/`, read and written through `test/host/golden_io.h`; `render_dashboard` and `render_screen` take `--board t5` (and `render_dashboard [--board t5] --layouts` lists each fixture's layout). `tools/render.py --board t5` renders every fixture as the T5 draws it, and `tools/pbm_png.py` reads compressed images. The T5's golden set is the fixtures on Classic, Grid, Weather and Focus (41) and every screen (24); the fixtures whose slots hold the radar, chart or flow widgets join with T3b. A fixture that asks for the Indoor preset gets the T5's Sky.
+- The T5's UI draws its 960×540 4 bpp frame directly, in epdiy's layout (T3a): `display_fb()` is the frame the panel gets and `display_screenshot_fb()` returns it, with no composition. A T5 screenshot is about 690 KB of base64, about a minute at 115200 baud (66 s measured); `/api/screenshot.bmp`'s reply buffer is 264 KB on the T5.
 
 ## 7. Dense UI at 960×540
 
@@ -281,15 +282,27 @@ A per-board profile holds what today is spread as constants: the panel's size, t
 - Fixed paddings inside widgets become `UI_PX(n)`: the identity on the RLCD, × 1.7 rounded on the T5. This lands as one mechanical commit.
 - Duplicated literals (`PANEL_W`, `PANEL_H`, the preview's `gfx_fb_size(400,300)`, the web's radar `400`) read the profile.
 
-T0 starts the profile with the panel's size, the status bar's height, the board's name and its capabilities (`ui_profile_t`), and `UI_STATUS_H`, the split area, the catalogue and the web preview read it. The layouts, fonts, screen geometry, split limits, view sizes and `UI_PX()` move in at T3, when the T5 has numbers of its own.
+T0 starts the profile with the panel's size, the status bar's height, the board's name and its capabilities (`ui_profile_t`), and `UI_STATUS_H`, the split area, the catalogue and the web preview read it.
+
+As built at T3a: `ui_profile_rlcd42.c` and `ui_profile_t547.c`, one built into each image (the component's CMake picks it and names it `UI_PROFILE_DEFAULT`; the host builds both and defaults to the RLCD's), hold
+
+- the frame: width, height, the status bar, the format (1 or 4 bpp), the capabilities;
+- the pixel scale: `UI_PX(n)` is n × `px_num` / `px_den` rounded half away from zero, 1/1 on the RLCD (no arithmetic), 17/10 on the T5;
+- the fonts by role, `UI_FONT(UI_F_SANS_12 … UI_F_NUM_130)`, named after the RLCD's faces;
+- the icons by name and size class, `ui_icon(UI_ICON_<name>, UI_IC16 | UI_IC24 | UI_IC48)`, with `ui_icon_class()` and `ui_icon_px()` taking the RLCD's pixels; `ui_bitmap_ink()` reads ink from 1 bpp and 4-bit icons alike;
+- the fixed layouts with their separators (`ui_layout_t`: slots and `ui_sep_t` lines);
+- the menu's header, first row, row pitch and rows; the split's least cell, narrow width and inset (`UI_SPLIT_*` read them);
+- the owner's tuning from the T5's render review: the sun's times in an S cell (`sun_s_face`: the RLCD's bold 16; on the T5 a 30 px bold face of a time's characters, beside the 40 px icons) and, in a narrow S cell, the sun stacked from the top like the other S widgets (`sun_s_top`, T5 only).
+
+The UI names no board's font or icon outside the profiles (`tools/tests/test_ui_sources.py` checks it), and `main` refuses to boot when the display's frame doesn't match the profile (`ui_profile_matches()`). A screen laid out on the RLCD's whole screen (critical battery, config's "starting" and "connecting", the menu's date-time editor and question) keeps its positions through `UI_PX()` from a top offset of (height − `UI_PX(300)`) / 2. Under a profile with equal numerator and denominator other than 1/1, every RLCD golden renders unchanged (a test). The radar and flight views' sizes, the Solar and Energy layouts and the chart and flow widgets keep the RLCD's geometry until T3b; the web's numbers are T3c's.
 
 ### 7.2 Sizes on the T5
 
-About 1.7× the RLCD's pixels (DT2): fonts 12 → 20, 16 → 26, 20 → 34, 28 → 46, numbers 48 → 80, 72 → 120, 110 → 180, 130 → 220; icons 16 → 26, 24 → 40, 48 → 80; the status bar 20 → 34. The exact sizes are settled in the T3 renders.
+About 1.7× the RLCD's pixels (DT2): fonts 12 → 20, 16 → 26, 20 → 34, 28 → 46, numbers 48 → 80, 72 → 120, 110 → 180, 130 → 220 (DejaVu, 4-bit); icons 16 → 26, 24 → 40, 48 → 80; the status bar 20 → 34; plus the sun's 30 px time face (digits, ":", space, A, M, P). The owner approved the renders on 2026-10-09; only the T5's image carries its assets (`components/gfx/CMakeLists.txt`), and it holds three of the RLCD's fonts that `map_draw.c` and `gfx_draw_test_pattern()` still name (3.40 MB of the 3.6 MB budget).
 
 ### 7.3 Layouts on the T5
 
-Starting points for the renders (16:9, below the status bar):
+As approved (2026-10-09; 16:9, below the status bar at {0, 35, 960, 505}):
 
 | Layout | RLCD | T5 |
 |---|---|---|
@@ -301,7 +314,27 @@ Starting points for the renders (16:9, below the status bar):
 | Solar, Energy | as built | rescaled, wider chart |
 | Split | cells ≥ 40×20, ≤ 24 | the same ratio trees; cells ≥ 68×34, ≤ 24 |
 
-The menu shows 8 rows. The config, first-run, critical-battery and QR screens keep their content, rescaled. The T5's built-in presets leave out the `env.*` fields.
+The T5's fixed layouts (`ui_profile_t547.c`):
+
+| Layout | Slots | Lines |
+|---|---|---|
+| Classic | main 0, 35, 960×212 (XL); date row 0, 247, 960×68 (M); s1–s6 160 apart from 0, 318, 160×222 (S) | h 20, 316, 920; v at 160·i, 335, 186 (i = 1–5) |
+| Weather | now 0, 35, 480×288 (L); today 480, 35, 480×144 (M); hourly 480, 179, 480×144 (M); s1–s3 320 apart from 0, 324, 320×216 (S) | v 480, 49, 260; h 494, 179, 452; h 20, 323, 920; v 320 and 640, 340, 186 |
+| Grid | g1–g4 240 apart from 0, 35, 240×252; g5–g8 from 0, 287, 240×253 (M) | v 240, 480, 720, 49, 477; h 14, 287, 932 |
+| Focus | main 0, 35, 960×344 (XL); s1–s3 320 apart from 0, 380, 320×160 (M) | h 20, 379, 920; v 320 and 640, 395, 130 |
+
+The menu has a 51 px title bar, its first row at 61, rows of 55 and 8 rows; its footer is at height − `UI_PX(18)`. The split's cells are at least 68×34, narrow below 255, its lines 14 short of their ends, and each size's least cell is `UI_PX()` of the RLCD's (XL from 680 wide). The config, first-run, critical-battery and QR screens keep their content, rescaled.
+
+The T5's built-in presets leave out the `env.*` fields:
+
+| Preset | Layout | Fields |
+|---|---|---|
+| Home | Classic | time, date, weather now, today, sun, Moon, air quality, battery |
+| Sky (in Indoor's place) | Grid, status clock | weather now, today, air quality, UV, pollen, sun, Moon, battery days |
+| Weather | Weather, status clock | now, today, hourly, air quality, pollen, sun |
+| Focus clock | Focus | time, date, weather now, Moon |
+
+Rain radar, Flights, Solar and Energy stay out of the T5's cycle until T3b draws them at 960×540. Found at the board (2026-10-10): where the Moon's name would be cut beside its disc in M, L or XL, the disc shrinks, to half its size at most.
 
 ### 7.4 Web UI
 
@@ -403,7 +436,9 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | T0 | The seams: the Kconfig board choice, `idf.sh`'s `REFLBO_BOARD`, the pin headers, capabilities, the display, RTC and sensor seams, the UI profile with the panel's size, status bar, board and capabilities; the T5 builds with a display that draws nothing and the RLCD's profile | Both boards build clean; the RLCD's goldens byte-identical; host tests pass (done 2026-10-07) |
 | T1 | Port and bring-up: the T5 as an ESP32 board (target, pins, console, wake, the ADC's scheme, the system-clock RTC, the tools); epdiy's ESP32 path with its board and patch P5, `epaper`, rails and deep sleep; every update clean; DU, GL16 and GC16, the slow clock's drift and the sleep current measured. Until T3 the app draws the RLCD's 400×300 1 bpp frame, which `epaper` places in the panel's middle | The test pattern and the clock on the panel (owner confirms); the timings, drift and current recorded (done 2026-10-07, the current waits for the owner's meter) |
 | T2 | Grayscale gfx: 4 bpp, anti-aliased fonts and icons, PGM screenshots, gray BMPs | The gray ramp and anti-aliased text on the panel match their screenshots (done 2026-10-09) |
-| T3 | The dense UI: the T5 profile, layouts, menu, screens, presets, the web page | The owner approves the renders; the T5's goldens committed; every layout on the panel |
+| T3a | The native frame: the profile holds fonts, icons, `UI_PX()`, layouts, the menu and split limits; the T5's fonts and icons; `UI_PX()` through the UI; the T5's layouts, menu, screens and presets; the display hands the UI its 960×540 4 bpp frame; the T5's goldens | The owner approves the renders; the T5's goldens committed; the presets and the menu on the panel (done 2026-10-10) |
+| T3b | The views and the grays: Radar and Flights at 960×540, the Solar and Energy layouts, the chart and flow widgets, the map's fonts and marks; §6.4's gray uses | Their renders approved and their goldens committed; each view on the panel |
+| T3c | The web page: the panel's size and aspect from `/api/layouts`, the split editor's grid, the gray preview; the T5's gray BMPs fetched over Wi-Fi | The page edits a T5 preset and its preview matches the panel |
 | T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured |
 
 ## 12. Risks and open items
@@ -414,11 +449,13 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 - **A cold boot draws twice:** `display_init()` cleans the panel to its blank frame (1.6 s), then the first screen comes clean too. T4's fast updates make the second one fast.
 - **Ghosting** from fast updates between clean ones; the default may need lowering after the owner sees the panel.
 - **The CH9102's auto-reset:** a tool that opens the port the wrong way resets the board (§2.5).
-- **Image size:** T5 fonts at 4 bits and up to 220 px; the app has about 1.5 MB free in its 4 MB slot.
+- **Image size:** T5 fonts at 4 bits and up to 220 px; at T3a the image is 3.40 MB of the 3.6 MB budget (its 4 MB slot), with T3b's views to come.
 - **Radar frames at 960 px** are about 2.4 times the RLCD's pixels; the frame file and decode buffers grow with them, in 4 MB of mapped PSRAM.
 - **Merge conflicts** with upstream's M7 in `components/ui`, mostly from `UI_PX()`. Merging `upstream/main` into the fork after each upstream milestone keeps them small.
 - **The T5-ePaper-S3** (LilyGo's newer board) would be a third board choice. Its V2.3 needs the S3 output patch from the fork's history (commit `7232440`); its V2.4 runs stock epdiy. Not planned.
-- **Buttons:** the owner can reach only RESET for now; the buttons' owner check waits.
+- **Buttons:** the owner's KEY long opened the menu at T3a's board check (2026-10-10); the rest of the buttons' owner check waits.
+- **The menu shows items for missing hardware** on the T5 (Sensors ▸ the temperature and humidity offsets); §9 hides them, in a later milestone.
+- **The console over UART drops input during a clean update** (~2.2 s, every menu step on the T5): scripts send button commands paced, and wake a deep-sleeping board only by resetting it (§9).
 
 ## 13. Revision history
 
@@ -429,3 +466,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r3 | 2026-10-07 | The board is the ESP32 LilyGo T5-4.7 (DT9) without an RTC (DT10), with a UART console (DT11): the board (§2), the build's per-board target (§4.1), pins (§4.2), the capabilities (§4.3), the RTC (§4.5, §8.1), the ADC (§4.6), epdiy stock on the ESP32 with patch P5 (§5.1, DT4), `epaper` (§5.2), deep sleep (§5.4), wake and buttons (§8.2, §8.3, DT7), the battery (§8.4), the console and tools (§9), the rules at the board (§10.2), T1 (§11), the risks (§12) |
 | r4 | 2026-10-08 | T1 as built: bring-up's findings (§2.5), the LUT and epdiy's RAM budget (§5.1), the refresh times (§5.3), the slow clock and its drift (§8.1), the current (§8.5, the owner's meter pending); DT12; the risks (§12) |
 | r5 | 2026-10-09 | T2 as built: the formats and blending (§6.1–6.2), the asset formats (§6.3), the panel frame and screenshots (§6.5), `panel test` (§9), the panel's grays and ghosting (§6.4), the ESP32's minimum revision (§4.1) |
+| r6 | 2026-10-10 | T3a as built: T3 split into T3a, T3b and T3c (§11); the compressed goldens (§6.5); the profile's members (§7.1); the sizes and faces (§7.2); the layouts, menu, split limits and presets as the owner approved them, the Moon's disc (§7.3); the console's lost input during an update (§2.5); the open items (§12) |
