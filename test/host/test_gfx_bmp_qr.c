@@ -101,6 +101,31 @@ static void test_bmp_of_a_4bpp_frame_is_4bit_gray(void)
     TEST_ASSERT_EQUAL_MEMORY(top, out + 122, 4);
 }
 
+/* Final review of T2 (I1): the T5's whole frame as a BMP, as /api/screenshot.bmp sends it: 960×540, rows of
+ * 480 bytes (no padding), bottom-up, the left pixel in the high nibble; every pixel's index is its level. */
+#include "gfx_test_pattern.h"
+
+static uint8_t s_frame[960 * 540 / 2];
+static uint8_t s_bmp[118 + 960 * 540 / 2];
+
+static void test_bmp_of_the_t5_frame_holds_every_level(void)
+{
+    gfx_fb_t fb;
+    gfx_fb_init_fmt(&fb, s_frame, 960, 540, GFX_FMT_4BPP);
+    gfx_draw_test_pattern_t5(&fb);
+    size_t n = gfx_bmp_encode(&fb, s_bmp, sizeof(s_bmp));
+    TEST_ASSERT_EQUAL_UINT32(259318, n);
+    int bad = 0;
+    for (int y = 0; y < 540; y++) {
+        const uint8_t *row = s_bmp + 118 + (size_t)480 * (size_t)(539 - y);
+        for (int x = 0; x < 960; x++) {
+            uint8_t index = (uint8_t)((x & 1) ? (row[x / 2] & 0x0F) : (row[x / 2] >> 4));
+            bad += index != gfx_get_level(&fb, x, y);
+        }
+    }
+    TEST_ASSERT_EQUAL_INT(0, bad);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -109,5 +134,6 @@ int main(void)
     RUN_TEST(test_a_qr_code_is_drawn_with_its_quiet_zone_and_finders);
     RUN_TEST(test_text_too_long_for_a_qr_code_draws_nothing);
     RUN_TEST(test_bmp_of_a_4bpp_frame_is_4bit_gray);
+    RUN_TEST(test_bmp_of_the_t5_frame_holds_every_level);
     return UNITY_END();
 }
