@@ -27,7 +27,7 @@ if [[ "${1:-}" != "exec" && -z "${ESPPORT:-}" ]]; then
     done
     if ((needs_port && !has_port)); then
         shopt -s nullglob
-        ports=(/dev/cu.usbmodem*)
+        ports=(/dev/cu.usbmodem* /dev/cu.usbserial-*) # the RLCD's USB-Serial-JTAG, the T5's CH9102
         echo "idf.sh: this command talks to the board; pass its port with -p (found: ${ports[*]:-none})" >&2
         exit 2
     fi

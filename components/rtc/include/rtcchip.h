@@ -9,8 +9,8 @@
 #include "esp_err.h"
 
 /*
- * The board's RTC chip (T5 spec §4.5): the PCF85063A on the RLCD board (pcf85063.h), the PCF8563 on
- * the T5. Stores UTC. What a chip does beyond keeping time is in board_caps.h:
+ * The board's RTC chip (T5 spec §4.5): the PCF85063A on the RLCD board (pcf85063.h); on the T5, which has
+ * none, the ESP32's system clock (rtcchip_t547.c, DT10). Stores UTC. What a chip does beyond keeping time is in board_caps.h:
  * BOARD_HAS_RTC_ALARM_WAKE and BOARD_HAS_RTC_TRIM. Call from the app task only.
  */
 

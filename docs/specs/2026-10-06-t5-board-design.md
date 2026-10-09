@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built (§13)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2 (§13)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -144,6 +144,7 @@ The bits go out last first, then the strobe rises: output enable, mode, PWR_EN (
 - Each board has its own ESP-IDF target: the RLCD's `esp32s3` (in the shared `sdkconfig.defaults`), the T5's `esp32`. `sdkconfig.defaults.t5`, applied after the shared file, sets the T5's target, quad PSRAM, the console on UART0, 240 MHz, epdiy's options and the T5's idle default.
 - `tools/idf.sh` reads `REFLBO_BOARD` (`rlcd42` by default, or `t5`). For `t5` it adds `-B build-t5 -D REFLBO_BOARD=t5 -D SDKCONFIG=sdkconfig.t5 -D IDF_TARGET=esp32`. Both boards build side by side.
 - The partition table is the same: both boards have 16 MB flash. The T5 image carries only the T5's fonts and icons, the RLCD image only the RLCD's.
+- The ESP32 build sets `CONFIG_ESP32_REV_MIN_3`: the WROVER-E's chip is revision 3, and without the PSRAM cache workaround IRAM fits (about 12 KB free with epdiy, T2). An M7 merge that runs short can turn off `CONFIG_ESP_WIFI_IRAM_OPT`, `CONFIG_ESP_WIFI_RX_IRAM_OPT` or `CONFIG_LWIP_IRAM_OPTIMIZATION`.
 - Chip differences live behind ESP-IDF's own feature macros (`SOC_*`, `CONFIG_IDF_TARGET_*`) where the code is chip-specific (the console, CPU power-down in light sleep, the ADC's calibration scheme, the deep-sleep wake), and behind `board_caps.h` where it is the board's.
 
 ### 4.2 Pins
@@ -241,28 +242,34 @@ The panel keeps showing the dashboard. At the start of a night the status bar ge
 
 - `gfx_fb_t` gains a format: `GFX_FMT_1BPP` (today's layout: row-major, MSB first, 1 = black) and `GFX_FMT_4BPP` (epdiy's: two pixels a byte, the first in the low nibble, 0 = black, 15 = white).
 - The 1 bpp code paths stay as they are, so the RLCD's goldens don't move. Primitives branch on the format once per call, not per pixel.
+- `gfx_fb_init_fmt()` and `gfx_fb_size_fmt()` take the format; `gfx_fb_init()` and `gfx_fb_size()` stay 1 bpp, and a zeroed `format` is 1 bpp (T2).
 
 ### 6.2 Colours and blending
 
 - `GFX_BLACK`, `GFX_WHITE` and `GFX_INVERT` stay; `GFX_GRAY(n)`, n = 1–14, joins them.
 - On a 1 bpp buffer a gray is drawn as a 4×4 ordered dither. No RLCD drawing uses grays, so nothing changes there.
 - Anti-aliased glyphs and icons blend their coverage with what's beneath: towards the ink's level on the background's. `GFX_INVERT` on 4 bpp inverts the level (15 − v).
+- `gfx_pixel_coverage()` blends: it moves the level towards the ink by coverage / 15, rounded half away from zero; 1 bpp inks from coverage 8 (T2).
 
 ### 6.3 Fonts and icons
 
 - `tools/fontgen.py` and the icon generator gain a 4-bit output (coverage 0–15 a pixel) beside 1-bit. A font records its depth.
 - Glyph width, height and advance widen from `uint8_t` to `uint16_t`, and offsets from `int8_t` to `int16_t`, so numerals over 255 px are possible. The RLCD's fonts are regenerated in the wider format; they draw the same.
 - The T5's fonts and icons are generated at its sizes (§7.2) in 4 bits, and committed as C sources as today.
+- A font's and a bitmap's `bpp` is their last member (0 reads as 1, though the generators always write it: GCC's `-Wmissing-field-initializers` wants it); 4-bit rows put the first pixel in the high nibble. T2 generated `t5_sans_26` and `t5_thermometer_40` (`assets/icons/icons_t5.txt`) for the test pattern.
 
 ### 6.4 Where the T5 uses gray
 
 Text and icon edges; the radar's rain intensity (in place of `radar_inks()`' dither); the solar chart's fill; the map's land and borders; the status bar's separators. Each is checked for legibility in the T3 renders.
+
+On the owner's panel (T2, 2026-10-09) the waveform's levels 0–8 are distinct and 9–15 look nearly alike, so T3 takes its grays from the dark half. Ghosting shows through dark grays after a clean update (partly old burn-in); a clean update with more clear cycles is a T4 question.
 
 ### 6.5 Screenshots, previews, goldens
 
 - `screenshot` prints a PGM (P5, 8-bit) between `-----BEGIN RLCD PGM-----` and `-----END RLCD PGM-----` on a 4 bpp board, and the PBM as today on 1 bpp. `tools/screenshot.py` reads both and writes a PNG.
 - `/api/screenshot.bmp` and `/api/preview.bmp` send a 4-bit BMP with a 16-gray palette on the T5.
 - The T5's goldens are PGM files in `test/host/golden/t5/`; `render_dashboard` and `render_screen` take `--board t5`. `tools/render.py` and `tools/docs_images.py` handle both.
+- The T5 keeps a 960×540 4 bpp panel frame, epdiy's layout, that `display_screenshot_fb()` returns (T2). A T5 screenshot is about 690 KB of base64, about a minute at 115200 baud (66 s measured); `/api/screenshot.bmp`'s reply buffer is 264 KB on the T5.
 
 ## 7. Dense UI at 960×540
 
@@ -357,7 +364,7 @@ T1 (2026-10-07/08): a deep-sleep minute wakes for about 2.2 s, the clean update'
   - The UART wakes light sleep; `power idle light` keeps a bench board reachable.
   - `panel status`: the updates since boot and the last one's time; from T4, fast updates since the last clean one and the last update's mode and area.
   - `panel clean`: a clean update now.
-  - `panel test`: the test pattern; from T2 also a 16-step gray ramp.
+  - `panel test`: the T5's pattern (`gfx_draw_test_pattern_t5()`): the RLCD's, a 16-step gray ramp, anti-aliased text and an icon, over the whole panel until the next commit. A deep-idle board needs a reset first: the UART can't wake deep sleep.
   - `panel bench`: the clean, GL16 and DU times (T1).
   - `panel sleep|wake` as upstream.
   - `rtc get|set` on the system clock.
@@ -395,7 +402,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 |---|---|---|
 | T0 | The seams: the Kconfig board choice, `idf.sh`'s `REFLBO_BOARD`, the pin headers, capabilities, the display, RTC and sensor seams, the UI profile with the panel's size, status bar, board and capabilities; the T5 builds with a display that draws nothing and the RLCD's profile | Both boards build clean; the RLCD's goldens byte-identical; host tests pass (done 2026-10-07) |
 | T1 | Port and bring-up: the T5 as an ESP32 board (target, pins, console, wake, the ADC's scheme, the system-clock RTC, the tools); epdiy's ESP32 path with its board and patch P5, `epaper`, rails and deep sleep; every update clean; DU, GL16 and GC16, the slow clock's drift and the sleep current measured. Until T3 the app draws the RLCD's 400×300 1 bpp frame, which `epaper` places in the panel's middle | The test pattern and the clock on the panel (owner confirms); the timings, drift and current recorded (done 2026-10-07, the current waits for the owner's meter) |
-| T2 | Grayscale gfx: 4 bpp, anti-aliased fonts and icons, PGM screenshots, gray BMPs | The gray ramp and anti-aliased text on the panel match their screenshots |
+| T2 | Grayscale gfx: 4 bpp, anti-aliased fonts and icons, PGM screenshots, gray BMPs | The gray ramp and anti-aliased text on the panel match their screenshots (done 2026-10-09) |
 | T3 | The dense UI: the T5 profile, layouts, menu, screens, presets, the web page | The owner approves the renders; the T5's goldens committed; every layout on the panel |
 | T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured |
 
@@ -421,3 +428,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r2 | 2026-10-07 | T0 as built: the capabilities' list (§4.3), `display_init_lost()` (§4.4), the profile's first members (§7.1, §11) |
 | r3 | 2026-10-07 | The board is the ESP32 LilyGo T5-4.7 (DT9) without an RTC (DT10), with a UART console (DT11): the board (§2), the build's per-board target (§4.1), pins (§4.2), the capabilities (§4.3), the RTC (§4.5, §8.1), the ADC (§4.6), epdiy stock on the ESP32 with patch P5 (§5.1, DT4), `epaper` (§5.2), deep sleep (§5.4), wake and buttons (§8.2, §8.3, DT7), the battery (§8.4), the console and tools (§9), the rules at the board (§10.2), T1 (§11), the risks (§12) |
 | r4 | 2026-10-08 | T1 as built: bring-up's findings (§2.5), the LUT and epdiy's RAM budget (§5.1), the refresh times (§5.3), the slow clock and its drift (§8.1), the current (§8.5, the owner's meter pending); DT12; the risks (§12) |
+| r5 | 2026-10-09 | T2 as built: the formats and blending (§6.1–6.2), the asset formats (§6.3), the panel frame and screenshots (§6.5), `panel test` (§9), the panel's grays and ghosting (§6.4), the ESP32's minimum revision (§4.1) |
