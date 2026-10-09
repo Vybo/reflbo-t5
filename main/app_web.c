@@ -591,7 +591,7 @@ void app_web_api(const char *method, const char *path, const char *query, const 
     } else if (strcmp(path, "/api/preview.bmp") == 0 && (get || strcmp(method, "POST") == 0)) {
         preview(method, query, body, out, size, reply);
     } else if (strcmp(path, "/api/screenshot.bmp") == 0 && get) {
-        reply_bmp(display_fb(), out, size, reply);
+        reply_bmp(display_screenshot_fb(), out, size, reply);
     } else if (strcmp(path, "/api/time") == 0 && strcmp(method, "POST") == 0) {
         set_time(body, out, size, reply);
     } else if (strcmp(path, "/api/battery/learn") == 0 && strcmp(method, "POST") == 0) {

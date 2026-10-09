@@ -31,6 +31,10 @@ typedef struct {
 } display_t5_bench_t;
 esp_err_t display_t5_bench(display_t5_bench_t *out);
 
+/* `panel test` (T5 spec §9): gfx_draw_test_pattern_t5() on the panel frame, clean. The next commit puts the
+ * dashboard back. */
+esp_err_t display_t5_test_pattern(void);
+
 #else
 
 #include "st7305.h"

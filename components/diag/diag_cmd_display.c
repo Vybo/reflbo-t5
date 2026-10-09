@@ -20,27 +20,28 @@ static int screenshot_body(int argc, char **argv)
 {
     (void)argc;
     (void)argv;
-    gfx_fb_t *fb = display_fb();
+    const gfx_fb_t *fb = display_screenshot_fb();
     if (fb == NULL) {
         printf("screenshot: display not initialised\n");
         return 1;
     }
-    size_t size = gfx_pbm_size(fb);
-    uint8_t *pbm = heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
-    if (pbm == NULL) {
+    bool gray = fb->format == GFX_FMT_4BPP; /* T5 spec §6.5: PGM from 4 bpp, PBM from 1 bpp */
+    size_t size = gray ? gfx_pgm_size(fb) : gfx_pbm_size(fb);
+    uint8_t *img = heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
+    if (img == NULL) {
         printf("screenshot: out of memory\n");
         return 1;
     }
-    size_t len = gfx_pbm_encode(fb, pbm, size);
+    size_t len = gray ? gfx_pgm_encode(fb, img, size) : gfx_pbm_encode(fb, img, size);
     char line[80];
-    printf("-----BEGIN RLCD PBM-----\n");
+    printf("-----BEGIN RLCD %s-----\n", gray ? "PGM" : "PBM");
     for (size_t off = 0; off < len; off += PBM_CHUNK) {
         size_t chunk = len - off < PBM_CHUNK ? len - off : PBM_CHUNK;
-        util_base64_encode(pbm + off, chunk, line, sizeof(line));
+        util_base64_encode(img + off, chunk, line, sizeof(line));
         printf("%s\n", line);
     }
-    printf("-----END RLCD PBM-----\n");
-    free(pbm);
+    printf("-----END RLCD %s-----\n", gray ? "PGM" : "PBM");
+    free(img);
     return 0;
 }
 
@@ -142,8 +143,12 @@ static int panel_body(int argc, char **argv)
     if (argc == 2 && strcmp(argv[1], "status") == 0) {
         return print_status();
     } else if (argc == 2 && strcmp(argv[1], "test") == 0) {
+#if BOARD_HAS_LPM_RATE
         gfx_draw_test_pattern(fb);
         err = display_commit(false);
+#else
+        err = display_t5_test_pattern(); /* T5 spec §9: the pattern with the gray ramp, on the whole panel */
+#endif
     } else if (argc == 2 && strcmp(argv[1], "clear") == 0) {
         gfx_clear(fb, GFX_WHITE);
         err = display_commit(false);
@@ -196,7 +201,7 @@ static int cmd_panel(int argc, char **argv)
 esp_err_t diag_register_display_commands(void)
 {
     const esp_console_cmd_t cmds[] = {
-        { .command = "screenshot", .help = "Print the framebuffer as base64 PBM between markers", .func = &cmd_screenshot },
+        { .command = "screenshot", .help = "Print the screen as base64 PBM (PGM on a 4 bpp panel) between markers", .func = &cmd_screenshot },
         { .command = "panel", .help = PANEL_HELP, .func = &cmd_panel },
     };
     for (size_t i = 0; i < sizeof(cmds) / sizeof(cmds[0]); i++) {

@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "sdkconfig.h"
 
 /*
  * The web configurator (spec §10.3, §10.4): an HTTP server on port 80 while config mode runs.
@@ -42,7 +43,11 @@ typedef struct {
 } webui_config_t;
 
 #define WEBUI_BODY_MAX  (64 * 1024) /* the largest request: a backup to restore, its presets up to 48 KB (M6c) */
+#if CONFIG_REFLBO_BOARD_T547
+#define WEBUI_REPLY_MAX (264 * 1024) /* the largest reply: the T5's screenshot, a 4-bit BMP of 960×540 (259 318 bytes) */
+#else
 #define WEBUI_REPLY_MAX (64 * 1024) /* the largest reply: a backup, or a BMP (15 662 bytes) */
+#endif
 /* The deepest request: a backup bundle, a file's own 20 levels inside the bundle's two
  * (BACKUP_MAX_DEPTH, storage_backup.h). Deeper ones are refused before anything parses them. */
 #define WEBUI_JSON_MAX_DEPTH 22

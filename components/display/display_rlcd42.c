@@ -94,6 +94,11 @@ gfx_fb_t *display_fb(void)
     return s_fb.buf != NULL ? &s_fb : NULL;
 }
 
+const gfx_fb_t *display_screenshot_fb(void)
+{
+    return display_fb();
+}
+
 esp_err_t display_commit(bool force)
 {
     ESP_RETURN_ON_FALSE(s_fb.buf != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");

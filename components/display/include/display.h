@@ -23,6 +23,9 @@ void display_export(display_state_t *out);
 esp_err_t display_prepare_deep_sleep(void);
 void display_cancel_deep_sleep(void); /* after display_prepare_deep_sleep() failed */
 gfx_fb_t *display_fb(void); /* NULL until display_init has allocated the framebuffer */
+/* The image `screenshot` and the web's screenshot show: the frame as the panel last got it. The RLCD's is
+ * display_fb(); the T5's is its 960×540 4 bpp panel frame (T5 spec §6.5). NULL before display_init. */
+const gfx_fb_t *display_screenshot_fb(void);
 /* Night sleep (spec §9.1). On the RLCD the panel stops scanning and its image fades; waking pushes the
  * frame again. */
 esp_err_t display_sleep(void);
