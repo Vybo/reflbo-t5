@@ -332,10 +332,37 @@ static void test_the_t5_layouts_fit_the_screen(void)
     }
 }
 
+/* T3a (Review Focus 5): the display's frame must be the profile's, size and format, or the UI draws off it. */
+static void test_a_frame_matches_the_profile_only_in_size_and_format(void)
+{
+    static uint8_t buf[960 * 540 / 2];
+    gfx_fb_t fb;
+    gfx_fb_init(&fb, buf, 400, 300);
+    TEST_ASSERT_TRUE(ui_profile_matches(&fb));
+    gfx_fb_init(&fb, buf, 401, 300);
+    TEST_ASSERT_FALSE(ui_profile_matches(&fb));
+    gfx_fb_init(&fb, buf, 400, 299);
+    TEST_ASSERT_FALSE(ui_profile_matches(&fb));
+    gfx_fb_init_fmt(&fb, buf, 400, 300, GFX_FMT_4BPP);
+    TEST_ASSERT_FALSE(ui_profile_matches(&fb));
+    TEST_ASSERT_FALSE(ui_profile_matches(NULL));
+
+    ui_profile_use(&ui_profile_t547);
+    gfx_fb_init_fmt(&fb, buf, 960, 540, GFX_FMT_4BPP);
+    TEST_ASSERT_TRUE(ui_profile_matches(&fb));
+    gfx_fb_init_fmt(&fb, buf, 960, 540, GFX_FMT_1BPP);
+    TEST_ASSERT_FALSE(ui_profile_matches(&fb));
+    gfx_fb_init_fmt(&fb, buf, 400, 300, GFX_FMT_4BPP);
+    TEST_ASSERT_FALSE(ui_profile_matches(&fb));
+    gfx_fb_init_fmt(&fb, buf, 960, 539, GFX_FMT_4BPP);
+    TEST_ASSERT_FALSE(ui_profile_matches(&fb));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_the_rlcd_is_the_default_profile);
+    RUN_TEST(test_a_frame_matches_the_profile_only_in_size_and_format);
     RUN_TEST(test_the_t5_layouts_fit_the_screen);
     RUN_TEST(test_a_scale_of_three_thirds_draws_every_rlcd_golden);
     RUN_TEST(test_use_switches_the_profile_and_null_restores_the_rlcd);

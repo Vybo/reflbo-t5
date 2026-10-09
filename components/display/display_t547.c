@@ -4,7 +4,6 @@
 
 #include "epaper_board.h"
 #include "epaper_budget.h"
-#include "epaper_frame.h"
 #include "epd_board.h"
 #include "epd_highlevel.h"
 #include "epdiy.h"
@@ -15,24 +14,19 @@
 #include "gfx_test_pattern.h"
 #include "util_crc32.h"
 
-/* LilyGo T5-4.7 (T5 spec §5), T1: every update is a clean one (clear, then GC16; T5 spec §11), through
- * epdiy's own board definition for this board. The UI still draws the RLCD's 400×300 at 1 bpp until T3;
- * each commit composes it into the middle of the 960×540 4 bpp panel frame (T5 spec §6), which goes to epdiy
- * as it is. */
+/* LilyGo T5-4.7 (T5 spec §5): every update is a clean one (clear, then GC16; T5 spec §11) until T4, through
+ * epdiy's own board definition for this board. The UI draws the panel's own 960×540 frame at 4 bpp in epdiy's
+ * layout (T3a, T5 spec §6), which goes to epdiy as it is. */
 
-#define FB_W          400
-#define FB_H          300
 #define PANEL_W       960
 #define PANEL_H       540
-#define FB_X          ((PANEL_W - FB_W) / 2)
-#define FB_Y          ((PANEL_H - FB_H) / 2)
+#define FRAME_SIZE    (PANEL_W / 2 * PANEL_H)
 #define TEMPERATURE_C 25 /* the ED047TC1 waveform has one range, 20-30 °C (T5 spec §2.5) */
 #define EPD_OPTIONS   (EPD_LUT_64K | EPD_FEED_QUEUE_8)
 
 static const char *TAG = "display";
 
-static gfx_fb_t s_fb; /* s_fb.buf stays NULL until display_init */
-static gfx_fb_t s_panel; /* the 4 bpp frame the panel gets: epdiy's layout */
+static gfx_fb_t s_fb; /* the UI's frame and the panel's, 4 bpp; s_fb.buf stays NULL until display_init */
 static uint32_t s_last_crc;
 static bool s_pushed;
 static EpdiyHighlevelState s_hl;
@@ -47,17 +41,10 @@ static int64_t now_ms(void)
 static esp_err_t alloc_fb(void)
 {
     ESP_RETURN_ON_FALSE(s_fb.buf == NULL, ESP_ERR_INVALID_STATE, TAG, "already initialised");
-    uint8_t *buf = heap_caps_calloc(1, gfx_fb_size(FB_W, FB_H), MALLOC_CAP_SPIRAM);
-    uint8_t *panel = heap_caps_malloc(gfx_fb_size_fmt(GFX_FMT_4BPP, PANEL_W, PANEL_H), MALLOC_CAP_SPIRAM);
-    if (buf == NULL || panel == NULL) {
-        heap_caps_free(buf);
-        heap_caps_free(panel);
-        ESP_LOGE(TAG, "framebuffers");
-        return ESP_ERR_NO_MEM;
-    }
-    gfx_fb_init(&s_fb, buf, FB_W, FB_H);
-    gfx_fb_init_fmt(&s_panel, panel, PANEL_W, PANEL_H, GFX_FMT_4BPP);
-    gfx_clear(&s_panel, GFX_WHITE); /* after a deep-sleep wake too, until the next commit (T4: the frame kept) */
+    uint8_t *buf = heap_caps_malloc(gfx_fb_size_fmt(GFX_FMT_4BPP, PANEL_W, PANEL_H), MALLOC_CAP_SPIRAM);
+    ESP_RETURN_ON_FALSE(buf != NULL, ESP_ERR_NO_MEM, TAG, "framebuffer");
+    gfx_fb_init_fmt(&s_fb, buf, PANEL_W, PANEL_H, GFX_FMT_4BPP);
+    gfx_clear(&s_fb, GFX_WHITE); /* after a deep-sleep wake too, until the app renders (T4: the frame kept) */
     return ESP_OK;
 }
 
@@ -98,18 +85,19 @@ static void panel_down(void)
 static void clear_to_white(void)
 {
     epd_clear();
-    memset(s_hl.back_fb, 0xFF, PANEL_W / 2 * PANEL_H);
+    memset(s_hl.back_fb, 0xFF, FRAME_SIZE);
     epd_hl_set_all_white(&s_hl);
 }
 
-static esp_err_t clean_update(const gfx_fb_t *fb)
+/* The frame to the panel: up, white, then the frame in GC16, down. */
+static esp_err_t clean_update(void)
 {
     int64_t start = now_ms();
     ESP_RETURN_ON_ERROR(panel_up(), TAG, "panel up");
     int64_t up = now_ms();
     clear_to_white();
     int64_t cleared = now_ms();
-    memcpy(epd_hl_get_framebuffer(&s_hl), fb->buf, PANEL_W / 2 * PANEL_H); /* the same layout as epdiy's */
+    memcpy(epd_hl_get_framebuffer(&s_hl), s_fb.buf, FRAME_SIZE); /* the same layout as epdiy's */
     enum EpdDrawError err = epd_hl_update_screen(&s_hl, MODE_GC16, TEMPERATURE_C);
     int64_t drawn = now_ms();
     panel_down();
@@ -170,15 +158,15 @@ gfx_fb_t *display_fb(void)
 
 const gfx_fb_t *display_screenshot_fb(void)
 {
-    return s_panel.buf != NULL ? &s_panel : NULL;
+    return display_fb(); /* what the panel shows, once committed */
 }
 
 esp_err_t display_t5_test_pattern(void)
 {
-    ESP_RETURN_ON_FALSE(s_panel.buf != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
-    gfx_draw_test_pattern_t5(&s_panel);
-    s_pushed = false; /* the next commit puts the dashboard back */
-    return clean_update(&s_panel);
+    ESP_RETURN_ON_FALSE(s_fb.buf != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    gfx_draw_test_pattern_t5(&s_fb);
+    s_pushed = false; /* the app's next render draws the dashboard over it, and the next commit pushes that */
+    return clean_update();
 }
 
 /* Night sleep keeps the dashboard on the panel as it is; T4 adds the moon (T5 spec §5.6). */
@@ -200,12 +188,11 @@ bool display_asleep(void)
 esp_err_t display_commit(bool force)
 {
     ESP_RETURN_ON_FALSE(s_fb.buf != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
-    uint32_t crc = util_crc32(0, s_fb.buf, gfx_fb_size(FB_W, FB_H));
+    uint32_t crc = util_crc32(0, s_fb.buf, FRAME_SIZE);
     if (!force && s_pushed && crc == s_last_crc) {
         return ESP_OK;
     }
-    epaper_frame_blit_1bpp(&s_fb, s_panel.buf, PANEL_W, PANEL_H, FB_X, FB_Y); /* T1-T2: the UI in the middle */
-    ESP_RETURN_ON_ERROR(clean_update(&s_panel), TAG, "update");
+    ESP_RETURN_ON_ERROR(clean_update(), TAG, "update"); /* a failed update leaves s_pushed and the CRC as they were */
     s_last_crc = crc;
     s_pushed = true;
     return ESP_OK;
@@ -229,15 +216,16 @@ void display_t5_stats(display_t5_stats_t *out)
 
 esp_err_t display_t5_bench(display_t5_bench_t *out)
 {
-    ESP_RETURN_ON_FALSE(s_panel.buf != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
-    gfx_draw_test_pattern(&s_panel); /* black and white only, so DU draws it as it is */
-    const size_t size = PANEL_W / 2 * PANEL_H;
+    ESP_RETURN_ON_FALSE(s_fb.buf != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    gfx_draw_test_pattern(&s_fb); /* black and white only, so DU draws it as it is */
+    const size_t size = FRAME_SIZE;
 
+    s_pushed = false; /* the panel shows the pattern, or a failed update's remains: the next commit pushes */
     ESP_RETURN_ON_ERROR(panel_up(), TAG, "panel up");
     uint8_t *front = epd_hl_get_framebuffer(&s_hl);
     int64_t t0 = now_ms();
     clear_to_white();
-    memcpy(front, s_panel.buf, size);
+    memcpy(front, s_fb.buf, size);
     int err = (int)epd_hl_update_screen(&s_hl, MODE_GC16, TEMPERATURE_C);
     int64_t t1 = now_ms();
     for (size_t i = 0; i < size; i++) {
@@ -245,12 +233,11 @@ esp_err_t display_t5_bench(display_t5_bench_t *out)
     }
     err |= (int)epd_hl_update_screen(&s_hl, MODE_GL16, TEMPERATURE_C);
     int64_t t2 = now_ms();
-    memcpy(front, s_panel.buf, size); /* the whole frame back, border included */
+    memcpy(front, s_fb.buf, size); /* the whole frame back */
     err |= (int)epd_hl_update_screen(&s_hl, MODE_DU, TEMPERATURE_C);
     int64_t t3 = now_ms();
     panel_down();
 
-    s_pushed = false; /* the panel shows the pattern: the next commit puts the frame back */
     *out = (display_t5_bench_t){ (uint32_t)(t1 - t0), (uint32_t)(t2 - t1), (uint32_t)(t3 - t2) };
     ESP_LOGI(TAG, "bench: clean %lu ms, GL16 %lu ms, DU %lu ms", (unsigned long)out->clean_ms,
              (unsigned long)out->gl16_ms, (unsigned long)out->du_ms);

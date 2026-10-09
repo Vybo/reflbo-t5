@@ -24,15 +24,15 @@ typedef struct {
 } display_t5_stats_t;
 void display_t5_stats(display_t5_stats_t *out);
 
-/* `panel bench` (T5 spec §9): the test pattern drawn clean (clear and GC16), its inverse in GL16, the
- * pattern again in DU. The next commit puts the frame back. */
+/* `panel bench` (T5 spec §9): the test pattern drawn into the frame and clean (clear and GC16), its inverse in
+ * GL16, the pattern again in DU. The app's next render and commit put the dashboard back. */
 typedef struct {
     uint32_t clean_ms, gl16_ms, du_ms;
 } display_t5_bench_t;
 esp_err_t display_t5_bench(display_t5_bench_t *out);
 
-/* `panel test` (T5 spec §9): gfx_draw_test_pattern_t5() on the panel frame, clean. The next commit puts the
- * dashboard back. */
+/* `panel test` (T5 spec §9): gfx_draw_test_pattern_t5() into the frame, clean. The app's next render and
+ * commit put the dashboard back. */
 esp_err_t display_t5_test_pattern(void);
 
 #else

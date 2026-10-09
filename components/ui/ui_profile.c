@@ -62,3 +62,9 @@ int ui_icon_px(int rlcd_px)
 {
     return ui_profile()->icon_px[ui_icon_class(rlcd_px)];
 }
+
+bool ui_profile_matches(const gfx_fb_t *fb)
+{
+    const ui_profile_t *p = ui_profile();
+    return fb != NULL && fb->width == p->width && fb->height == p->height && fb->format == p->format;
+}

@@ -643,6 +643,10 @@ static esp_err_t boot(void)
     } else {
         ESP_RETURN_ON_ERROR(display_init(), TAG, "display");
     }
+    if (!ui_profile_matches(display_fb())) { /* the UI would draw off its frame (T3a) */
+        ESP_LOGE(TAG, "the display's frame doesn't match the UI profile");
+        return ESP_ERR_INVALID_STATE;
+    }
     app_ui_apply_settings(); /* offsets, freshness and the panel rate, now that the panel is up */
     ESP_RETURN_ON_ERROR(board_buttons_start(on_button, k_app_dashboard_buttons), TAG, "buttons");
     ESP_RETURN_ON_ERROR(start_rtc_int(), TAG, "RTC INT");

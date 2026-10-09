@@ -96,3 +96,5 @@ const gfx_bitmap_t *ui_icon(ui_icon_id_t id, ui_icon_class_t cls);
 ui_icon_class_t ui_icon_class(int rlcd_px);
 /* The pixels of the class rlcd_px picks, on this board. */
 int ui_icon_px(int rlcd_px);
+/* Whether fb is the frame the profile draws: its width, height and format (T3a); false for NULL. */
+bool ui_profile_matches(const gfx_fb_t *fb);
