@@ -1,6 +1,6 @@
 # Drawing at 1 and 4 bpp, fonts and icons (spec §4.3–4.5, T5 spec §6). Pure C: also built on the host by test/host.
 # Sources are listed, not globbed: ESP-IDF globs SRC_DIRS only at configure time.
-idf_component_register(SRCS "gfx.c" "gfx_bmp.c" "gfx_pbm.c" "gfx_qr.c" "gfx_test_pattern.c" "gfx_text.c"
+idf_component_register(SRCS "gfx.c" "gfx_bmp.c" "gfx_pbm.c" "gfx_qr.c" "gfx_test_pattern.c" "gfx_test_pattern_t5.c" "gfx_text.c"
                             "qrcodegen/qrcodegen.c"
                             "fonts/gfx_font_sans_12.c" "fonts/gfx_font_sans_16.c"
                             "fonts/gfx_font_sans_20.c" "fonts/gfx_font_sans_bold_20.c"
