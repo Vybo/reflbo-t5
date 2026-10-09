@@ -512,7 +512,8 @@ static void draw_small(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
     char fit[48];
     /* a name on two lines ends 84 px down: it stacks from 86 px, its tails 2 px clear */
     bool two_lines = !numeric(v) && v->kind != UI_FK_MOON && gfx_text_width(vf, value) > r.w - UI_PX(8);
-    if (r.w < UI_SPLIT_NARROW_W && r.h >= UI_PX(two_lines ? 86 : 80)) { /* narrow and tall: symbol above, value below, the arrow beside */
+    if (r.w < UI_SPLIT_NARROW_W &&
+        r.h >= UI_PX(two_lines ? 86 : 80)) { /* narrow and tall: symbol above, value below, the arrow beside */
         int sym_size = v->kind == UI_FK_MOON ? 28 : f->icon, sym_px = symbol_px(sym_size);
         int sym_w = v->kind == UI_FK_BATTERY ? sym_px * 3 / 2 : sym_px;
         int sym_x = r.x + (r.w - sym_w) / 2;
@@ -523,11 +524,13 @@ static void draw_small(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
             shown.trend = 0;
         }
         if (v->kind == UI_FK_MOON && v->state != UI_VALUE_MISSING) { /* the phase name, small */
-            const char *name = gfx_text_width(UI_FONT(UI_F_SANS_12), v->text) <= r.w - UI_PX(8) ? v->text : v->short_text;
+            const char *name =
+                gfx_text_width(UI_FONT(UI_F_SANS_12), v->text) <= r.w - UI_PX(8) ? v->text : v->short_text;
             gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), name, r.w - UI_PX(8), fit, sizeof(fit));
-            gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12),
-                             (gfx_rect_t){ r.x, (int16_t)(r.y + UI_PX(12) + sym_px + UI_PX(14)), r.w, (int16_t)UI_PX(20) },
-                             GFX_ALIGN_CENTER, fit, GFX_BLACK);
+            gfx_text_in_rect(
+                fb, UI_FONT(UI_F_SANS_12),
+                (gfx_rect_t){ r.x, (int16_t)(r.y + UI_PX(12) + sym_px + UI_PX(14)), r.w, (int16_t)UI_PX(20) },
+                GFX_ALIGN_CENTER, fit, GFX_BLACK);
             return;
         }
         int max_w = r.w - UI_PX(8);
@@ -741,7 +744,8 @@ static void draw_tiny_line(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
     if (numeric(v)) {
         for (int with = sym_w > 0; with >= 0; with--) {
             bool centre = v->kind == UI_FK_TIME || (sym_w > 0 && !with); /* alone, or its symbol given up */
-            int x = r.x + UI_PX(3) + (with ? sym_w + UI_PX(3) : 0), max_w = centre ? r.w - UI_PX(4) : r.x + r.w - UI_PX(2) - x;
+            int x = r.x + UI_PX(3) + (with ? sym_w + UI_PX(3) : 0),
+                max_w = centre ? r.w - UI_PX(4) : r.x + r.w - UI_PX(2) - x;
             ui_value_t shown = *v;
             ui_fonts_t uf = size_fonts(UI_SIZE_XS);
             const char *value = v->text;
@@ -845,7 +849,8 @@ static void draw_tiny_stacked(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
         value_h = digit_height(vf) + (tail > unit_tail ? tail : unit_tail);
     } else {
         const char *text = v->state == UI_VALUE_MISSING ? PLACEHOLDER : v->kind == UI_FK_MOON ? v->short_text : v->text;
-        if (v->kind == UI_FK_MOON && v->state != UI_VALUE_MISSING && tiny_text_face(text, r.w - UI_PX(8), room + UI_PX(4)) == NULL) {
+        if (v->kind == UI_FK_MOON && v->state != UI_VALUE_MISSING &&
+            tiny_text_face(text, r.w - UI_PX(8), room + UI_PX(4)) == NULL) {
             text = v->extra; /* its illumination, where its short name would be cut (M6c review) */
         }
         vf = fit_tiny_text(text, r.w - UI_PX(8), room + UI_PX(4), fit, sizeof(fit));
@@ -890,7 +895,8 @@ static void draw_labelled(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_v
         gfx_text_ellipsize(f->label, v->label, r.w - UI_PX(12) - arrow_w, label, sizeof(label));
         int pen = gfx_text(fb, f->label, r.x + UI_PX(6), top + f->label->ascent, label, GFX_BLACK);
         if (trend) { /* beside the label, where it doesn't widen the value */
-            gfx_text(fb, f->label, pen + UI_PX(4), top + f->label->ascent, trend > 0 ? ARROW_UP : ARROW_DOWN, GFX_BLACK);
+            gfx_text(fb, f->label, pen + UI_PX(4), top + f->label->ascent, trend > 0 ? ARROW_UP : ARROW_DOWN,
+                     GFX_BLACK);
         }
         top += f->label->line_height;
     }
@@ -937,8 +943,8 @@ static void draw_labelled(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_v
         int count;
     } k_fit[] = { [UI_SIZE_M] = { k_fit_m, 3 }, [UI_SIZE_L] = { k_fit_l, 3 }, [UI_SIZE_XL] = { k_fit_xl, 4 } };
     int extra_lines = v->kind == UI_FK_BATTERY ? f->unit->line_height : 0;
-    const gfx_font_t *vf = fit_number(f, k_fit[size].fonts, k_fit[size].count, &shown, &value, body.w - UI_PX(6), extra_w,
-                                      body.h - extra_lines, fit, sizeof(fit));
+    const gfx_font_t *vf = fit_number(f, k_fit[size].fonts, k_fit[size].count, &shown, &value, body.w - UI_PX(6),
+                                      extra_w, body.h - extra_lines, fit, sizeof(fit));
     int w = group_width(f, vf, &shown, value);
     int x = body.x + (body.w - w - extra_w) / 2;
     int baseline = body.y + (body.h + digit_height(vf) - extra_lines) / 2;

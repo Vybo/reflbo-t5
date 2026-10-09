@@ -24,8 +24,8 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
         const char *text = lang_str(ctx->lang, LS_SET_TIME);
         int w = gfx_text_width(f, text) + UI_PX(12);
         gfx_fill_rect(fb, (gfx_rect_t){ 0, 0, (int16_t)w, UI_STATUS_H }, GFX_BLACK);
-        gfx_text_in_rect(fb, f, (gfx_rect_t){ (int16_t)UI_PX(6), 0, (int16_t)(w - UI_PX(6)), UI_STATUS_H }, GFX_ALIGN_LEFT,
-                         text, GFX_WHITE);
+        gfx_text_in_rect(fb, f, (gfx_rect_t){ (int16_t)UI_PX(6), 0, (int16_t)(w - UI_PX(6)), UI_STATUS_H },
+                         GFX_ALIGN_LEFT, text, GFX_WHITE);
         left = w + UI_PX(4);
     } else if (any_stale) {
         gfx_bitmap(fb, left, mark_y, ui_icon(UI_ICON_stale, UI_IC16), GFX_BLACK);
@@ -36,12 +36,16 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
         left += step;
     }
     if (ctx->sync != UI_SYNC_IDLE) { /* spec §5.2: a sync running, or the last one failed */
-        gfx_bitmap(fb, left, mark_y, ctx->sync == UI_SYNC_RUNNING ? ui_icon(UI_ICON_sync, UI_IC16) : ui_icon(UI_ICON_sync_failed, UI_IC16),
+        gfx_bitmap(fb, left, mark_y,
+                   ctx->sync == UI_SYNC_RUNNING ? ui_icon(UI_ICON_sync, UI_IC16)
+                                                : ui_icon(UI_ICON_sync_failed, UI_IC16),
                    GFX_BLACK);
         left += step;
     }
     if (ctx->wifi != UI_WIFI_NONE) { /* sync mode `always` (D19) */
-        gfx_bitmap(fb, left, mark_y, ctx->wifi == UI_WIFI_ON ? ui_icon(UI_ICON_wifi, UI_IC16) : ui_icon(UI_ICON_wifi_off, UI_IC16), GFX_BLACK);
+        gfx_bitmap(fb, left, mark_y,
+                   ctx->wifi == UI_WIFI_ON ? ui_icon(UI_ICON_wifi, UI_IC16) : ui_icon(UI_ICON_wifi_off, UI_IC16),
+                   GFX_BLACK);
     }
 
     if (preset->status_clock && ctx->time_valid) {
@@ -49,8 +53,9 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
         ui_resolve(ctx, UI_FIELD_TIME_CLOCK, &t);
         char clock[sizeof(t.text) + sizeof(t.unit) + 1];
         snprintf(clock, sizeof(clock), "%s%s%s", t.text, t.unit[0] ? " " : "", t.unit);
-        gfx_text_in_rect(fb, UI_FONT(UI_F_BOLD_16), (gfx_rect_t){ (int16_t)((fb->width - UI_PX(160)) / 2), 0, (int16_t)UI_PX(160), UI_STATUS_H }, GFX_ALIGN_CENTER,
-                         clock, GFX_BLACK);
+        gfx_text_in_rect(fb, UI_FONT(UI_F_BOLD_16),
+                         (gfx_rect_t){ (int16_t)((fb->width - UI_PX(160)) / 2), 0, (int16_t)UI_PX(160), UI_STATUS_H },
+                         GFX_ALIGN_CENTER, clock, GFX_BLACK);
     }
 
     int x = fb->width - UI_PX(6) - UI_PX(26);
@@ -81,7 +86,8 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
     }
     char fit[sizeof(text)];
     gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), text, UI_PX(120), fit, sizeof(fit)); /* cut at the end, not the start */
-    gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12), (gfx_rect_t){ (int16_t)(x - UI_PX(124)), 0, (int16_t)UI_PX(120), UI_STATUS_H },
-                     GFX_ALIGN_RIGHT, fit, GFX_BLACK);
+    gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12),
+                     (gfx_rect_t){ (int16_t)(x - UI_PX(124)), 0, (int16_t)UI_PX(120), UI_STATUS_H }, GFX_ALIGN_RIGHT,
+                     fit, GFX_BLACK);
     gfx_hline(fb, 0, UI_STATUS_H, fb->width, GFX_BLACK);
 }

@@ -46,7 +46,8 @@ static void test_the_t5_has_its_own_geometry_and_none_of_the_rlcds_capabilities(
     TEST_ASSERT_EQUAL_INT(34, ui_profile_t547.status_h);
     TEST_ASSERT_EQUAL_INT(GFX_FMT_4BPP, ui_profile_t547.format);
     TEST_ASSERT_EQUAL_HEX32(0, ui_profile_t547.caps);
-    TEST_ASSERT_EQUAL_HEX32(UI_CAP_ENV_SENSOR | UI_CAP_AUDIO | UI_CAP_RTC_TRIM | UI_CAP_RTC_ALARM_WAKE | UI_CAP_LPM_RATE,
+    TEST_ASSERT_EQUAL_HEX32(UI_CAP_ENV_SENSOR | UI_CAP_AUDIO | UI_CAP_RTC_TRIM | UI_CAP_RTC_ALARM_WAKE |
+                                UI_CAP_LPM_RATE,
                             ui_profile_rlcd42.caps);
     TEST_ASSERT_EQUAL_STRING("lpm_rate", ui_cap_name(UI_CAP_LPM_RATE));
     TEST_ASSERT_NULL(ui_cap_name(1u << 31));
@@ -170,9 +171,12 @@ static void test_the_rlcd_layouts_and_separators_are_todays(void)
         { "s2", { 200, 182, 200, 118 }, UI_SIZE_S, UI_KINDS_S },
     };
     const ui_slot_t grid[] = {
-        { "g1", { 0, 21, 133, 139 }, UI_SIZE_M, UI_KINDS_M },   { "g2", { 133, 21, 134, 139 }, UI_SIZE_M, UI_KINDS_M },
-        { "g3", { 267, 21, 133, 139 }, UI_SIZE_M, UI_KINDS_M }, { "g4", { 0, 160, 133, 140 }, UI_SIZE_M, UI_KINDS_M },
-        { "g5", { 133, 160, 134, 140 }, UI_SIZE_M, UI_KINDS_M }, { "g6", { 267, 160, 133, 140 }, UI_SIZE_M, UI_KINDS_M },
+        { "g1", { 0, 21, 133, 139 }, UI_SIZE_M, UI_KINDS_M },
+        { "g2", { 133, 21, 134, 139 }, UI_SIZE_M, UI_KINDS_M },
+        { "g3", { 267, 21, 133, 139 }, UI_SIZE_M, UI_KINDS_M },
+        { "g4", { 0, 160, 133, 140 }, UI_SIZE_M, UI_KINDS_M },
+        { "g5", { 133, 160, 134, 140 }, UI_SIZE_M, UI_KINDS_M },
+        { "g6", { 267, 160, 133, 140 }, UI_SIZE_M, UI_KINDS_M },
     };
     const ui_slot_t focus[] = {
         { "main", { 0, 21, 400, 190 }, UI_SIZE_XL, UI_KINDS_XL },
@@ -285,10 +289,54 @@ static void test_a_scale_of_three_thirds_draws_every_rlcd_golden(void)
     }
 }
 
+/* T3a (Review Focus 3): under the T5's profile each fixed layout's slots and lines lie under the status bar, the
+ * slots don't overlap, and each is at least its size's least cell. */
+static void test_the_t5_layouts_fit_the_screen(void)
+{
+    ui_profile_use(&ui_profile_t547);
+    const gfx_rect_t below = { 0, 35, 960, 505 };
+    for (int id = UI_LAYOUT_CLASSIC; id <= UI_LAYOUT_FOCUS; id++) {
+        const ui_layout_t *l = ui_layout((ui_layout_id_t)id);
+        TEST_ASSERT_TRUE(l->slot_count > 0);
+        for (int i = 0; i < l->slot_count; i++) {
+            gfx_rect_t a = l->slots[i].rect;
+            TEST_ASSERT_TRUE_MESSAGE(a.x >= below.x && a.y >= below.y && a.x + a.w <= below.x + below.w &&
+                                         a.y + a.h <= below.y + below.h,
+                                     l->slots[i].name);
+            if (a.w < ui_split_min_w(l->slots[i].size) ||
+                a.h < ui_split_min_h(l->slots[i].size, a.w < UI_SPLIT_NARROW_W)) {
+                /* only where the RLCD's own slot is as short (Classic's date row, 40 px at M), and no shorter
+                 * than it scaled */
+                ui_profile_use(NULL);
+                const ui_layout_t *r = ui_layout((ui_layout_id_t)id);
+                int k = ui_slot_by_name(r, l->slots[i].name);
+                TEST_ASSERT_TRUE_MESSAGE(k >= 0, l->slots[i].name);
+                gfx_rect_t rr = r->slots[k].rect;
+                bool rlcd_short = rr.w < ui_split_min_w(r->slots[k].size) ||
+                                  rr.h < ui_split_min_h(r->slots[k].size, rr.w < UI_SPLIT_NARROW_W);
+                ui_profile_use(&ui_profile_t547);
+                TEST_ASSERT_TRUE_MESSAGE(rlcd_short, l->slots[i].name);
+                TEST_ASSERT_TRUE_MESSAGE(a.h >= ui_px(rr.h), l->slots[i].name);
+            }
+            for (int k = i + 1; k < l->slot_count; k++) {
+                gfx_rect_t b = l->slots[k].rect;
+                bool apart = a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
+                TEST_ASSERT_TRUE_MESSAGE(apart, l->id);
+            }
+        }
+        for (int i = 0; i < l->sep_count; i++) {
+            const ui_sep_t *sep = &l->seps[i];
+            int x1 = sep->x + (sep->vertical ? 1 : sep->len), y1 = sep->y + (sep->vertical ? sep->len : 1);
+            TEST_ASSERT_TRUE_MESSAGE(sep->x >= 0 && sep->y >= below.y && x1 <= 960 && y1 <= 540, l->id);
+        }
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_the_rlcd_is_the_default_profile);
+    RUN_TEST(test_the_t5_layouts_fit_the_screen);
     RUN_TEST(test_a_scale_of_three_thirds_draws_every_rlcd_golden);
     RUN_TEST(test_use_switches_the_profile_and_null_restores_the_rlcd);
     RUN_TEST(test_the_t5_has_its_own_geometry_and_none_of_the_rlcds_capabilities);

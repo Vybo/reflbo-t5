@@ -3,6 +3,7 @@
 
 #include "ui_fields.h"
 #include "ui_preset.h"
+#include "ui_profile.h"
 #include "ui_split.h"
 #include "unity.h"
 #include "util_json.h"
@@ -17,7 +18,10 @@ void setUp(void)
     s_err[0] = '\0';
 }
 
-void tearDown(void) {}
+void tearDown(void)
+{
+    ui_profile_use(NULL);
+}
 
 static void test_defaults_are_the_eight_built_ins(void)
 {
@@ -622,10 +626,80 @@ static void test_a_preset_counts_the_slots_its_layout_uses(void)
     TEST_ASSERT_EQUAL_INT(0, ui_preset_slots(&split));
 }
 
+static void expect_slots(const ui_preset_t *p, const char *id, ui_layout_id_t layout, const ui_field_id_t *fields,
+                         int n)
+{
+    TEST_ASSERT_EQUAL_STRING(id, p->id);
+    TEST_ASSERT_EQUAL_MESSAGE(layout, p->layout, id);
+    for (int i = 0; i < UI_SLOT_MAX; i++) {
+        TEST_ASSERT_EQUAL_MESSAGE(i < n ? fields[i] : UI_FIELD_NONE, p->slots[i], id);
+    }
+}
+
+/* T3a: the RLCD's four presets, field by field, as before the T5's. */
+static void test_the_rlcd_defaults_are_todays(void)
+{
+    expect_slots(&s_p.presets[0], "home", UI_LAYOUT_CLASSIC,
+                 (const ui_field_id_t[]){ UI_FIELD_TIME_CLOCK, UI_FIELD_DATE_DAY, UI_FIELD_ENV_TEMP, UI_FIELD_ENV_HUM,
+                                          UI_FIELD_MOON_PHASE, UI_FIELD_BAT_LEVEL },
+                 6);
+    expect_slots(&s_p.presets[1], "indoor", UI_LAYOUT_GRID,
+                 (const ui_field_id_t[]){ UI_FIELD_ENV_TEMP, UI_FIELD_ENV_HUM, UI_FIELD_ENV_DEW, UI_FIELD_ENV_TEMP_MIN,
+                                          UI_FIELD_ENV_TEMP_MAX, UI_FIELD_BAT_DAYS },
+                 6);
+    expect_slots(&s_p.presets[2], "weather", UI_LAYOUT_WEATHER,
+                 (const ui_field_id_t[]){ UI_FIELD_WX_NOW, UI_FIELD_WX_TODAY, UI_FIELD_WX_HOURLY, UI_FIELD_ENV_TEMP,
+                                          UI_FIELD_ENV_HUM },
+                 5);
+    expect_slots(&s_p.presets[3], "focus", UI_LAYOUT_FOCUS,
+                 (const ui_field_id_t[]){ UI_FIELD_TIME_CLOCK, UI_FIELD_DATE_DAY, UI_FIELD_ENV_TEMP }, 3);
+    TEST_ASSERT_EQUAL_STRING("Indoor", s_p.presets[1].name);
+    TEST_ASSERT_TRUE(s_p.presets[1].status_clock && s_p.presets[2].status_clock);
+    TEST_ASSERT_FALSE(s_p.presets[0].status_clock || s_p.presets[3].status_clock);
+}
+
+/* T5 spec §7.3: no SHTC3, so no env.* field; Sky takes Indoor's place. */
+static void test_the_t5_defaults_have_no_env_field(void)
+{
+    ui_profile_use(&ui_profile_t547);
+    ui_presets_defaults(&s_p);
+    TEST_ASSERT_EQUAL_INT(8, s_p.count);
+    expect_slots(&s_p.presets[0], "home", UI_LAYOUT_CLASSIC,
+                 (const ui_field_id_t[]){ UI_FIELD_TIME_CLOCK, UI_FIELD_DATE_DAY, UI_FIELD_WX_NOW, UI_FIELD_WX_TODAY,
+                                          UI_FIELD_SUN_TIMES, UI_FIELD_MOON_PHASE, UI_FIELD_AQ_INDEX,
+                                          UI_FIELD_BAT_LEVEL },
+                 8);
+    expect_slots(&s_p.presets[1], "sky", UI_LAYOUT_GRID,
+                 (const ui_field_id_t[]){ UI_FIELD_WX_NOW, UI_FIELD_WX_TODAY, UI_FIELD_AQ_INDEX, UI_FIELD_AQ_UV,
+                                          UI_FIELD_POLLEN_TOP, UI_FIELD_SUN_TIMES, UI_FIELD_MOON_PHASE,
+                                          UI_FIELD_BAT_DAYS },
+                 8);
+    expect_slots(&s_p.presets[2], "weather", UI_LAYOUT_WEATHER,
+                 (const ui_field_id_t[]){ UI_FIELD_WX_NOW, UI_FIELD_WX_TODAY, UI_FIELD_WX_HOURLY, UI_FIELD_AQ_INDEX,
+                                          UI_FIELD_POLLEN_TOP, UI_FIELD_SUN_TIMES },
+                 6);
+    expect_slots(&s_p.presets[3], "focus", UI_LAYOUT_FOCUS,
+                 (const ui_field_id_t[]){ UI_FIELD_TIME_CLOCK, UI_FIELD_DATE_DAY, UI_FIELD_WX_NOW,
+                                          UI_FIELD_MOON_PHASE },
+                 4);
+    TEST_ASSERT_EQUAL_STRING("Sky", s_p.presets[1].name);
+    TEST_ASSERT_TRUE(s_p.presets[1].in_cycle);
+    TEST_ASSERT_TRUE(s_p.presets[1].status_clock && s_p.presets[2].status_clock);
+    TEST_ASSERT_EQUAL_INT(4, ui_presets_find(&s_p, "rain"));
+    for (int i = 0; i < s_p.count; i++) {
+        for (int k = 0; k < UI_SLOT_MAX; k++) {
+            const ui_field_info_t *info = ui_field_info((ui_field_id_t)s_p.presets[i].slots[k]);
+            TEST_ASSERT_FALSE_MESSAGE(info != NULL && strncmp(info->id, "env.", 4) == 0, s_p.presets[i].id);
+        }
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_defaults_are_the_eight_built_ins);
+    RUN_TEST(test_the_rlcd_defaults_are_todays);
+    RUN_TEST(test_the_t5_defaults_have_no_env_field);
     RUN_TEST(test_next_follows_cycle_order_and_skips_presets_out_of_it);
     RUN_TEST(test_the_cycle_visits_flights_only_in_sync_mode_always);
     RUN_TEST(test_a_file_from_before_m6_gains_the_radars_once);

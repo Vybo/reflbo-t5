@@ -348,7 +348,8 @@ static void draw_chart(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const la
         if (labels) {
             char t[8];
             grid_label(lang, g, t, sizeof(t));
-            gfx_text(fb, UI_FONT(UI_F_SANS_12), left - 4 - gfx_text_width(UI_FONT(UI_F_SANS_12), t), y + 4, t, GFX_BLACK);
+            gfx_text(fb, UI_FONT(UI_F_SANS_12), left - 4 - gfx_text_width(UI_FONT(UI_F_SANS_12), t), y + 4, t,
+                     GFX_BLACK);
         }
     }
     if (labels) {
@@ -399,7 +400,8 @@ static void draw_chart(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const la
             gfx_vline(fb, x, bottom, 3, GFX_BLACK);
             char t[12];
             snprintf(t, sizeof(t), "%d", h);
-            gfx_text(fb, UI_FONT(UI_F_SANS_12), x - gfx_text_width(UI_FONT(UI_F_SANS_12), t) / 2, bottom + 13, t, GFX_BLACK);
+            gfx_text(fb, UI_FONT(UI_F_SANS_12), x - gfx_text_width(UI_FONT(UI_F_SANS_12), t) / 2, bottom + 13, t,
+                     GFX_BLACK);
         }
     }
 }
@@ -565,7 +567,8 @@ static void flow_row(gfx_fb_t *fb, gfx_rect_t r, int top, const ui_solar_t *s, c
     int n = bat ? 4 : 3, col = (r.w - 8) / n;
     int i24 = ui_icon_px(24);
     int iy = top + (r.y + r.h - top - i24 - 20) / 2;
-    const gfx_bitmap_t *icons[3] = { ui_icon(UI_ICON_solar, UI_IC24), ui_icon(UI_ICON_house, UI_IC24), ui_icon(UI_ICON_grid, UI_IC24) };
+    const gfx_bitmap_t *icons[3] = { ui_icon(UI_ICON_solar, UI_IC24), ui_icon(UI_ICON_house, UI_IC24),
+                                     ui_icon(UI_ICON_grid, UI_IC24) };
     int32_t power[3] = { e->pv_w, e->load_w, e->grid_w };
     const gfx_font_t *vf = UI_FONT(UI_F_BOLD_16);
     for (int i = 0; i < n; i++) {
@@ -695,8 +698,8 @@ static void day_total(gfx_fb_t *fb, gfx_rect_t c, const ui_context_t *ctx, const
         snprintf(t, sizeof(t), "%s", PLACEHOLDER);
     }
     const gfx_bitmap_t *icon = sky >= 0 ? ui_sky_icon(sky, false, 24) : NULL;
-    int w = gfx_text_width(UI_FONT(UI_F_SANS_16), name) + 8 + (icon ? icon->width + 6 : 0) + gfx_text_width(UI_FONT(UI_F_BOLD_20), t) +
-            (known ? 3 + gfx_text_width(UI_FONT(UI_F_SANS_16), "kWh") : 0);
+    int w = gfx_text_width(UI_FONT(UI_F_SANS_16), name) + 8 + (icon ? icon->width + 6 : 0) +
+            gfx_text_width(UI_FONT(UI_F_BOLD_20), t) + (known ? 3 + gfx_text_width(UI_FONT(UI_F_SANS_16), "kWh") : 0);
     int base = c.y + (c.h + ink(UI_FONT(UI_F_BOLD_20))) / 2;
     int x = c.x + (c.w - w) / 2;
     x = gfx_text(fb, UI_FONT(UI_F_SANS_16), x, base, name, GFX_BLACK) + 8;
@@ -769,7 +772,8 @@ bool ui_draw_solar_layout(gfx_fb_t *fb, gfx_rect_t a, const ui_context_t *ctx)
 /* A node's words under its icon: the label, then the power, centred on cx. */
 static void node_text(gfx_fb_t *fb, int cx, int y, const char *label, const char *value)
 {
-    gfx_text(fb, UI_FONT(UI_F_SANS_16), cx - gfx_text_width(UI_FONT(UI_F_SANS_16), label) / 2, y + 14, label, GFX_BLACK);
+    gfx_text(fb, UI_FONT(UI_F_SANS_16), cx - gfx_text_width(UI_FONT(UI_F_SANS_16), label) / 2, y + 14, label,
+             GFX_BLACK);
     gfx_text(fb, UI_FONT(UI_F_BOLD_20), cx - gfx_text_width(UI_FONT(UI_F_BOLD_20), value) / 2, y + 36, value,
              GFX_BLACK);
 }
@@ -848,7 +852,8 @@ bool ui_draw_energy_layout(gfx_fb_t *fb, gfx_rect_t a, const ui_context_t *ctx)
         unit = power_text(lang, e->bat_w, t, sizeof(t));
         snprintf(v, sizeof(v), "%s %s", t, unit);
         int rx = cx - 40;
-        gfx_text(fb, UI_FONT(UI_F_SANS_16), rx - gfx_text_width(UI_FONT(UI_F_SANS_16), state), by + 10, state, GFX_BLACK);
+        gfx_text(fb, UI_FONT(UI_F_SANS_16), rx - gfx_text_width(UI_FONT(UI_F_SANS_16), state), by + 10, state,
+                 GFX_BLACK);
         gfx_text(fb, UI_FONT(UI_F_BOLD_20), rx - gfx_text_width(UI_FONT(UI_F_BOLD_20), v), by + 32, v, GFX_BLACK);
     }
     /* today's totals, two by two, or in a row with a battery */
@@ -856,8 +861,8 @@ bool ui_draw_energy_layout(gfx_fb_t *fb, gfx_rect_t a, const ui_context_t *ctx)
     static const ui_field_id_t k_totals[4] = { UI_FIELD_EN_YIELD, UI_FIELD_EN_EXPORT, UI_FIELD_EN_IMPORT,
                                                UI_FIELD_EN_SELF };
     static const lang_str_t k_labels[4] = { LS_EN_PRODUCED, LS_EN_EXPORTED, LS_EN_IMPORTED, LS_EN_SELF };
-    const gfx_bitmap_t *icons[4] = { ui_icon(UI_ICON_solar, UI_IC16), ui_icon(UI_ICON_grid, UI_IC16), ui_icon(UI_ICON_grid, UI_IC16),
-                                     ui_icon(UI_ICON_self_use, UI_IC16) };
+    const gfx_bitmap_t *icons[4] = { ui_icon(UI_ICON_solar, UI_IC16), ui_icon(UI_ICON_grid, UI_IC16),
+                                     ui_icon(UI_ICON_grid, UI_IC16), ui_icon(UI_ICON_self_use, UI_IC16) };
     int w = a.w / (bat ? 4 : 2), h = bat ? 48 : 50;
     bool stale = false;
     for (int i = 0; i < 4; i++) {

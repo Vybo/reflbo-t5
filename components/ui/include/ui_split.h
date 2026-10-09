@@ -17,11 +17,13 @@
 
 #define UI_SPLIT_CELLS 24
 #define UI_SPLIT_NODES (2 * UI_SPLIT_CELLS - 1)
-/* The board's limits (ui_profile_t.split; the RLCD's in brackets): */
-#define UI_SPLIT_MIN_W (ui_profile()->split.min_w)       /* [40] no part is smaller (spec §5.2; M6c, D34: 90×40 before) */
-#define UI_SPLIT_MIN_H (ui_profile()->split.min_h)       /* [20] */
-#define UI_SPLIT_NARROW_W (ui_profile()->split.narrow_w) /* [150] narrower: a kind's narrow height; S stacks from 80 px tall (D34) */
-#define UI_SPLIT_INSET (ui_profile()->split.inset)       /* [8] a separator stops this short of each end */
+/* The board's limits (ui_profile_t.split), the RLCD's in brackets: no part is smaller than MIN_W × MIN_H [40 × 20]
+ * (spec §5.2; M6c, D34: 90×40 before); a cell narrower than NARROW_W [150] takes a kind's narrow height, and S stacks
+ * in it from 80 px tall (D34); a separator stops INSET [8] short of each end. */
+#define UI_SPLIT_MIN_W (ui_profile()->split.min_w)
+#define UI_SPLIT_MIN_H (ui_profile()->split.min_h)
+#define UI_SPLIT_NARROW_W (ui_profile()->split.narrow_w)
+#define UI_SPLIT_INSET (ui_profile()->split.inset)
 
 typedef enum {
     UI_RATIO_1_4 = 1,

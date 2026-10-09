@@ -121,7 +121,8 @@ static void draw_map(gfx_fb_t *fb, gfx_rect_t r, const ui_radar_t *rad, ui_size_
     }
     static map_labels_t labels; /* 1.5 KB, off the stack: only the app task draws (spec §3.2) */
     map_labels_init(&labels);
-    const gfx_font_t *cf = size == UI_SIZE_XL ? UI_FONT(UI_F_BOLD_16) : UI_FONT(UI_F_SANS_12), *lf = UI_FONT(UI_F_SANS_12);
+    const gfx_font_t *cf = size == UI_SIZE_XL ? UI_FONT(UI_F_BOLD_16) : UI_FONT(UI_F_SANS_12),
+                     *lf = UI_FONT(UI_F_SANS_12);
     gfx_rect_t cap = { 0 }, right = { 0 };
     if (rad->frame != NULL) { /* the bottom row first, so the places keep clear of it */
         cap = bottom_box(r, gfx_text_width(cf, caption) + 2 * PAD, cf->line_height + 2 * PAD - 2, false);

@@ -19,8 +19,9 @@ static void draw_header(gfx_fb_t *fb, const char *title)
     gfx_fill_rect(fb, (gfx_rect_t){ 0, 0, fb->width, HEADER_H }, GFX_BLACK);
     char fit[64];
     gfx_text_ellipsize(UI_FONT(UI_F_BOLD_20), title, fb->width - UI_PX(24), fit, sizeof(fit));
-    gfx_text_in_rect(fb, UI_FONT(UI_F_BOLD_20), (gfx_rect_t){ (int16_t)UI_PX(12), 0, (int16_t)(fb->width - UI_PX(24)), HEADER_H },
-                     GFX_ALIGN_LEFT, fit, GFX_WHITE);
+    gfx_text_in_rect(fb, UI_FONT(UI_F_BOLD_20),
+                     (gfx_rect_t){ (int16_t)UI_PX(12), 0, (int16_t)(fb->width - UI_PX(24)), HEADER_H }, GFX_ALIGN_LEFT,
+                     fit, GFX_WHITE);
 }
 
 static void draw_hints(gfx_fb_t *fb, const char *hints)
@@ -28,7 +29,8 @@ static void draw_hints(gfx_fb_t *fb, const char *hints)
     gfx_hline(fb, 0, FOOTER_Y - UI_PX(4), fb->width, GFX_BLACK);
     char fit[96];
     gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), hints, fb->width - UI_PX(12), fit, sizeof(fit));
-    gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12), (gfx_rect_t){ 0, (int16_t)FOOTER_Y, fb->width, (int16_t)(fb->height - FOOTER_Y) },
+    gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12),
+                     (gfx_rect_t){ 0, (int16_t)FOOTER_Y, fb->width, (int16_t)(fb->height - FOOTER_Y) },
                      GFX_ALIGN_CENTER, fit, GFX_BLACK);
 }
 
@@ -75,8 +77,9 @@ static void draw_list(gfx_fb_t *fb, const ui_menu_t *m, const ui_menu_model_t *m
         }
         gfx_rect_t vr = { (int16_t)(r.x + r.w - UI_PX(8) - value_w), r.y, (int16_t)value_w, r.h };
         if (editing) { /* the value being edited, inverted in a box */
-            gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(vr.x - UI_PX(8)), (int16_t)(r.y + UI_PX(2)), (int16_t)(value_w + UI_PX(16)),
-                                            (int16_t)(r.h - UI_PX(4)) },
+            gfx_fill_rect(fb,
+                          (gfx_rect_t){ (int16_t)(vr.x - UI_PX(8)), (int16_t)(r.y + UI_PX(2)),
+                                        (int16_t)(value_w + UI_PX(16)), (int16_t)(r.h - UI_PX(4)) },
                           GFX_BLACK);
             gfx_text_in_rect(fb, f, vr, GFX_ALIGN_LEFT, value, GFX_WHITE);
         } else {
@@ -91,8 +94,9 @@ static int draw_field(gfx_fb_t *fb, const gfx_font_t *f, int x, int baseline, co
 {
     int w = gfx_text_width(f, text);
     if (active) {
-        gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(x - UI_PX(4)), (int16_t)(baseline - f->ascent - UI_PX(2)), (int16_t)(w + UI_PX(8)),
-                                        (int16_t)(f->line_height + UI_PX(2)) },
+        gfx_fill_rect(fb,
+                      (gfx_rect_t){ (int16_t)(x - UI_PX(4)), (int16_t)(baseline - f->ascent - UI_PX(2)),
+                                    (int16_t)(w + UI_PX(8)), (int16_t)(f->line_height + UI_PX(2)) },
                       GFX_BLACK);
     }
     gfx_text(fb, f, x, baseline, text, active ? GFX_WHITE : GFX_BLACK);
@@ -145,11 +149,12 @@ static void draw_question(gfx_fb_t *fb, const char *text, int y)
     }
     char fit[96];
     gfx_text_ellipsize(f, line1, max_w, fit, sizeof(fit));
-    gfx_text_in_rect(fb, f, (gfx_rect_t){ 0, (int16_t)y, fb->width, (int16_t)UI_PX(28) }, GFX_ALIGN_CENTER, fit, GFX_BLACK);
+    gfx_text_in_rect(fb, f, (gfx_rect_t){ 0, (int16_t)y, fb->width, (int16_t)UI_PX(28) }, GFX_ALIGN_CENTER, fit,
+                     GFX_BLACK);
     if (line2[0]) {
         gfx_text_ellipsize(f, line2, max_w, fit, sizeof(fit));
-        gfx_text_in_rect(fb, f, (gfx_rect_t){ 0, (int16_t)(y + UI_PX(30)), fb->width, (int16_t)UI_PX(28) }, GFX_ALIGN_CENTER, fit,
-                         GFX_BLACK);
+        gfx_text_in_rect(fb, f, (gfx_rect_t){ 0, (int16_t)(y + UI_PX(30)), fb->width, (int16_t)UI_PX(28) },
+                         GFX_ALIGN_CENTER, fit, GFX_BLACK);
     }
 }
 

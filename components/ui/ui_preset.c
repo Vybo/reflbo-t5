@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "ui_fields.h"
+#include "ui_profile.h"
 
 static ui_preset_t make(const char *id, const char *name, ui_layout_id_t layout, bool in_cycle,
                         const ui_field_id_t slots[UI_SLOT_MAX])
@@ -18,22 +19,45 @@ static ui_preset_t make(const char *id, const char *name, ui_layout_id_t layout,
     return p;
 }
 
+/* The T5's four (T5 spec §7.3): no SHTC3, so no env.* field; Sky takes Indoor's place. */
+static void t5_defaults(ui_presets_t *p)
+{
+    p->presets[0] = make("home", "Home", UI_LAYOUT_CLASSIC, true,
+                         (ui_field_id_t[UI_SLOT_MAX]){ UI_FIELD_TIME_CLOCK, UI_FIELD_DATE_DAY, UI_FIELD_WX_NOW,
+                                                       UI_FIELD_WX_TODAY, UI_FIELD_SUN_TIMES, UI_FIELD_MOON_PHASE,
+                                                       UI_FIELD_AQ_INDEX, UI_FIELD_BAT_LEVEL });
+    p->presets[1] = make("sky", "Sky", UI_LAYOUT_GRID, true,
+                         (ui_field_id_t[UI_SLOT_MAX]){ UI_FIELD_WX_NOW, UI_FIELD_WX_TODAY, UI_FIELD_AQ_INDEX,
+                                                       UI_FIELD_AQ_UV, UI_FIELD_POLLEN_TOP, UI_FIELD_SUN_TIMES,
+                                                       UI_FIELD_MOON_PHASE, UI_FIELD_BAT_DAYS });
+    p->presets[2] = make("weather", "Weather", UI_LAYOUT_WEATHER, true,
+                         (ui_field_id_t[UI_SLOT_MAX]){ UI_FIELD_WX_NOW, UI_FIELD_WX_TODAY, UI_FIELD_WX_HOURLY,
+                                                       UI_FIELD_AQ_INDEX, UI_FIELD_POLLEN_TOP, UI_FIELD_SUN_TIMES });
+    p->presets[3] = make("focus", "Focus clock", UI_LAYOUT_FOCUS, true,
+                         (ui_field_id_t[UI_SLOT_MAX]){ UI_FIELD_TIME_CLOCK, UI_FIELD_DATE_DAY, UI_FIELD_WX_NOW,
+                                                       UI_FIELD_MOON_PHASE });
+}
+
 void ui_presets_defaults(ui_presets_t *p)
 {
     memset(p, 0, sizeof(*p));
-    p->presets[0] = make("home", "Home", UI_LAYOUT_CLASSIC, true,
-                         (ui_field_id_t[UI_SLOT_MAX]){ UI_FIELD_TIME_CLOCK, UI_FIELD_DATE_DAY, UI_FIELD_ENV_TEMP,
-                                                       UI_FIELD_ENV_HUM, UI_FIELD_MOON_PHASE, UI_FIELD_BAT_LEVEL });
-    p->presets[1] = make("indoor", "Indoor", UI_LAYOUT_GRID, true,
-                         (ui_field_id_t[UI_SLOT_MAX]){ UI_FIELD_ENV_TEMP, UI_FIELD_ENV_HUM, UI_FIELD_ENV_DEW,
-                                                       UI_FIELD_ENV_TEMP_MIN, UI_FIELD_ENV_TEMP_MAX,
-                                                       UI_FIELD_BAT_DAYS });
-    p->presets[2] = make("weather", "Weather", UI_LAYOUT_WEATHER, true, /* in the cycle since M5 brings its data */
-                         (ui_field_id_t[UI_SLOT_MAX]){ UI_FIELD_WX_NOW, UI_FIELD_WX_TODAY, UI_FIELD_WX_HOURLY,
-                                                       UI_FIELD_ENV_TEMP, UI_FIELD_ENV_HUM, UI_FIELD_NONE });
-    p->presets[3] = make("focus", "Focus clock", UI_LAYOUT_FOCUS, true,
-                         (ui_field_id_t[UI_SLOT_MAX]){ UI_FIELD_TIME_CLOCK, UI_FIELD_DATE_DAY, UI_FIELD_ENV_TEMP,
-                                                       UI_FIELD_NONE, UI_FIELD_NONE, UI_FIELD_NONE });
+    if (!(ui_profile()->caps & UI_CAP_ENV_SENSOR)) { /* the T5 */
+        t5_defaults(p);
+    } else {
+        p->presets[0] = make("home", "Home", UI_LAYOUT_CLASSIC, true,
+                             (ui_field_id_t[UI_SLOT_MAX]){ UI_FIELD_TIME_CLOCK, UI_FIELD_DATE_DAY, UI_FIELD_ENV_TEMP,
+                                                           UI_FIELD_ENV_HUM, UI_FIELD_MOON_PHASE, UI_FIELD_BAT_LEVEL });
+        p->presets[1] = make("indoor", "Indoor", UI_LAYOUT_GRID, true,
+                             (ui_field_id_t[UI_SLOT_MAX]){ UI_FIELD_ENV_TEMP, UI_FIELD_ENV_HUM, UI_FIELD_ENV_DEW,
+                                                           UI_FIELD_ENV_TEMP_MIN, UI_FIELD_ENV_TEMP_MAX,
+                                                           UI_FIELD_BAT_DAYS });
+        p->presets[2] = make("weather", "Weather", UI_LAYOUT_WEATHER, true, /* in the cycle since M5 brings its data */
+                             (ui_field_id_t[UI_SLOT_MAX]){ UI_FIELD_WX_NOW, UI_FIELD_WX_TODAY, UI_FIELD_WX_HOURLY,
+                                                           UI_FIELD_ENV_TEMP, UI_FIELD_ENV_HUM, UI_FIELD_NONE });
+        p->presets[3] = make("focus", "Focus clock", UI_LAYOUT_FOCUS, true,
+                             (ui_field_id_t[UI_SLOT_MAX]){ UI_FIELD_TIME_CLOCK, UI_FIELD_DATE_DAY, UI_FIELD_ENV_TEMP,
+                                                           UI_FIELD_NONE, UI_FIELD_NONE, UI_FIELD_NONE });
+    }
     p->presets[1].status_clock = true; /* data first: the time goes to the status bar */
     p->presets[2].status_clock = true;
     p->count = 4;
