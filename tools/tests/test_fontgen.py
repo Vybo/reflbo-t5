@@ -26,6 +26,9 @@ class PackRowsTest(unittest.TestCase):
     def test_rows_wider_than_a_byte_use_two_bytes(self):
         self.assertEqual(fontgen.pack_rows([[1] * 9]), bytes([0xFF, 0x80]))
 
+    def test_4bit_rows_put_the_first_pixel_in_the_high_nibble(self):
+        self.assertEqual(fontgen.pack_rows([[15, 8, 1]], bpp=4), bytes([0xF8, 0x10]))
+
 
 class TrimGlyphTest(unittest.TestCase):
     def test_blank_rows_and_columns_go_and_the_offsets_follow(self):
@@ -58,7 +61,7 @@ class EmitCTest(unittest.TestCase):
         self.assertIn("{ 0x0020, 0, 0, 0, 0, 0, 5 },", text)
         self.assertIn("{ 0x0041, 0, 3, 2, 1, -2, 6 },", text)
         self.assertIn("0xE0, 0xA0,", text)
-        self.assertIn("const gfx_font_t gfx_font_tiny = { s_bitmap, s_glyphs, 2, 7, 9 };", text)
+        self.assertIn("const gfx_font_t gfx_font_tiny = { s_bitmap, s_glyphs, 2, 7, 9, 1 };", text)
 
     def test_names_the_font_licence_in_the_header(self):
         text = fontgen.emit_c("tiny", "Tiny.ttf", 8, [], ascent=7, line_height=9,
@@ -66,9 +69,20 @@ class EmitCTest(unittest.TestCase):
         self.assertIn("Font licence: assets/fonts/LICENSE-Tiny.txt", text.splitlines()[1])
 
     def test_rejects_glyphs_that_do_not_fit_the_c_types(self):
-        glyph = dict(cp=0x41, width=300, height=1, x=0, y=0, advance=1, rows=[[1] * 300])
+        glyph = dict(cp=0x41, width=70000, height=1, x=0, y=0, advance=1, rows=[[1] * 70000])
         with self.assertRaises(ValueError):
             fontgen.emit_c("big", "Big.ttf", 400, [glyph], ascent=1, line_height=1)
+
+    def test_a_4bit_font_records_its_depth_and_packs_nibbles(self):
+        glyphs = [dict(cp=0x41, width=3, height=1, x=0, y=-1, advance=4, rows=[[15, 0, 8]])]
+        text = fontgen.emit_c("aa", "Tiny.ttf", 8, glyphs, ascent=7, line_height=9, bpp=4)
+        self.assertIn("0xF0, 0x80,", text)
+        self.assertIn("const gfx_font_t gfx_font_aa = { s_bitmap, s_glyphs, 1, 7, 9, 4 };", text)
+
+    def test_accepts_glyphs_over_255_px(self):
+        glyph = dict(cp=0x31, width=300, height=1, x=-2, y=-300, advance=300, rows=[[1] * 300])
+        self.assertIn("{ 0x0031, 0, 300, 1, -2, -300, 300 },",
+                      fontgen.emit_c("big", "Big.ttf", 400, [glyph], ascent=300, line_height=310))
 
 
 if __name__ == "__main__":

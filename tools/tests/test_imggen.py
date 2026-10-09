@@ -49,12 +49,18 @@ class EmitTest(unittest.TestCase):
         text = imggen.emit_c([("x_9", 9, rows)], "Icons.ttf", licence="assets/icons/LICENSE.txt")
         self.assertIn("Icon licence: assets/icons/LICENSE.txt", text.splitlines()[1])
         self.assertIn("0x80, 0x80, 0x00, 0x00,", text)
-        self.assertIn("const gfx_bitmap_t gfx_icon_x_9 = { s_x_9, 9, 9 };", text)
+        self.assertIn("const gfx_bitmap_t gfx_icon_x_9 = { s_x_9, 9, 9, 1 };", text)
 
     def test_header_declares_every_icon(self):
         text = imggen.emit_h([("a_16", 16, []), ("b_24", 24, [])], "Icons.ttf")
         self.assertIn("extern const gfx_bitmap_t gfx_icon_a_16;", text)
         self.assertIn("extern const gfx_bitmap_t gfx_icon_b_24;", text)
+
+    def test_a_4bit_icon_records_its_depth_and_packs_nibbles(self):
+        text = imggen.emit_c([("y_2", 2, [[15, 0], [8, 1]])], "Icons.ttf", bpp=4, header="gfx_icons_t5.h")
+        self.assertIn('#include "gfx_icons_t5.h"', text)
+        self.assertIn("0xF0, 0x81,", text)
+        self.assertIn("const gfx_bitmap_t gfx_icon_y_2 = { s_y_2, 2, 2, 4 };", text)
 
 
 if __name__ == "__main__":

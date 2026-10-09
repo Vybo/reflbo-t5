@@ -18,3 +18,6 @@ fontgen --ttf assets/fonts/DejaVuSansCondensed-Bold.ttf --size 48 --charset digi
 fontgen --ttf assets/fonts/DejaVuSansCondensed-Bold.ttf --size 72 --charset digits --name num_cb_72 --licence assets/fonts/LICENSE-DejaVu.txt
 fontgen --ttf assets/fonts/DejaVuSansCondensed-Bold.ttf --size 110 --charset digits --name num_cb_110 --licence assets/fonts/LICENSE-DejaVu.txt
 fontgen --ttf assets/fonts/DejaVuSansCondensed-Bold.ttf --size 130 --charset digits --name num_cb_130 --licence assets/fonts/LICENSE-DejaVu.txt
+
+# The T5's 4-bit fonts (T5 spec §6.3, §7.2); T2 brings the test pattern's, T3 the rest.
+fontgen --ttf assets/fonts/DejaVuSans.ttf --size 26 --charset text --name t5_sans_26 --bpp 4 --licence assets/fonts/LICENSE-DejaVu.txt

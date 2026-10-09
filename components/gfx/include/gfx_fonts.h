@@ -14,3 +14,5 @@ extern const gfx_font_t gfx_font_num_cb_48;
 extern const gfx_font_t gfx_font_num_cb_72;
 extern const gfx_font_t gfx_font_num_cb_110;
 extern const gfx_font_t gfx_font_num_cb_130;
+/* The T5's 4-bit anti-aliased fonts (T5 spec §6.3); T3 adds the rest of the set (§7.2). */
+extern const gfx_font_t gfx_font_t5_sans_26;

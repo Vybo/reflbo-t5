@@ -40,11 +40,27 @@ static void test_metrics_grow_with_size(void)
     }
 }
 
+/* T5 spec §6.3: the RLCD's fonts are 1 bpp, the T5's 4-bit, with the same coverage of Czech. */
+static void test_each_font_records_its_depth(void)
+{
+    for (size_t f = 0; f < FONT_COUNT; f++) {
+        TEST_ASSERT_EQUAL_UINT8(1, s_fonts[f]->bpp);
+    }
+    TEST_ASSERT_EQUAL_UINT8(4, gfx_font_t5_sans_26.bpp);
+    TEST_ASSERT_TRUE(gfx_font_t5_sans_26.ascent < gfx_font_t5_sans_26.line_height);
+    const char *p = "ÁáČčĎďÉéĚěÍíŇňÓóŘřŠšŤťÚúŮůÝýŽž°€–…";
+    uint32_t cp;
+    while ((cp = gfx_utf8_next(&p)) != 0) {
+        TEST_ASSERT_TRUE_MESSAGE(gfx_font_has_glyph(&gfx_font_t5_sans_26, cp), "glyph missing");
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_fonts_cover_czech_and_symbols);
     RUN_TEST(test_glyphs_are_sorted_for_binary_search);
     RUN_TEST(test_metrics_grow_with_size);
+    RUN_TEST(test_each_font_records_its_depth);
     return UNITY_END();
 }

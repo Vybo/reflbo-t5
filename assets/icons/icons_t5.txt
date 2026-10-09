@@ -1,0 +1,4 @@
+# The T5's 4-bit icons (T5 spec §6.3), rendered into components/gfx/icons/gfx_icons_t5.c by tools/gen_icons.sh.
+# T2 brings the test pattern's; T3 adds the T5's set at its sizes (§7.2).
+# C name          Material Icons name, or wi:<name> from Weather Icons   sizes (px)
+t5_thermometer    device_thermostat     40
