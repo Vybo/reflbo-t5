@@ -73,15 +73,17 @@ void gfx_fill_circle(gfx_fb_t *fb, int cx, int cy, int r, gfx_color_t color);
 /* The pixels whose centres lie inside or on the triangle, in any vertex order. */
 void gfx_fill_triangle(gfx_fb_t *fb, int x0, int y0, int x1, int y1, int x2, int y2, gfx_color_t color);
 
-/* 1-bpp image in the glyph format: rows MSB first, each row padded to whole bytes, 1 = ink. */
+/* An image in the glyph format: rows padded to whole bytes, at 1 bpp MSB first with 1 = ink, at 4 bpp two
+ * pixels a byte, the first in the high nibble, coverage 0-15. */
 typedef struct {
     const uint8_t *bits;
-    uint8_t width;
-    uint8_t height;
+    uint16_t width;
+    uint16_t height;
+    uint8_t bpp; /* 1 or 4; 0 (an initializer without it) reads as 1 */
 } gfx_bitmap_t;
 
-/* Draws the bitmap's ink in `color` with its top-left corner at (x, y); other pixels are left
- * alone. For an opaque image, fill its rectangle first. */
+/* Draws the bitmap's ink in `color` with its top-left corner at (x, y), blending 4-bit coverage
+ * (gfx_pixel_coverage()); other pixels are left alone. For an opaque image, fill its rectangle first. */
 void gfx_bitmap(gfx_fb_t *fb, int x, int y, const gfx_bitmap_t *bm, gfx_color_t color);
 
 /* PBM P4 image of the framebuffer: header "P4\n<w> <h>\n" followed by the raster. */

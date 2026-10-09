@@ -224,7 +224,7 @@ static void test_filled_circle_covers_its_outline(void)
 static void test_bitmap_draws_ink_only_and_clips(void)
 {
     static const uint8_t bits[] = { 0xA0, 0x40, 0xA0 }; /* #.# / .#. / #.# */
-    const gfx_bitmap_t x_mark = { bits, 3, 3 };
+    const gfx_bitmap_t x_mark = { bits, 3, 3, 1 };
     gfx_fill_rect(&s_fb, (gfx_rect_t){ 0, 0, 16, 4 }, GFX_BLACK);
     gfx_bitmap(&s_fb, 1, 0, &x_mark, GFX_WHITE);
     TEST_ASSERT_FALSE(gfx_get_pixel(&s_fb, 1, 0));
@@ -427,6 +427,22 @@ static void test_1bpp_primitives_write_the_same_bytes(void)
     TEST_ASSERT_EQUAL_HEX8_ARRAY(want, one, sizeof(want));
 }
 
+static void test_a_4bit_bitmap_blends_on_4bpp_and_thresholds_on_1bpp(void)
+{
+    static const uint8_t bits[] = { 0xF0, 0x80 }; /* 3×1: coverage 15, 0, 8 */
+    const gfx_bitmap_t bm = { bits, 3, 1, 4 };
+    fb4(4, 1);
+    gfx_bitmap(&s_fb4, 0, 0, &bm, GFX_BLACK);
+    TEST_ASSERT_EQUAL_UINT8(0, gfx_get_level(&s_fb4, 0, 0));
+    TEST_ASSERT_EQUAL_UINT8(15, gfx_get_level(&s_fb4, 1, 0));
+    TEST_ASSERT_EQUAL_UINT8(7, gfx_get_level(&s_fb4, 2, 0));
+    uint8_t one[1] = { 0 };
+    gfx_fb_t fb1;
+    gfx_fb_init(&fb1, one, 8, 1);
+    gfx_bitmap(&fb1, 0, 0, &bm, GFX_BLACK);
+    TEST_ASSERT_EQUAL_HEX8(0xA0, one[0]);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -454,5 +470,6 @@ int main(void)
     RUN_TEST(test_coverage_blends_towards_the_ink_on_4bpp);
     RUN_TEST(test_coverage_on_1bpp_inks_from_half);
     RUN_TEST(test_1bpp_primitives_write_the_same_bytes);
+    RUN_TEST(test_a_4bit_bitmap_blends_on_4bpp_and_thresholds_on_1bpp);
     return UNITY_END();
 }

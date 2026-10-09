@@ -439,6 +439,16 @@ void gfx_bitmap(gfx_fb_t *fb, int x, int y, const gfx_bitmap_t *bm, gfx_color_t 
     if (bm == NULL || bm->bits == NULL) {
         return;
     }
+    if (bm->bpp == 4) {
+        int row_bytes = (bm->width + 1) / 2;
+        for (int r = 0; r < bm->height; r++) {
+            for (int c = 0; c < bm->width; c++) {
+                uint8_t b = bm->bits[r * row_bytes + (c >> 1)];
+                gfx_pixel_coverage(fb, x + c, y + r, color, (uint8_t)((c & 1) ? (b & 0x0F) : (b >> 4)));
+            }
+        }
+        return;
+    }
     int row_bytes = (bm->width + 7) / 8;
     for (int r = 0; r < bm->height; r++) {
         for (int c = 0; c < bm->width; c++) {

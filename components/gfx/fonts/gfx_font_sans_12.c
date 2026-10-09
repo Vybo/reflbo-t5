@@ -538,4 +538,4 @@ static const gfx_glyph_t s_glyphs[] = {
     { 0x2193, 3230, 5, 9, 3, -9, 10 },
 };
 
-const gfx_font_t gfx_font_sans_12 = { s_bitmap, s_glyphs, 327, 13, 16 };
+const gfx_font_t gfx_font_sans_12 = { s_bitmap, s_glyphs, 327, 13, 16, 1 };

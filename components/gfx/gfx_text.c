@@ -103,12 +103,23 @@ int gfx_text_width(const gfx_font_t *font, const char *utf8)
 static void draw_glyph(gfx_fb_t *fb, const gfx_font_t *font, const gfx_glyph_t *g, int x, int baseline,
                        gfx_color_t color)
 {
-    int row_bytes = (g->width + 7) / 8;
     const uint8_t *rows = font->bitmap + g->offset;
+    int left = x + g->x_offset, top = baseline + g->y_offset;
+    if (font->bpp == 4) { /* coverage, blended (T5 spec §6.2) */
+        int row_bytes = (g->width + 1) / 2;
+        for (int r = 0; r < g->height; r++) {
+            for (int c = 0; c < g->width; c++) {
+                uint8_t b = rows[r * row_bytes + (c >> 1)];
+                gfx_pixel_coverage(fb, left + c, top + r, color, (uint8_t)((c & 1) ? (b & 0x0F) : (b >> 4)));
+            }
+        }
+        return;
+    }
+    int row_bytes = (g->width + 7) / 8;
     for (int r = 0; r < g->height; r++) {
         for (int c = 0; c < g->width; c++) {
             if (rows[r * row_bytes + (c >> 3)] & (0x80u >> (c & 7))) {
-                gfx_pixel(fb, x + g->x_offset + c, baseline + g->y_offset + r, color);
+                gfx_pixel(fb, left + c, top + r, color);
             }
         }
     }

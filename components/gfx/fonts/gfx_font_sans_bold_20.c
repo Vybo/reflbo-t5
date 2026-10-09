@@ -919,4 +919,4 @@ static const gfx_glyph_t s_glyphs[] = {
     { 0x2193, 9325, 8, 15, 4, -15, 17 },
 };
 
-const gfx_font_t gfx_font_sans_bold_20 = { s_bitmap, s_glyphs, 327, 19, 24 };
+const gfx_font_t gfx_font_sans_bold_20 = { s_bitmap, s_glyphs, 327, 19, 24, 1 };
