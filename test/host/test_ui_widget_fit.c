@@ -998,6 +998,71 @@ static void test_a_moon_name_too_wide_beside_its_disc_shrinks_the_disc(void)
     TEST_ASSERT_TRUE(right < r.x + r.w - 2);
 }
 
+/* The Moon's width in pixels on row y of r (its first run of ink), and the ink's extent right of it. */
+static void moon_row(const gfx_fb_t *fb, gfx_rect_t r, int y, int *disc_w, int *text_left, int *text_right)
+{
+    int x = r.x + 1;
+    while (x < r.x + r.w && gfx_get_level(fb, x, y) == 15) {
+        x++;
+    }
+    int start = x;
+    while (x < r.x + r.w && gfx_get_level(fb, x, y) < 15) {
+        x++;
+    }
+    *disc_w = x - start;
+    *text_left = *text_right = -1;
+    for (; x < r.x + r.w - 1; x++) {
+        for (int yy = y - 30; yy <= y; yy++) {
+            if (gfx_get_level(fb, x, yy) < 15) {
+                *text_left = *text_left < 0 ? x : *text_left;
+                *text_right = x;
+            }
+        }
+    }
+}
+
+static gfx_rect_t draw_moon_in(gfx_fb_t *fb, gfx_rect_t r, const char *name, const char *short_name, double age)
+{
+    gfx_clear(fb, GFX_WHITE);
+    ui_value_t v = { .field = UI_FIELD_MOON_PHASE, .kind = UI_FK_MOON, .state = UI_VALUE_FRESH, .label = "Moon" };
+    snprintf(v.text, sizeof(v.text), "%s", name);
+    snprintf(v.extra, sizeof(v.extra), "40%%");
+    snprintf(v.short_text, sizeof(v.short_text), "%s", short_name);
+    v.moon.age = age;
+    ui_widget_draw(fb, r, UI_SIZE_M, &v, UI_STALE_STALE, lang_get("en"));
+    int body_y = r.y + ui_px(6) + UI_FONT(UI_F_SANS_12)->line_height;
+    return (gfx_rect_t){ r.x, (int16_t)(body_y + (r.y + r.h - body_y) / 2), r.w, r.h };
+}
+
+/* Final review of T3a: the disc gives way only on the T5; the RLCD's Grid keeps its 40 px Moon beside a long name. */
+static void test_the_rlcd_moon_keeps_its_disc_beside_a_long_name(void)
+{
+    gfx_fb_t fb;
+    gfx_fb_init(&fb, s_buf, 400, 300);
+    gfx_rect_t r = { 133, 21, 134, 139 }; /* Grid's g2 */
+    gfx_rect_t mid = draw_moon_in(&fb, r, "Waning crescent", "Crescent", 0.0);
+    int disc_w, left, right;
+    moon_row(&fb, r, mid.y, &disc_w, &left, &right);
+    TEST_ASSERT_EQUAL_INT(39, disc_w); /* radius 19: a 40 px disc, as before T3a */
+}
+
+/* On the T5 a name too wide even beside half the disc takes its short form ("Crescent"), not "Waning cr…". */
+static void test_a_t5_moon_name_too_wide_beside_half_the_disc_takes_its_short_form(void)
+{
+    static uint8_t buf[960 * 540 / 2];
+    ui_profile_use(&ui_profile_t547);
+    gfx_fb_t fb;
+    gfx_fb_init_fmt(&fb, buf, 960, 540, GFX_FMT_4BPP);
+    gfx_rect_t r = { 240, 35, 240, 252 };
+    gfx_rect_t mid = draw_moon_in(&fb, r, "Waning crescent", "Crescent", 0.0);
+    int disc_w, left, right;
+    moon_row(&fb, r, mid.y - ui_px(2), &disc_w, &left, &right);
+    int short_w = gfx_text_width(UI_FONT(UI_F_SANS_16), "Crescent");
+    ui_profile_use(NULL);
+    TEST_ASSERT_TRUE(left > 0);
+    TEST_ASSERT_INT_WITHIN(6, short_w, right - left + 1);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -1023,6 +1088,8 @@ int main(void)
     RUN_TEST(test_the_grid_shows_which_way_its_power_goes);
     RUN_TEST(test_bitmap_ink_reads_4bit_coverage_from_half_up);
     RUN_TEST(test_a_moon_name_too_wide_beside_its_disc_shrinks_the_disc);
+    RUN_TEST(test_the_rlcd_moon_keeps_its_disc_beside_a_long_name);
+    RUN_TEST(test_a_t5_moon_name_too_wide_beside_half_the_disc_takes_its_short_form);
     RUN_TEST(test_bitmap_ink_reads_1bpp_bits_msb_first);
     return UNITY_END();
 }

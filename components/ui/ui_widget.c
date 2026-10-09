@@ -906,15 +906,22 @@ static void draw_labelled(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_v
 
     if (v->kind == UI_FK_MOON && v->state != UI_VALUE_MISSING) { /* disc, then the phase name */
         int d = UI_PX(size == UI_SIZE_M ? 40 : 64);
-        int name_w = gfx_text_width(UI_FONT(UI_F_SANS_16), v->text);
-        int room = body.w - UI_PX(20) - UI_PX(6) - name_w; /* what the name leaves the disc */
-        if (room < d) { /* a name too wide beside it: the disc gives way, to half its size (T3a board check) */
-            d = room > d / 2 ? room : d / 2;
+        const char *name = v->text;
+        if (ui_profile()->moon_fit) { /* the T5 (board check): the disc gives way, to half its size, then the name */
+            const gfx_font_t *nf = UI_FONT(UI_F_SANS_16);
+            int beside = body.w - UI_PX(20) - UI_PX(6); /* the disc and the name */
+            if (beside - gfx_text_width(nf, name) < d / 2 && v->short_text[0]) {
+                name = v->short_text;
+            }
+            int room = beside - gfx_text_width(nf, name);
+            if (room < d) {
+                d = room > d / 2 ? room : d / 2;
+            }
         }
         int cx = body.x + UI_PX(10) + d / 2, cy = body.y + body.h / 2;
         ui_draw_moon(fb, cx, cy, d / 2 - 1, v->moon.age);
         int x = body.x + UI_PX(20) + d;
-        gfx_text_ellipsize(UI_FONT(UI_F_SANS_16), v->text, body.x + body.w - UI_PX(6) - x, fit, sizeof(fit));
+        gfx_text_ellipsize(UI_FONT(UI_F_SANS_16), name, body.x + body.w - UI_PX(6) - x, fit, sizeof(fit));
         gfx_text(fb, UI_FONT(UI_F_SANS_16), x, cy - UI_PX(2), fit, GFX_BLACK);
         gfx_text(fb, UI_FONT(UI_F_BOLD_20), x, cy + UI_PX(22), v->extra, GFX_BLACK);
         return;

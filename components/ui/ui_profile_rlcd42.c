@@ -154,4 +154,5 @@ const ui_profile_t ui_profile_rlcd42 = {
     .split = { .min_w = 40, .min_h = 20, .narrow_w = 150, .inset = 8 },
     .sun_s_face = &gfx_font_sans_bold_16,
     .sun_s_top = false,
+    .moon_fit = false,
 };

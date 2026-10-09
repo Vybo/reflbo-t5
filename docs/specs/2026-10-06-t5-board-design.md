@@ -292,7 +292,7 @@ As built at T3a: `ui_profile_rlcd42.c` and `ui_profile_t547.c`, one built into e
 - the icons by name and size class, `ui_icon(UI_ICON_<name>, UI_IC16 | UI_IC24 | UI_IC48)`, with `ui_icon_class()` and `ui_icon_px()` taking the RLCD's pixels; `ui_bitmap_ink()` reads ink from 1 bpp and 4-bit icons alike;
 - the fixed layouts with their separators (`ui_layout_t`: slots and `ui_sep_t` lines);
 - the menu's header, first row, row pitch and rows; the split's least cell, narrow width and inset (`UI_SPLIT_*` read them);
-- the owner's tuning from the T5's render review: the sun's times in an S cell (`sun_s_face`: the RLCD's bold 16; on the T5 a 30 px bold face of a time's characters, beside the 40 px icons) and, in a narrow S cell, the sun stacked from the top like the other S widgets (`sun_s_top`, T5 only).
+- the owner's tuning from the T5's render review: the sun's times in an S cell (`sun_s_face`: the RLCD's bold 16; on the T5 a 30 px bold face of a time's characters, beside the 40 px icons) and, in a narrow S cell, the sun stacked from the top like the other S widgets (`sun_s_top`, T5 only); from the board check, the Moon's fit beside its name (`moon_fit`, T5 only).
 
 The UI names no board's font or icon outside the profiles (`tools/tests/test_ui_sources.py` checks it), and `main` refuses to boot when the display's frame doesn't match the profile (`ui_profile_matches()`). A screen laid out on the RLCD's whole screen (critical battery, config's "starting" and "connecting", the menu's date-time editor and question) keeps its positions through `UI_PX()` from a top offset of (height − `UI_PX(300)`) / 2. Under a profile with equal numerator and denominator other than 1/1, every RLCD golden renders unchanged (a test). The radar and flight views' sizes, the Solar and Energy layouts and the chart and flow widgets keep the RLCD's geometry until T3b; the web's numbers are T3c's.
 
@@ -334,7 +334,7 @@ The T5's built-in presets leave out the `env.*` fields:
 | Weather | Weather, status clock | now, today, hourly, air quality, pollen, sun |
 | Focus clock | Focus | time, date, weather now, Moon |
 
-Rain radar, Flights, Solar and Energy stay out of the T5's cycle until T3b draws them at 960×540. Found at the board (2026-10-10): where the Moon's name would be cut beside its disc in M, L or XL, the disc shrinks, to half its size at most.
+Rain radar, Flights, Solar and Energy stay out of the T5's cycle until T3b draws them at 960×540. Found at the board (2026-10-10): where the Moon's name would be cut beside its disc in M, L or XL, the disc shrinks, to half its size at most, and a name too wide even then takes its short form ("Crescent" for "Waning crescent"); the RLCD keeps its disc and cuts the name, as before (its `grid_moon` golden).
 
 ### 7.4 Web UI
 

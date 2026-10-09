@@ -190,6 +190,9 @@ static inline bool fixture_dashboard(const char *name, ui_context_t *ctx, ui_pre
                                             UI_FIELD_POLLEN_GRASS, UI_FIELD_SUN_TIMES, UI_FIELD_WX_DAILY };
         memcpy(preset->slots, k_slots, sizeof(k_slots));
         fixture_forecast(&s_fix_ds, FIX_NOW - 3600);
+    } else if (strcmp(name, "grid_moon") == 0) { /* T3a review: the Moon in a Grid cell keeps its 40 px disc */
+        *preset = fixture_preset("indoor");
+        preset->slots[0] = UI_FIELD_MOON_PHASE;
     } else if (strcmp(name, "air_grid_cs") == 0) { /* the same in Czech: the bands and levels' words */
         fixture_dashboard("air_grid", ctx, preset);
         ctx->lang = lang_get("cs");
@@ -461,7 +464,7 @@ static const char *const k_dashboard_fixtures[] = { "home", "indoor", "weather",
                                                     "indoor_hot_f", "indoor_frost", "home_frost", "grid_clock_12h",
                                                     "home_cs", "indoor_cs", "home_holiday_cs", "home_low_battery",
                                                     "home_web", "home_stale_web", "weather_now",
-                                                    "weather_noon_cs", "weather_stale", "air_grid", "air_grid_cs",
+                                                    "weather_noon_cs", "weather_stale", "air_grid", "air_grid_cs", "grid_moon",
                                                     "grid_sun_uv", "home_forecast",
                                                     "focus_forecast", "home_syncing", "home_sync_failed",
                                                     "home_always", "home_always_rejoining", "weather_rain",
