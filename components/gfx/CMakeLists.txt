@@ -12,6 +12,7 @@ if(CONFIG_REFLBO_BOARD_T547) # the T5's 4-bit assets: only its image carries the
     list(APPEND srcs "gfx_test_pattern_t5.c" "icons/gfx_icons_t5.c"
                      "fonts/gfx_font_t5_sans_20.c" "fonts/gfx_font_t5_sans_26.c" "fonts/gfx_font_t5_sans_34.c"
                      "fonts/gfx_font_t5_bold_26.c" "fonts/gfx_font_t5_bold_34.c" "fonts/gfx_font_t5_bold_46.c"
+                     "fonts/gfx_font_t5_time_30.c"
                      "fonts/gfx_font_t5_num_80.c" "fonts/gfx_font_t5_num_120.c" "fonts/gfx_font_t5_num_180.c"
                      "fonts/gfx_font_t5_num_220.c")
 endif()

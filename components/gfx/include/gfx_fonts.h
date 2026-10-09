@@ -22,6 +22,7 @@ extern const gfx_font_t gfx_font_t5_sans_34;
 extern const gfx_font_t gfx_font_t5_bold_26;
 extern const gfx_font_t gfx_font_t5_bold_34;
 extern const gfx_font_t gfx_font_t5_bold_46;
+extern const gfx_font_t gfx_font_t5_time_30; /* a time's characters: digits, ":", " ", A, M, P */
 extern const gfx_font_t gfx_font_t5_num_80;
 extern const gfx_font_t gfx_font_t5_num_120;
 extern const gfx_font_t gfx_font_t5_num_180;

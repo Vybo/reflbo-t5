@@ -26,6 +26,8 @@ fontgen --ttf assets/fonts/DejaVuSans.ttf --size 34 --charset text --name t5_san
 fontgen --ttf assets/fonts/DejaVuSans-Bold.ttf --size 26 --charset text --name t5_bold_26 --bpp 4 --licence assets/fonts/LICENSE-DejaVu.txt
 fontgen --ttf assets/fonts/DejaVuSans-Bold.ttf --size 34 --charset text --name t5_bold_34 --bpp 4 --licence assets/fonts/LICENSE-DejaVu.txt
 fontgen --ttf assets/fonts/DejaVuSans-Bold.ttf --size 46 --charset text --name t5_bold_46 --bpp 4 --licence assets/fonts/LICENSE-DejaVu.txt
+# The sun's times in an S cell (owner, T3a review): a time's characters only, 96 px for "06:44" beside a 40 px icon
+fontgen --ttf assets/fonts/DejaVuSans-Bold.ttf --size 30 --charset digits,0x41,0x4D,0x50 --name t5_time_30 --bpp 4 --licence assets/fonts/LICENSE-DejaVu.txt
 fontgen --ttf assets/fonts/DejaVuSansCondensed-Bold.ttf --size 80 --charset digits --name t5_num_80 --bpp 4 --licence assets/fonts/LICENSE-DejaVu.txt
 fontgen --ttf assets/fonts/DejaVuSansCondensed-Bold.ttf --size 120 --charset digits --name t5_num_120 --bpp 4 --licence assets/fonts/LICENSE-DejaVu.txt
 fontgen --ttf assets/fonts/DejaVuSansCondensed-Bold.ttf --size 180 --charset digits --name t5_num_180 --bpp 4 --licence assets/fonts/LICENSE-DejaVu.txt

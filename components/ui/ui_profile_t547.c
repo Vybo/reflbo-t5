@@ -116,7 +116,8 @@ const ui_profile_t ui_profile_t547 = {
     .layouts = k_layouts,
     .menu = { .header_h = 51, .row_y0 = 61, .row_h = 55, .rows = 8 },
     .split = { .min_w = 68, .min_h = 34, .narrow_w = 255, .inset = 14 },
-    .sun_s_font = UI_F_BOLD_20, /* owner, render review 2026-10-09: a bit bigger, level with its neighbours */
-    .sun_s_icon = UI_IC16,      /* the digits' height: with 40 px icons the times don't fit a 160 px cell */
+    /* owner, render review 2026-10-09: the times a bit bigger beside the 40 px icons, level with their neighbours;
+     * 30 px is the largest whose "06:44" fits a 160 px cell with them */
+    .sun_s_face = &gfx_font_t5_time_30,
     .sun_s_top = true,
 };

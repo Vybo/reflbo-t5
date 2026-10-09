@@ -359,7 +359,8 @@ static void test_a_frame_matches_the_profile_only_in_size_and_format(void)
 }
 
 /* Owner, T3a render review (2026-10-09): on the T5 the sun's times in a narrow S cell start at the top, level with
- * the other stacked S widgets' symbols (UI_PX(12) down), in a face a step larger than the RLCD's. */
+ * the other stacked S widgets' symbols (UI_PX(12) down), beside 40 px icons, in a face larger than the RLCD's
+ * scaled. */
 static void test_the_t5_sun_in_a_narrow_cell_stacks_from_the_top_in_a_larger_face(void)
 {
     static uint8_t buf[960 * 540 / 2];
@@ -372,11 +373,12 @@ static void test_the_t5_sun_in_a_narrow_cell_stacks_from_the_top_in_a_larger_fac
     gfx_fb_t fb;
     gfx_fb_init_fmt(&fb, buf, 960, 540, GFX_FMT_4BPP);
     ui_draw_dashboard(&fb, &ctx, &preset);
-    int top = -1, left = r.x + r.w, right = -1;
+    int top = -1, bottom = -1, left = r.x + r.w, right = -1;
     for (int y = r.y; y < r.y + r.h; y++) {
         for (int x = r.x + 2; x < r.x + r.w - 2; x++) { /* clear of the separators at the cell's edges */
             if (gfx_get_level(&fb, x, y) < 15) {
                 top = top < 0 ? y : top;
+                bottom = y;
                 left = x < left ? x : left;
                 right = x > right ? x : right;
             }
@@ -384,7 +386,9 @@ static void test_the_t5_sun_in_a_narrow_cell_stacks_from_the_top_in_a_larger_fac
     }
     TEST_ASSERT_TRUE(top >= 0);
     TEST_ASSERT_INT_WITHIN(8, r.y + ui_px(12) + 4, top);
-    TEST_ASSERT_TRUE(right - left + 1 >= ui_icon_px(16) + ui_px(6) + gfx_text_width(UI_FONT(UI_F_BOLD_20), "06:44") - 4);
+    /* two rows of 40 px icons, 4 px apart (their own margins inside), and digits larger than bold 16's role */
+    TEST_ASSERT_TRUE(bottom - top + 1 >= 2 * ui_icon_px(24) + ui_px(4) - 16);
+    TEST_ASSERT_TRUE(right - left + 1 >= ui_icon_px(24) + ui_px(6) + gfx_text_width(UI_FONT(UI_F_BOLD_16), "06:44") + 8);
 }
 
 int main(void)

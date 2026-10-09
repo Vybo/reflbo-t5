@@ -82,6 +82,15 @@ static void test_the_t5_set_is_4bit_and_covers_its_charsets(void)
     }
     TEST_ASSERT_TRUE(gfx_font_t5_sans_20.line_height < gfx_font_t5_sans_26.line_height);
     TEST_ASSERT_TRUE(gfx_font_t5_sans_26.line_height < gfx_font_t5_sans_34.line_height);
+    /* the sun's times (T3a review): a time's characters only, a 24-hour and a 12-hour one */
+    TEST_ASSERT_EQUAL_UINT8(4, gfx_font_t5_time_30.bpp);
+    const char *t = "0123456789: AMP";
+    uint32_t cp;
+    while ((cp = gfx_utf8_next(&t)) != 0) {
+        TEST_ASSERT_TRUE_MESSAGE(gfx_font_has_glyph(&gfx_font_t5_time_30, cp), "time glyph missing");
+    }
+    TEST_ASSERT_TRUE(gfx_font_t5_bold_26.line_height < gfx_font_t5_time_30.line_height);
+    TEST_ASSERT_TRUE(gfx_font_t5_time_30.line_height < gfx_font_t5_bold_34.line_height);
 }
 
 static void test_the_t5_icons_come_in_three_4bit_sizes(void)

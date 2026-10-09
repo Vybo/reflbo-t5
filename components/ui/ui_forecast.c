@@ -1107,14 +1107,11 @@ static void draw_sun(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_value_
         centred(fb, pf, r, top + UI_PX(8) + icon->height + UI_PX(20), v->text);
         return;
     }
-    const ui_profile_t *p = ui_profile();
-    const gfx_font_t *tf = size == UI_SIZE_S ? UI_FONT(p->sun_s_font) : UI_FONT(UI_F_BOLD_20);
-    ui_icon_class_t cls = size == UI_SIZE_S ? (ui_icon_class_t)p->sun_s_icon : UI_IC24;
-    int icon = p->icon_px[cls], th = ink_height(tf);
-    int pitch = (icon > th ? icon : th) + UI_PX(4); /* a row: its icon (24 px on the RLCD) or its digits, and 4 px */
+    const gfx_font_t *tf = size == UI_SIZE_S ? ui_profile()->sun_s_face : UI_FONT(UI_F_BOLD_20);
+    int icon = ui_icon_px(24), pitch = icon + UI_PX(4); /* a row: its 24 px icon and 4 px */
     int rows = 2 * pitch + (v->detail[0] && size != UI_SIZE_S ? UI_PX(18) : 0);
     int y = top + (r.y + r.h - top - rows) / 2;
-    if (size == UI_SIZE_S && r.w < UI_SPLIT_NARROW_W && p->sun_s_top) {
+    if (size == UI_SIZE_S && r.w < UI_SPLIT_NARROW_W && ui_profile()->sun_s_top) {
         y = r.y + UI_PX(12); /* where the stacked S widgets put their symbols (ui_widget.c) */
     }
     /* a 12-hour time ("7:01 AM") in a narrow split cell: smaller faces before it reaches the edges */
@@ -1129,9 +1126,9 @@ static void draw_sun(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_value_
         tf = k_smaller[i];
     }
     int x = r.x + (r.w - w) / 2;
-    gfx_bitmap(fb, x, y, ui_icon(UI_ICON_sunrise, cls), GFX_BLACK);
+    gfx_bitmap(fb, x, y, ui_icon(UI_ICON_sunrise, UI_IC24), GFX_BLACK);
     gfx_text(fb, tf, x + icon + UI_PX(6), y + icon / 2 + ink_height(tf) / 2, v->text, GFX_BLACK);
-    gfx_bitmap(fb, x, y + pitch, ui_icon(UI_ICON_sunset, cls), GFX_BLACK);
+    gfx_bitmap(fb, x, y + pitch, ui_icon(UI_ICON_sunset, UI_IC24), GFX_BLACK);
     gfx_text(fb, tf, x + icon + UI_PX(6), y + pitch + icon / 2 + ink_height(tf) / 2, v->extra, GFX_BLACK);
     if (v->detail[0] && size != UI_SIZE_S) {
         centred(fb, UI_FONT(UI_F_SANS_12), r, y + 2 * pitch + UI_PX(14), v->detail);

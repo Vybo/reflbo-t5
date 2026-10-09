@@ -152,7 +152,6 @@ const ui_profile_t ui_profile_rlcd42 = {
     .layouts = k_layouts,
     .menu = { .header_h = 30, .row_y0 = 36, .row_h = 34, .rows = 7 },
     .split = { .min_w = 40, .min_h = 20, .narrow_w = 150, .inset = 8 },
-    .sun_s_font = UI_F_BOLD_16,
-    .sun_s_icon = UI_IC24,
+    .sun_s_face = &gfx_font_sans_bold_16,
     .sun_s_top = false,
 };
