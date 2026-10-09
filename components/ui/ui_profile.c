@@ -41,7 +41,7 @@ const char *ui_cap_name(uint32_t cap)
 int ui_px(int n)
 {
     const ui_profile_t *p = ui_profile();
-    if (p->px_num == p->px_den) {
+    if (p->px_num == 1 && p->px_den == 1) { /* the RLCD: no arithmetic */
         return n;
     }
     int num = n * p->px_num, den = p->px_den;

@@ -1,9 +1,14 @@
+#define _POSIX_C_SOURCE 200809L /* setenv() in fixture_zone() */
+
+#include <stdio.h>
 #include <string.h>
 
+#include "dashboard_fixtures.h"
 #include "gfx_fonts.h"
 #include "gfx_icons.h"
 #include "ui_layout.h"
 #include "ui_profile.h"
+#include "screen_fixtures.h"
 #include "ui_split.h"
 #include "unity.h"
 
@@ -237,10 +242,54 @@ static void test_the_t5_tables(void)
     TEST_ASSERT_EQUAL_INT(7, ui_slot_by_name(ui_layout(UI_LAYOUT_CLASSIC), "s6"));
 }
 
+/* T3a: UI_PX() with equal numerator and denominator is the identity by another path, so every RLCD golden renders
+ * unchanged under such a copy of the RLCD's profile; a literal converted by mistake, or a rewrite that moves the
+ * RLCD's number, shows here beside the golden tests. */
+static uint8_t s_fb_buf[400 * 300 / 8];
+static uint8_t s_img[16000];
+static uint8_t s_golden[16000];
+
+static void expect_golden(gfx_fb_t *fb, const char *path)
+{
+    size_t n = gfx_pbm_encode(fb, s_img, sizeof(s_img));
+    FILE *f = fopen(path, "rb");
+    TEST_ASSERT_NOT_NULL_MESSAGE(f, path);
+    size_t golden = fread(s_golden, 1, sizeof(s_golden), f);
+    fclose(f);
+    TEST_ASSERT_EQUAL_INT_MESSAGE((int)golden, (int)n, path);
+    TEST_ASSERT_EQUAL_MEMORY_MESSAGE(s_golden, s_img, n, path);
+}
+
+static void test_a_scale_of_three_thirds_draws_every_rlcd_golden(void)
+{
+    ui_profile_t thirds = ui_profile_rlcd42;
+    thirds.px_num = 3;
+    thirds.px_den = 3;
+    ui_profile_use(&thirds);
+    char path[256];
+    gfx_fb_t fb;
+    for (size_t i = 0; i < sizeof(k_dashboard_fixtures) / sizeof(k_dashboard_fixtures[0]); i++) {
+        ui_context_t ctx;
+        ui_preset_t preset;
+        TEST_ASSERT_TRUE_MESSAGE(fixture_dashboard(k_dashboard_fixtures[i], &ctx, &preset), k_dashboard_fixtures[i]);
+        gfx_fb_init(&fb, s_fb_buf, 400, 300);
+        ui_draw_dashboard(&fb, &ctx, &preset);
+        snprintf(path, sizeof(path), "%s/dash_%s.pbm", GOLDEN_DIR, k_dashboard_fixtures[i]);
+        expect_golden(&fb, path);
+    }
+    for (size_t i = 0; i < sizeof(k_screen_fixtures) / sizeof(k_screen_fixtures[0]); i++) {
+        gfx_fb_init(&fb, s_fb_buf, 400, 300);
+        TEST_ASSERT_TRUE_MESSAGE(fixture_screen(k_screen_fixtures[i], &fb), k_screen_fixtures[i]);
+        snprintf(path, sizeof(path), "%s/screen_%s.pbm", GOLDEN_DIR, k_screen_fixtures[i]);
+        expect_golden(&fb, path);
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_the_rlcd_is_the_default_profile);
+    RUN_TEST(test_a_scale_of_three_thirds_draws_every_rlcd_golden);
     RUN_TEST(test_use_switches_the_profile_and_null_restores_the_rlcd);
     RUN_TEST(test_the_t5_has_its_own_geometry_and_none_of_the_rlcds_capabilities);
     RUN_TEST(test_the_rlcd_split_area_is_unchanged);

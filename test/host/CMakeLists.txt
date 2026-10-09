@@ -281,6 +281,7 @@ reflbo_host_test(test_ui_fields ui)
 reflbo_host_test(test_ui_preset ui)
 reflbo_host_test(test_ui_split ui)
 reflbo_host_test(test_ui_profile ui)
+target_compile_definitions(test_ui_profile PRIVATE GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
 reflbo_host_test(test_ui_schedule ui)
 reflbo_host_test(test_ui_widget_fit ui)
 target_include_directories(test_ui_widget_fit PRIVATE ${REPO_ROOT}/components/ui) # ui_widget_draw(), fresh and stale

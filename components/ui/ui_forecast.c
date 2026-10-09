@@ -9,6 +9,7 @@
 #include "gfx_icons.h"
 #include "ui_internal.h"
 #include "ui_profile.h"
+#include "ui_split.h"
 #include "util_time.h"
 #include "weather.h"
 
@@ -472,15 +473,15 @@ static void centred_in(gfx_fb_t *fb, const gfx_font_t *f, gfx_rect_t r, int pad,
 
 static void centred(gfx_fb_t *fb, const gfx_font_t *f, gfx_rect_t r, int baseline, const char *text)
 {
-    centred_in(fb, f, r, 4, baseline, text);
+    centred_in(fb, f, r, UI_PX(4), baseline, text);
 }
 
 static int label_line(gfx_fb_t *fb, gfx_rect_t r, const gfx_font_t *f, const char *label)
 {
     char fit[40];
-    gfx_text_ellipsize(f, label, r.w - 12, fit, sizeof(fit));
-    gfx_text(fb, f, r.x + 6, r.y + 6 + f->ascent, fit, GFX_BLACK);
-    return 6 + f->line_height;
+    gfx_text_ellipsize(f, label, r.w - UI_PX(12), fit, sizeof(fit));
+    gfx_text(fb, f, r.x + UI_PX(6), r.y + UI_PX(6) + f->ascent, fit, GFX_BLACK);
+    return UI_PX(6) + f->line_height;
 }
 
 /* A value and its unit as one group: "23" in `vf`, "°C" in `uf`, left at x. Returns the width. */
@@ -489,14 +490,14 @@ static int value_unit(gfx_fb_t *fb, const gfx_font_t *vf, const gfx_font_t *uf, 
 {
     int pen = gfx_text(fb, vf, x, baseline, value, GFX_BLACK);
     if (unit[0]) {
-        pen = gfx_text(fb, uf, pen + 2, baseline - (vf->ascent - uf->ascent), unit, GFX_BLACK);
+        pen = gfx_text(fb, uf, pen + UI_PX(2), baseline - (vf->ascent - uf->ascent), unit, GFX_BLACK);
     }
     return pen - x;
 }
 
 static int value_unit_width(const gfx_font_t *vf, const gfx_font_t *uf, const char *value, const char *unit)
 {
-    return gfx_text_width(vf, value) + (unit[0] ? 2 + gfx_text_width(uf, unit) : 0);
+    return gfx_text_width(vf, value) + (unit[0] ? UI_PX(2) + gfx_text_width(uf, unit) : 0);
 }
 
 static int ink_height(const gfx_font_t *f)
@@ -509,7 +510,7 @@ static int ink_height(const gfx_font_t *f)
 static void level_bar(gfx_fb_t *fb, int x, int y, int count, int filled, int cell_w, int cell_h)
 {
     for (int i = 0; i < count; i++) {
-        gfx_rect_t c = { (int16_t)(x + i * (cell_w + 3)), (int16_t)y, (int16_t)cell_w, (int16_t)cell_h };
+        gfx_rect_t c = { (int16_t)(x + i * (cell_w + UI_PX(3))), (int16_t)y, (int16_t)cell_w, (int16_t)cell_h };
         if (i < filled) {
             gfx_fill_rect(fb, c, GFX_BLACK);
         } else {
@@ -523,7 +524,7 @@ static void level_bar(gfx_fb_t *fb, int x, int y, int count, int filled, int cel
 /* An XS icon's size: 24 px from 34 px of height in one line, from 60 px stacked; 16 px otherwise. */
 static int tiny_icon(gfx_rect_t r)
 {
-    return r.h >= (ui_tiny_stacked(r) ? 60 : 34) ? 24 : 16;
+    return r.h >= UI_PX(ui_tiny_stacked(r) ? 60 : 34) ? 24 : 16;
 }
 
 /* The largest of bold 28, bold 20, bold 16 and sans 12 in which `text` fits max_w, its ink 2 px clear of either
@@ -534,7 +535,7 @@ static const gfx_font_t *tiny_face(const char *text, int max_w, int max_h, bool 
                                                  UI_FONT(UI_F_BOLD_16), UI_FONT(UI_F_SANS_12) };
     for (size_t i = 0; i < sizeof(k_faces) / sizeof(k_faces[0]); i++) {
         const gfx_font_t *f = k_faces[i];
-        if (gfx_text_width(f, text) <= max_w && ui_ink_above(f, text) + ui_ink_below(f, text) + 4 <= max_h) {
+        if (gfx_text_width(f, text) <= max_w && ui_ink_above(f, text) + ui_ink_below(f, text) + UI_PX(4) <= max_h) {
             snprintf(fit, size, "%s", text);
             return f;
         }
@@ -551,15 +552,15 @@ static const gfx_font_t *tiny_face(const char *text, int max_w, int max_h, bool 
 static void tiny_stack(gfx_fb_t *fb, gfx_rect_t r, const gfx_bitmap_t *icon, const char *first, const char *second,
                        bool digits)
 {
-    int cx = r.x + r.w / 2, max_w = digits ? r.w - 4 : r.w - 8;
-    int icon_h = icon != NULL ? icon->height + 4 : 0;
+    int cx = r.x + r.w / 2, max_w = digits ? r.w - UI_PX(4) : r.w - UI_PX(8);
+    int icon_h = icon != NULL ? icon->height + UI_PX(4) : 0;
     char fit[48];
     const gfx_font_t *f = tiny_face(first, max_w, r.h - icon_h, true, fit, sizeof(fit));
     int fh = ui_ink_above(f, fit) + ui_ink_below(f, fit);
     const gfx_font_t *sf = UI_FONT(UI_F_SANS_12);
     int sh = second != NULL ? ui_ink_above(sf, second) + ui_ink_below(sf, second) : 0;
-    bool two = second != NULL && second[0] && gfx_text_width(sf, second) <= max_w && icon_h + fh + 4 + sh + 4 <= r.h;
-    int block = icon_h + fh + (two ? 4 + sh : 0);
+    bool two = second != NULL && second[0] && gfx_text_width(sf, second) <= max_w && icon_h + fh + UI_PX(4) + sh + UI_PX(4) <= r.h;
+    int block = icon_h + fh + (two ? UI_PX(4) + sh : 0);
     int top = r.y + (r.h - block) / 2;
     if (icon != NULL) {
         gfx_bitmap(fb, cx - icon->width / 2, top, icon, GFX_BLACK);
@@ -567,7 +568,7 @@ static void tiny_stack(gfx_fb_t *fb, gfx_rect_t r, const gfx_bitmap_t *icon, con
     int y = top + icon_h;
     gfx_text(fb, f, cx - gfx_text_width(f, fit) / 2, y + ui_ink_above(f, fit), fit, GFX_BLACK);
     if (two) {
-        y += fh + 4;
+        y += fh + UI_PX(4);
         gfx_text(fb, sf, cx - gfx_text_width(sf, second) / 2, y + ui_ink_above(sf, second), second, GFX_BLACK);
     }
 }
@@ -583,30 +584,30 @@ static void tiny_row(gfx_fb_t *fb, gfx_rect_t r, const gfx_bitmap_t *icon, const
         tiny_stack(fb, r, icon, first, second, digits);
         return;
     }
-    int cy = r.y + r.h / 2, x = r.x + 3, right = r.x + r.w - (digits ? 2 : 4), words = r.x + r.w - 4;
+    int cy = r.y + r.h / 2, x = r.x + UI_PX(3), right = r.x + r.w - UI_PX(digits ? 2 : 4), words = r.x + r.w - UI_PX(4);
     char fit[48];
-    const gfx_font_t *f = icon != NULL ? tiny_face(first, right - x - icon->width - 3, r.h, false, fit, sizeof(fit))
+    const gfx_font_t *f = icon != NULL ? tiny_face(first, right - x - icon->width - UI_PX(3), r.h, false, fit, sizeof(fit))
                                        : NULL;
     if (f != NULL) { /* beside the icon, or alone where it would be cut there */
         gfx_bitmap(fb, x, cy - icon->height / 2, icon, GFX_BLACK);
-        x += icon->width + 3;
+        x += icon->width + UI_PX(3);
     } else {
-        f = tiny_face(first, digits ? r.w - 4 : right - x, r.h, true, fit, sizeof(fit));
+        f = tiny_face(first, digits ? r.w - UI_PX(4) : right - x, r.h, true, fit, sizeof(fit));
         x = digits ? r.x + (r.w - gfx_text_width(f, fit)) / 2 : x;
         icon2 = NULL;
     }
     int base = r.y + (r.h + ui_ink_above(f, fit) - ui_ink_below(f, fit)) / 2;
-    x = gfx_text(fb, f, x, base, fit, GFX_BLACK) + 5;
+    x = gfx_text(fb, f, x, base, fit, GFX_BLACK) + UI_PX(5);
     if (second != NULL && second[0]) {
         const gfx_font_t *sf = f == UI_FONT(UI_F_BOLD_28) ? UI_FONT(UI_F_SANS_16) : UI_FONT(UI_F_SANS_12);
-        if (gfx_text_width(sf, second) <= words - x && base - ui_ink_above(sf, second) >= r.y + 2 &&
-            base + ui_ink_below(sf, second) <= r.y + r.h - 2) {
-            x = gfx_text(fb, sf, x, base, second, GFX_BLACK) + 6;
+        if (gfx_text_width(sf, second) <= words - x && base - ui_ink_above(sf, second) >= r.y + UI_PX(2) &&
+            base + ui_ink_below(sf, second) <= r.y + r.h - UI_PX(2)) {
+            x = gfx_text(fb, sf, x, base, second, GFX_BLACK) + UI_PX(6);
         }
     }
-    if (icon2 != NULL && third != NULL && x + icon2->width + 3 + gfx_text_width(f, third) <= right) {
+    if (icon2 != NULL && third != NULL && x + icon2->width + UI_PX(3) + gfx_text_width(f, third) <= right) {
         gfx_bitmap(fb, x, cy - icon2->height / 2, icon2, GFX_BLACK);
-        gfx_text(fb, f, x + icon2->width + 3, base, third, GFX_BLACK);
+        gfx_text(fb, f, x + icon2->width + UI_PX(3), base, third, GFX_BLACK);
     }
 }
 
@@ -614,9 +615,9 @@ static void tiny_row(gfx_fb_t *fb, gfx_rect_t r, const gfx_bitmap_t *icon, const
 static bool tiny_line_fits(gfx_rect_t r, const gfx_bitmap_t *icon, const char *text)
 {
     char fit[48];
-    int beside = r.w - 2 - 3 - (icon != NULL ? icon->width + 3 : 0);
+    int beside = r.w - UI_PX(2) - UI_PX(3) - (icon != NULL ? icon->width + UI_PX(3) : 0);
     return (icon != NULL && tiny_face(text, beside, r.h, false, fit, sizeof(fit)) != NULL) ||
-           tiny_face(text, r.w - 4, r.h, false, fit, sizeof(fit)) != NULL;
+           tiny_face(text, r.w - UI_PX(4), r.h, false, fit, sizeof(fit)) != NULL;
 }
 
 /* A 12-hour time without its suffix ("6:44" for "6:44 AM"), for a cell too narrow for it. */
@@ -634,7 +635,7 @@ static void time_short(const char *text, char *out, size_t size)
 static void tiny_sun_stack(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
 {
     const gfx_bitmap_t *icons[2] = { ui_icon(UI_ICON_sunrise, UI_IC16), ui_icon(UI_ICON_sunset, UI_IC16) };
-    int iw = icons[0]->width, row = icons[0]->height + 2; /* an icon and 3 px before its time; rows of 18 px */
+    int iw = icons[0]->width, row = icons[0]->height + UI_PX(2); /* an icon and 3 px before its time; rows of 18 px */
     char brief[2][16];
     time_short(v->text, brief[0], sizeof(brief[0]));
     time_short(v->extra, brief[1], sizeof(brief[1]));
@@ -645,32 +646,32 @@ static void tiny_sun_stack(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
             const gfx_font_t *f = k_faces[i];
             int tw = gfx_text_width(f, times[0]) > gfx_text_width(f, times[1]) ? gfx_text_width(f, times[0])
                                                                                : gfx_text_width(f, times[1]);
-            if (iw + 3 + tw <= r.w - 4 && 2 * row + 4 <= r.h) { /* digits: 2 px from the edges */
-                int top = r.y + (r.h - 2 * row) / 2, x = r.x + (r.w - iw - 3 - tw) / 2;
+            if (iw + UI_PX(3) + tw <= r.w - UI_PX(4) && 2 * row + UI_PX(4) <= r.h) { /* digits: 2 px from the edges */
+                int top = r.y + (r.h - 2 * row) / 2, x = r.x + (r.w - iw - UI_PX(3) - tw) / 2;
                 for (int k = 0; k < 2; k++) {
                     gfx_bitmap(fb, x, top + k * row + 1, icons[k], GFX_BLACK);
-                    gfx_text(fb, f, x + iw + 3, top + k * row + row / 2 + ink_height(f) / 2, times[k], GFX_BLACK);
+                    gfx_text(fb, f, x + iw + UI_PX(3), top + k * row + row / 2 + ink_height(f) / 2, times[k], GFX_BLACK);
                 }
                 return;
             }
         }
     }
     const gfx_font_t *f = UI_FONT(UI_F_SANS_12);
-    bool whole = gfx_text_width(f, v->text) <= r.w - 4 && gfx_text_width(f, v->extra) <= r.w - 4;
+    bool whole = gfx_text_width(f, v->text) <= r.w - UI_PX(4) && gfx_text_width(f, v->extra) <= r.w - UI_PX(4);
     const char *times[2] = { whole ? v->text : brief[0], whole ? v->extra : brief[1] };
-    int th = ink_height(f) + 3; /* a time's ink, its tails included */
-    bool icons_fit = 2 * (row + th) + 4 + 4 <= r.h;
+    int th = ink_height(f) + UI_PX(3); /* a time's ink, its tails included */
+    bool icons_fit = 2 * (row + th) + UI_PX(4) + UI_PX(4) <= r.h;
     int line = (icons_fit ? row : 0) + th;
-    int block = 2 * line + 4;
+    int block = 2 * line + UI_PX(4);
     int top = r.y + (r.h - block) / 2, cx = r.x + r.w / 2;
     char fit[24];
     for (int k = 0; k < 2; k++) {
-        int y = top + k * (line + 4);
+        int y = top + k * (line + UI_PX(4));
         if (icons_fit) {
             gfx_bitmap(fb, cx - iw / 2, y, icons[k], GFX_BLACK);
             y += row;
         }
-        gfx_text_ellipsize(f, times[k], r.w - 4, fit, sizeof(fit));
+        gfx_text_ellipsize(f, times[k], r.w - UI_PX(4), fit, sizeof(fit));
         gfx_text(fb, f, cx - gfx_text_width(f, fit) / 2, y + ink_height(f), fit, GFX_BLACK);
     }
 }
@@ -693,15 +694,15 @@ static void tiny_sun_line(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, bool 
             const gfx_font_t *f = k_faces[i];
             int above = ui_ink_above(f, t[0]) > ui_ink_above(f, t[1]) ? ui_ink_above(f, t[0]) : ui_ink_above(f, t[1]);
             int below = ui_ink_below(f, t[0]) > ui_ink_below(f, t[1]) ? ui_ink_below(f, t[0]) : ui_ink_below(f, t[1]);
-            int w = icons[0]->width + 3 + gfx_text_width(f, t[0]) + 5 + icons[1]->width + 3 + gfx_text_width(f, t[1]);
-            if (3 + w + 2 > r.w || above + below + 4 > r.h) { /* digits keep 2 px from the right edge */
+            int w = icons[0]->width + UI_PX(3) + gfx_text_width(f, t[0]) + UI_PX(5) + icons[1]->width + UI_PX(3) + gfx_text_width(f, t[1]);
+            if (UI_PX(3) + w + UI_PX(2) > r.w || above + below + UI_PX(4) > r.h) { /* digits keep 2 px from the right edge */
                 continue;
             }
-            int cy = r.y + r.h / 2, x = r.x + 3;
+            int cy = r.y + r.h / 2, x = r.x + UI_PX(3);
             int base = r.y + (r.h + ui_ink_above(f, t[0]) - ui_ink_below(f, t[0])) / 2;
             for (int k = 0; k < 2; k++) {
                 gfx_bitmap(fb, x, cy - icons[k]->height / 2, icons[k], GFX_BLACK);
-                x = gfx_text(fb, f, x + icons[k]->width + 3, base, t[k], GFX_BLACK) + 5;
+                x = gfx_text(fb, f, x + icons[k]->width + UI_PX(3), base, t[k], GFX_BLACK) + UI_PX(5);
             }
             return;
         }
@@ -718,10 +719,10 @@ static void tiny_sun_line(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, bool 
  * and under it the sky's word on one or two lines where the height allows. */
 static void weather_now_compact(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
 {
-    int sky = r.w >= 120 && r.h >= 52 ? 48 : 24;
+    int sky = r.w >= UI_PX(120) && r.h >= UI_PX(52) ? 48 : 24;
     const gfx_bitmap_t *icon = ui_sky_icon(v->sky, v->night, sky);
-    gfx_bitmap(fb, r.x + 4, r.y + (r.h - icon->height) / 2, icon, GFX_BLACK);
-    int x = r.x + 4 + icon->width + 4, right = r.x + r.w - 4;
+    gfx_bitmap(fb, r.x + UI_PX(4), r.y + (r.h - icon->height) / 2, icon, GFX_BLACK);
+    int x = r.x + UI_PX(4) + icon->width + UI_PX(4), right = r.x + r.w - UI_PX(4);
     char t[sizeof(v->text) + 2];
     snprintf(t, sizeof(t), "%s" DEGREE, v->text);
     const gfx_font_t *tf = gfx_text_width(UI_FONT(UI_F_BOLD_28), t) <= right - x ? UI_FONT(UI_F_BOLD_28)
@@ -734,19 +735,19 @@ static void weather_now_compact(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
         lh[i] = ui_ink_above(wf, line[i]) + ui_ink_below(wf, line[i]);
     }
     int lines = line[1][0] ? 2 : line[0][0] ? 1 : 0;
-    while (lines > 0 && th + 4 + lh[0] + (lines > 1 ? 2 + lh[1] : 0) + 4 > r.h) {
+    while (lines > 0 && th + UI_PX(4) + lh[0] + (lines > 1 ? UI_PX(2) + lh[1] : 0) + UI_PX(4) > r.h) {
         lines--;
     }
     if (lines == 1 && line[1][0]) { /* one line's room for two: the word cut on one */
         gfx_text_ellipsize(wf, v->extra, right - x, line[0], sizeof(line[0]));
         lh[0] = ui_ink_above(wf, line[0]) + ui_ink_below(wf, line[0]);
-        lines = th + 4 + lh[0] + 4 <= r.h; /* its accents and tails, as cut */
+        lines = th + UI_PX(4) + lh[0] + UI_PX(4) <= r.h; /* its accents and tails, as cut */
     }
-    int block = th + (lines > 0 ? 4 + lh[0] : 0) + (lines > 1 ? 2 + lh[1] : 0);
+    int block = th + (lines > 0 ? UI_PX(4) + lh[0] : 0) + (lines > 1 ? UI_PX(2) + lh[1] : 0);
     int y = r.y + (r.h - block) / 2 + th;
     gfx_text(fb, tf, x, y, t, GFX_BLACK);
     for (int i = 0; i < lines; i++) {
-        y += (i == 0 ? ui_ink_below(tf, t) + 4 : ui_ink_below(wf, line[0]) + 2) + ui_ink_above(wf, line[i]);
+        y += (i == 0 ? ui_ink_below(tf, t) + UI_PX(4) : ui_ink_below(wf, line[0]) + UI_PX(2)) + ui_ink_above(wf, line[i]);
         gfx_text(fb, wf, x, y, line[i], GFX_BLACK);
     }
 }
@@ -754,7 +755,7 @@ static void weather_now_compact(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
 /* Today's weather beside its 24 px sky: the high and low, and under them the chance of rain where it fits. */
 static void weather_day_compact(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
 {
-    int x = r.x + 4 + ui_icon_px(24) + 4, right = r.x + r.w - 4;
+    int x = r.x + UI_PX(4) + ui_icon_px(24) + UI_PX(4), right = r.x + r.w - UI_PX(4);
     const gfx_font_t *const k_faces[] = { UI_FONT(UI_F_BOLD_20), UI_FONT(UI_F_BOLD_16), UI_FONT(UI_F_SANS_12) };
     const gfx_font_t *tf = UI_FONT(UI_F_SANS_12);
     for (size_t i = 0; i < sizeof(k_faces) / sizeof(k_faces[0]); i++) {
@@ -767,16 +768,16 @@ static void weather_day_compact(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
     gfx_text_ellipsize(tf, v->short_text, right - x, t, sizeof(t)); /* "109/97°" in a 90 px cell */
     int th = ui_ink_above(tf, t);
     const gfx_bitmap_t *drop = ui_icon(UI_ICON_drop, UI_IC16);
-    bool rain = v->percent >= 0 && th + 4 + drop->height + 4 <= r.h;
-    int block = th + (rain ? 4 + drop->height : 0);
+    bool rain = v->percent >= 0 && th + UI_PX(4) + drop->height + UI_PX(4) <= r.h;
+    int block = th + (rain ? UI_PX(4) + drop->height : 0);
     int top = r.y + (r.h - block) / 2;
-    gfx_bitmap(fb, r.x + 4, r.y + (r.h - ui_icon_px(24)) / 2, ui_sky_icon(v->sky, false, 24), GFX_BLACK);
+    gfx_bitmap(fb, r.x + UI_PX(4), r.y + (r.h - ui_icon_px(24)) / 2, ui_sky_icon(v->sky, false, 24), GFX_BLACK);
     gfx_text(fb, tf, x, top + th, t, GFX_BLACK);
     if (rain) {
         char text[16];
         snprintf(text, sizeof(text), "%d %%", v->percent);
-        gfx_bitmap(fb, x, top + th + 4, drop, GFX_BLACK);
-        gfx_text(fb, UI_FONT(UI_F_SANS_12), x + drop->width + 2, top + th + 4 + drop->height * 3 / 4, text, GFX_BLACK);
+        gfx_bitmap(fb, x, top + th + UI_PX(4), drop, GFX_BLACK);
+        gfx_text(fb, UI_FONT(UI_F_SANS_12), x + drop->width + UI_PX(2), top + th + UI_PX(4) + drop->height * 3 / 4, text, GFX_BLACK);
     }
 }
 
@@ -790,35 +791,35 @@ static void draw_weather_now(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const u
         return;
     }
     if (size == UI_SIZE_S) {
-        if ((r.w < 150 && r.h < 86) || r.h < 61) { /* short (M6c): the sky beside the temperature */
+        if ((r.w < UI_SPLIT_NARROW_W && r.h < UI_PX(86)) || r.h < UI_PX(61)) { /* short (M6c): the sky beside the temperature */
             weather_now_compact(fb, r, v);
             return;
         }
-        if (r.w < 150) { /* narrow: the sky above, the temperature below */
-            gfx_bitmap(fb, r.x + (r.w - ui_icon_px(48)) / 2, r.y + 8, icon, GFX_BLACK);
+        if (r.w < UI_SPLIT_NARROW_W) { /* narrow: the sky above, the temperature below */
+            gfx_bitmap(fb, r.x + (r.w - ui_icon_px(48)) / 2, r.y + UI_PX(8), icon, GFX_BLACK);
             char t[sizeof(v->text) + 2];
             snprintf(t, sizeof(t), "%s" DEGREE, v->text);
-            centred(fb, UI_FONT(UI_F_BOLD_28), r, r.y + 8 + icon->height + 8 + ink_height(UI_FONT(UI_F_BOLD_28)), t);
+            centred(fb, UI_FONT(UI_F_BOLD_28), r, r.y + UI_PX(8) + icon->height + UI_PX(8) + ink_height(UI_FONT(UI_F_BOLD_28)), t);
             return;
         }
-        gfx_bitmap(fb, r.x + 10, r.y + (r.h - ui_icon_px(48)) / 2 - 8, icon, GFX_BLACK);
-        int x = r.x + 10 + icon->width + 12;
-        value_unit(fb, UI_FONT(UI_F_BOLD_28), UI_FONT(UI_F_SANS_16), x, r.y + r.h / 2 + 4, v->text, v->unit);
+        gfx_bitmap(fb, r.x + UI_PX(10), r.y + (r.h - ui_icon_px(48)) / 2 - UI_PX(8), icon, GFX_BLACK);
+        int x = r.x + UI_PX(10) + icon->width + UI_PX(12);
+        value_unit(fb, UI_FONT(UI_F_BOLD_28), UI_FONT(UI_F_SANS_16), x, r.y + r.h / 2 + UI_PX(4), v->text, v->unit);
         char word[32];
-        gfx_text_ellipsize(UI_FONT(UI_F_SANS_16), v->extra, r.x + r.w - 6 - x, word, sizeof(word));
-        gfx_text(fb, UI_FONT(UI_F_SANS_16), x, r.y + r.h / 2 + 26, word, GFX_BLACK);
+        gfx_text_ellipsize(UI_FONT(UI_F_SANS_16), v->extra, r.x + r.w - UI_PX(6) - x, word, sizeof(word));
+        gfx_text(fb, UI_FONT(UI_F_SANS_16), x, r.y + r.h / 2 + UI_PX(26), word, GFX_BLACK);
         return;
     }
     const gfx_font_t *label = size == UI_SIZE_M ? UI_FONT(UI_F_SANS_12) : UI_FONT(UI_F_SANS_16);
     int top = r.y + label_line(fb, r, label, v->label);
     const gfx_font_t *uf = size == UI_SIZE_M ? UI_FONT(UI_F_SANS_16) : UI_FONT(UI_F_BOLD_20);
-    if (size == UI_SIZE_M && r.w < 150) { /* a tall, narrow grid cell: stacked */
+    if (size == UI_SIZE_M && r.w < UI_SPLIT_NARROW_W) { /* a tall, narrow grid cell: stacked */
         gfx_bitmap(fb, r.x + (r.w - ui_icon_px(48)) / 2, top, icon, GFX_BLACK);
         int vw = value_unit_width(UI_FONT(UI_F_BOLD_28), UI_FONT(UI_F_SANS_16), v->text, v->unit);
-        int base = top + icon->height + 6 + ink_height(UI_FONT(UI_F_BOLD_28));
+        int base = top + icon->height + UI_PX(6) + ink_height(UI_FONT(UI_F_BOLD_28));
         value_unit(fb, UI_FONT(UI_F_BOLD_28), UI_FONT(UI_F_SANS_16), r.x + (r.w - vw) / 2, base, v->text, v->unit);
-        if (base + 20 + ui_ink_below(UI_FONT(UI_F_SANS_16), v->extra) <= r.y + r.h - 2) { /* its tails 2 px clear */
-            centred(fb, UI_FONT(UI_F_SANS_16), r, base + 20, v->extra);
+        if (base + UI_PX(20) + ui_ink_below(UI_FONT(UI_F_SANS_16), v->extra) <= r.y + r.h - UI_PX(2)) { /* its tails 2 px clear */
+            centred(fb, UI_FONT(UI_F_SANS_16), r, base + UI_PX(20), v->extra);
         }
         return;
     }
@@ -830,26 +831,26 @@ static void draw_weather_now(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const u
     const gfx_font_t *vf = fonts[0];
     for (int i = 0; i < count; i++) {
         vf = fonts[i];
-        if (icon->width + 10 + value_unit_width(vf, uf, v->text, v->unit) <= r.w - 8) {
+        if (icon->width + UI_PX(10) + value_unit_width(vf, uf, v->text, v->unit) <= r.w - UI_PX(8)) {
             break;
         }
     }
     int ih = ink_height(vf);
     int vw = value_unit_width(vf, uf, v->text, v->unit);
-    int group = icon->width + 10 + vw;
+    int group = icon->width + UI_PX(10) + vw;
     int x = r.x + (r.w - group) / 2;
     int row_h = ih > icon->height ? ih : icon->height; /* the digits, or the sky's icon when it is taller */
-    int body_h = size == UI_SIZE_M ? (r.y + r.h - top) : row_h + 8;
-    int icon_y = size == UI_SIZE_M ? top + (body_h - ui_icon_px(48)) / 2 : top + (row_h - ui_icon_px(48)) / 2 + 4;
+    int body_h = size == UI_SIZE_M ? (r.y + r.h - top) : row_h + UI_PX(8);
+    int icon_y = size == UI_SIZE_M ? top + (body_h - ui_icon_px(48)) / 2 : top + (row_h - ui_icon_px(48)) / 2 + UI_PX(4);
     gfx_bitmap(fb, x, icon_y, icon, GFX_BLACK);
-    int base = size == UI_SIZE_M ? top + (body_h + ih) / 2 : top + (row_h + ih) / 2 + 4;
-    value_unit(fb, vf, uf, x + icon->width + 10, base, v->text, v->unit);
+    int base = size == UI_SIZE_M ? top + (body_h + ih) / 2 : top + (row_h + ih) / 2 + UI_PX(4);
+    value_unit(fb, vf, uf, x + icon->width + UI_PX(10), base, v->text, v->unit);
     if (size == UI_SIZE_M) {
         return; /* no room for the word below in a short slot */
     }
-    centred(fb, UI_FONT(UI_F_BOLD_20), r, base + 30, v->extra);
+    centred(fb, UI_FONT(UI_F_BOLD_20), r, base + UI_PX(30), v->extra);
     if (v->detail[0]) {
-        centred(fb, UI_FONT(UI_F_SANS_16), r, base + 54, v->detail);
+        centred(fb, UI_FONT(UI_F_SANS_16), r, base + UI_PX(54), v->detail);
     }
 }
 
@@ -861,8 +862,8 @@ static void precip(gfx_fb_t *fb, int x, int baseline, int pct)
     char text[16];
     snprintf(text, sizeof(text), "%d %%", pct);
     const gfx_bitmap_t *drop = ui_icon(UI_ICON_drop, UI_IC16);
-    gfx_bitmap(fb, x, baseline + 2 - drop->height, drop, GFX_BLACK);
-    gfx_text(fb, UI_FONT(UI_F_SANS_16), x + drop->width + 2, baseline, text, GFX_BLACK);
+    gfx_bitmap(fb, x, baseline + UI_PX(2) - drop->height, drop, GFX_BLACK);
+    gfx_text(fb, UI_FONT(UI_F_SANS_16), x + drop->width + UI_PX(2), baseline, text, GFX_BLACK);
 }
 
 static void draw_weather_day(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_value_t *v)
@@ -879,7 +880,7 @@ static void draw_weather_day(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const u
         }
         char fit[48];
         bool whole = ui_tiny_stacked(r)
-                         ? tiny_face(v->short_text, r.w - 4, r.h - icon->height - 4, false, fit, sizeof(fit)) != NULL
+                         ? tiny_face(v->short_text, r.w - UI_PX(4), r.h - icon->height - UI_PX(4), false, fit, sizeof(fit)) != NULL
                          : tiny_line_fits(r, icon, v->short_text);
         if (whole || slash == NULL) {
             tiny_row(fb, r, icon, v->short_text, NULL, NULL, NULL, true);
@@ -888,17 +889,17 @@ static void draw_weather_day(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const u
         }
         return;
     }
-    if (size == UI_SIZE_S && ((r.w < 150 && r.h < 99) || r.h < 51)) { /* short (M6c): the sky beside the highs */
+    if (size == UI_SIZE_S && ((r.w < UI_SPLIT_NARROW_W && r.h < UI_PX(99)) || r.h < UI_PX(51))) { /* short (M6c): the sky beside the highs */
         weather_day_compact(fb, r, v);
         return;
     }
-    if (size == UI_SIZE_S && r.w < 150) {
-        gfx_bitmap(fb, r.x + (r.w - ui_icon_px(48)) / 2, r.y + 8, ui_sky_icon(v->sky, false, 48), GFX_BLACK);
-        centred(fb, UI_FONT(UI_F_BOLD_20), r, r.y + 8 + ui_icon_px(48) + 8 + ink_height(UI_FONT(UI_F_BOLD_20)), v->short_text);
+    if (size == UI_SIZE_S && r.w < UI_SPLIT_NARROW_W) {
+        gfx_bitmap(fb, r.x + (r.w - ui_icon_px(48)) / 2, r.y + UI_PX(8), ui_sky_icon(v->sky, false, 48), GFX_BLACK);
+        centred(fb, UI_FONT(UI_F_BOLD_20), r, r.y + UI_PX(8) + ui_icon_px(48) + UI_PX(8) + ink_height(UI_FONT(UI_F_BOLD_20)), v->short_text);
         if (v->percent >= 0) {
             char text[16];
             snprintf(text, sizeof(text), "%d %%", v->percent);
-            centred(fb, UI_FONT(UI_F_SANS_12), r, r.y + 8 + ui_icon_px(48) + 8 + ink_height(UI_FONT(UI_F_BOLD_20)) + 18, text);
+            centred(fb, UI_FONT(UI_F_SANS_12), r, r.y + UI_PX(8) + ui_icon_px(48) + UI_PX(8) + ink_height(UI_FONT(UI_F_BOLD_20)) + UI_PX(18), text);
         }
         return;
     }
@@ -908,20 +909,20 @@ static void draw_weather_day(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const u
     }
     const gfx_font_t *vf = UI_FONT(UI_F_BOLD_28);
     int body_h = r.y + r.h - top;
-    if (r.w < 150) { /* a grid cell: stacked */
+    if (r.w < UI_SPLIT_NARROW_W) { /* a grid cell: stacked */
         gfx_bitmap(fb, r.x + (r.w - ui_icon_px(48)) / 2, top, ui_sky_icon(v->sky, false, 48), GFX_BLACK);
-        int base = top + ui_icon_px(48) + 6 + ink_height(UI_FONT(UI_F_BOLD_20));
+        int base = top + ui_icon_px(48) + UI_PX(6) + ink_height(UI_FONT(UI_F_BOLD_20));
         centred(fb, UI_FONT(UI_F_BOLD_20), r, base, v->short_text);
-        if (base + 20 <= r.y + r.h && v->percent >= 0) {
-            int w = ui_icon_px(16) + 2 + gfx_text_width(UI_FONT(UI_F_SANS_16), "100 %");
-            precip(fb, r.x + (r.w - w) / 2, base + 20, v->percent);
+        if (base + UI_PX(20) <= r.y + r.h && v->percent >= 0) {
+            int w = ui_icon_px(16) + UI_PX(2) + gfx_text_width(UI_FONT(UI_F_SANS_16), "100 %");
+            precip(fb, r.x + (r.w - w) / 2, base + UI_PX(20), v->percent);
         }
         return;
     }
-    int x = r.x + 10;
+    int x = r.x + UI_PX(10);
     gfx_bitmap(fb, x, top + (body_h - ui_icon_px(48)) / 2, ui_sky_icon(v->sky, false, 48), GFX_BLACK);
-    int tx = x + ui_icon_px(48) + 12;
-    int room = r.x + r.w - 6 - tx;
+    int tx = x + ui_icon_px(48) + UI_PX(12);
+    int room = r.x + r.w - UI_PX(6) - tx;
     /* "23° / 13°" is wider than "18° / 9°": the short form, then smaller faces, before an ellipsis ("102/97°") */
     const gfx_font_t *const k_faces[] = { UI_FONT(UI_F_BOLD_28), UI_FONT(UI_F_BOLD_20),
                                                  UI_FONT(UI_F_BOLD_16), UI_FONT(UI_F_SANS_12) };
@@ -936,15 +937,15 @@ static void draw_weather_day(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const u
     }
     char fit[24];
     gfx_text_ellipsize(vf, text, room, fit, sizeof(fit));
-    int base = top + body_h / 2 + (v->percent >= 0 ? 2 : ink_height(vf) / 2);
+    int base = top + body_h / 2 + (v->percent >= 0 ? UI_PX(2) : ink_height(vf) / 2);
     gfx_text(fb, vf, tx, base, fit, GFX_BLACK);
-    precip(fb, tx, base + 22, v->percent);
+    precip(fb, tx, base + UI_PX(22), v->percent);
 }
 
 static void draw_series(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
 {
     int n = v->series_count;
-    int fit = r.w / 33;
+    int fit = r.w / UI_PX(33); /* columns of at least 33 px on the RLCD */
     n = n < fit ? n : fit;
     if (n <= 0) {
         return;
@@ -959,22 +960,22 @@ static void draw_series(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
         tf = k_temp_fonts[f];
         bool fits = true;
         for (int i = 0; i < n && fits; i++) {
-            fits = gfx_text_width(tf, v->series[i].temp) <= col - 2;
+            fits = gfx_text_width(tf, v->series[i].temp) <= col - UI_PX(2);
         }
         if (fits) {
             break;
         }
     }
-    int block = 13 + 2 + ui_icon_px(24) + 2 + 16 + (daily ? 14 : 0);
-    int top = v->state == UI_VALUE_STALE ? r.y + 3 : r.y + (r.h - block) / 2; /* the age mark goes below */
+    int block = UI_PX(13) + UI_PX(2) + ui_icon_px(24) + UI_PX(2) + UI_PX(16) + (daily ? UI_PX(14) : 0);
+    int top = v->state == UI_VALUE_STALE ? r.y + UI_PX(3) : r.y + (r.h - block) / 2; /* the age mark goes below */
     for (int i = 0; i < n; i++) {
         const ui_series_point_t *p = &v->series[i];
         gfx_rect_t c = { (int16_t)(r.x + i * col), r.y, (int16_t)col, r.h };
         centred_in(fb, UI_FONT(UI_F_SANS_12), c, 1, top + UI_FONT(UI_F_SANS_12)->ascent, p->label);
-        gfx_bitmap(fb, c.x + (col - ui_icon_px(24)) / 2, top + 15, ui_sky_icon(p->sky, p->night, 24), GFX_BLACK);
-        centred_in(fb, tf, c, 1, top + 15 + ui_icon_px(24) + 2 + tf->ascent, p->temp);
+        gfx_bitmap(fb, c.x + (col - ui_icon_px(24)) / 2, top + UI_PX(15), ui_sky_icon(p->sky, p->night, 24), GFX_BLACK);
+        centred_in(fb, tf, c, 1, top + UI_PX(15) + ui_icon_px(24) + UI_PX(2) + tf->ascent, p->temp);
         if (daily) {
-            centred_in(fb, UI_FONT(UI_F_SANS_12), c, 1, top + 15 + ui_icon_px(24) + 2 + 16 + UI_FONT(UI_F_SANS_12)->ascent, p->temp2);
+            centred_in(fb, UI_FONT(UI_F_SANS_12), c, 1, top + UI_PX(15) + ui_icon_px(24) + UI_PX(2) + UI_PX(16) + UI_FONT(UI_F_SANS_12)->ascent, p->temp2);
         }
     }
 }
@@ -985,7 +986,7 @@ static void draw_series(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
 static void draw_rain(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
 {
     const gfx_font_t *f = UI_FONT(UI_F_BOLD_16);
-    int max_w = r.w - 12;
+    int max_w = r.w - UI_PX(12);
     char line1[sizeof(v->text) + sizeof(v->extra) + 4], line2[sizeof(line1)] = "";
     snprintf(line1, sizeof(line1), "%s%s%s", v->text, v->extra[0] ? " \xC2\xB7 " : "", v->extra);
     if (gfx_text_width(f, line1) > max_w) { /* two lines: the words over the rate, or split at a space */
@@ -997,13 +998,13 @@ static void draw_rain(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
         }
     }
     int text_h = (line2[0] ? 2 : 1) * f->line_height;
-    int room = r.h - 12 - (v->state == UI_VALUE_STALE ? 18 : 0) - text_h - 8 - 5; /* the age mark goes below */
-    int bar_h = room < 36 ? room : 36;
-    if (bar_h < 9) {
+    int room = r.h - UI_PX(12) - (v->state == UI_VALUE_STALE ? UI_PX(18) : 0) - text_h - UI_PX(8) - UI_PX(5); /* the age mark goes below */
+    int bar_h = room < UI_PX(36) ? room : UI_PX(36);
+    if (bar_h < UI_PX(9)) {
         bar_h = 0; /* no room for bars: the words alone */
     }
-    int block = text_h + (bar_h ? 8 + bar_h + 5 : 0);
-    int top = v->state == UI_VALUE_STALE ? r.y + 6 : r.y + (r.h - block) / 2;
+    int block = text_h + (bar_h ? UI_PX(8) + bar_h + UI_PX(5) : 0);
+    int top = v->state == UI_VALUE_STALE ? r.y + UI_PX(6) : r.y + (r.h - block) / 2;
     centred(fb, f, r, top + f->ascent, line1);
     if (line2[0]) {
         centred(fb, f, r, top + f->line_height + f->ascent, line2);
@@ -1011,10 +1012,10 @@ static void draw_rain(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
     if (bar_h == 0) {
         return;
     }
-    int base = top + text_h + 8 + bar_h;
-    int w = r.w - 16;
+    int base = top + text_h + UI_PX(8) + bar_h;
+    int w = r.w - UI_PX(16);
     int pitch = w / UI_RAIN_STEPS;
-    int x0 = r.x + 8 + (w - pitch * UI_RAIN_STEPS) / 2;
+    int x0 = r.x + UI_PX(8) + (w - pitch * UI_RAIN_STEPS) / 2;
     for (int i = 0; i < UI_RAIN_STEPS; i++) {
         int mm10 = v->rain_mm10[i];
         int level = mm10 == DS_RAIN_NONE ? 0 : mm10 >= 19 ? 3 : mm10 >= 6 ? 2 : mm10 >= 1 ? 1 : 0;
@@ -1022,7 +1023,7 @@ static void draw_rain(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
             continue;
         }
         int h = level * bar_h / 3;
-        gfx_rect_t bar = { (int16_t)(x0 + i * pitch + 1), (int16_t)(base - h), (int16_t)(pitch - 3), (int16_t)h };
+        gfx_rect_t bar = { (int16_t)(x0 + i * pitch + UI_PX(1)), (int16_t)(base - h), (int16_t)(pitch - UI_PX(3)), (int16_t)h };
         if (v->rain_prob[i] != DS_RAIN_NONE && v->rain_prob[i] < 50) {
             gfx_rect(fb, bar, GFX_BLACK);
         } else {
@@ -1031,7 +1032,7 @@ static void draw_rain(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
     }
     gfx_hline(fb, x0, base, pitch * UI_RAIN_STEPS, GFX_BLACK);
     for (int i = 0; i <= UI_RAIN_STEPS; i += UI_RAIN_STEPS / 2) { /* now, in 1 h, in 2 h */
-        gfx_vline(fb, x0 + i * pitch - (i == UI_RAIN_STEPS ? 1 : 0), base, 5, GFX_BLACK);
+        gfx_vline(fb, x0 + i * pitch - (i == UI_RAIN_STEPS ? 1 : 0), base, UI_PX(5), GFX_BLACK);
     }
 }
 
@@ -1043,7 +1044,7 @@ static void draw_sun(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_value_
             const gfx_bitmap_t *sky = ui_sky_icon(WEATHER_SKY_CLEAR, v->polar != 1, tiny_icon(r));
             char fit[48];
             bool stacked = ui_tiny_stacked(r);
-            if (tiny_face(v->text, r.w - (stacked ? 8 : 7), r.h - (stacked ? sky->height + 4 : 0), false, fit,
+            if (tiny_face(v->text, r.w - UI_PX(stacked ? 8 : 7), r.h - (stacked ? sky->height + UI_PX(4) : 0), false, fit,
                           sizeof(fit)) != NULL) {
                 tiny_row(fb, r, sky, v->text, NULL, NULL, NULL, false);
             } else {
@@ -1062,8 +1063,8 @@ static void draw_sun(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_value_
     }
     if (v->polar) {
         const gfx_bitmap_t *icon = v->polar == 1 ? ui_icon(UI_ICON_wx_clear_day, UI_IC24) : ui_icon(UI_ICON_wx_clear_night, UI_IC24);
-        if (size == UI_SIZE_S && r.h < 60) { /* a short cell (M6c): the sky beside its words, on two lines if need be */
-            int pad = r.w < 150 ? 6 : 14, x = r.x + pad + icon->width + (r.w < 150 ? 6 : 10), max_w = r.x + r.w - 6 - x;
+        if (size == UI_SIZE_S && r.h < UI_PX(60)) { /* a short cell (M6c): the sky beside its words, on two lines if need be */
+            int pad = UI_PX(r.w < UI_SPLIT_NARROW_W ? 6 : 14), x = r.x + pad + icon->width + UI_PX(r.w < UI_SPLIT_NARROW_W ? 6 : 10), max_w = r.x + r.w - UI_PX(6) - x;
             gfx_bitmap(fb, r.x + pad, r.y + (r.h - ui_icon_px(24)) / 2, icon, GFX_BLACK);
             const gfx_font_t *pf = gfx_text_width(UI_FONT(UI_F_BOLD_16), v->text) <= max_w ? UI_FONT(UI_F_BOLD_16)
                                                                                             : UI_FONT(UI_F_SANS_12);
@@ -1079,34 +1080,34 @@ static void draw_sun(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_value_
             gfx_text(fb, pf, x, y + pf->line_height, line[1], GFX_BLACK);
             return;
         }
-        gfx_bitmap(fb, r.x + (r.w - ui_icon_px(24)) / 2, top + 8, icon, GFX_BLACK);
-        const gfx_font_t *pf = gfx_text_width(UI_FONT(UI_F_BOLD_16), v->text) <= r.w - 8 ? UI_FONT(UI_F_BOLD_16)
+        gfx_bitmap(fb, r.x + (r.w - ui_icon_px(24)) / 2, top + UI_PX(8), icon, GFX_BLACK);
+        const gfx_font_t *pf = gfx_text_width(UI_FONT(UI_F_BOLD_16), v->text) <= r.w - UI_PX(8) ? UI_FONT(UI_F_BOLD_16)
                                                                                        : UI_FONT(UI_F_SANS_12);
-        centred(fb, pf, r, top + 8 + icon->height + 20, v->text);
+        centred(fb, pf, r, top + UI_PX(8) + icon->height + UI_PX(20), v->text);
         return;
     }
     const gfx_font_t *tf = size == UI_SIZE_S ? UI_FONT(UI_F_BOLD_16) : UI_FONT(UI_F_BOLD_20);
-    int icon = ui_icon_px(24), pitch = icon + 4; /* a row: its 24 px icon and 4 px */
-    int rows = 2 * pitch + (v->detail[0] && size != UI_SIZE_S ? 18 : 0);
+    int icon = ui_icon_px(24), pitch = icon + UI_PX(4); /* a row: its 24 px icon and 4 px */
+    int rows = 2 * pitch + (v->detail[0] && size != UI_SIZE_S ? UI_PX(18) : 0);
     int y = top + (r.y + r.h - top - rows) / 2;
     /* a 12-hour time ("7:01 AM") in a narrow split cell: smaller faces before it reaches the edges */
     const gfx_font_t *const k_smaller[] = { UI_FONT(UI_F_SANS_16), UI_FONT(UI_F_SANS_12) };
     int w = 0;
     for (int i = 0; i <= 2; i++) {
-        int w1 = icon + 6 + gfx_text_width(tf, v->text), w2 = icon + 6 + gfx_text_width(tf, v->extra);
+        int w1 = icon + UI_PX(6) + gfx_text_width(tf, v->text), w2 = icon + UI_PX(6) + gfx_text_width(tf, v->extra);
         w = w1 > w2 ? w1 : w2;
-        if (w <= r.w - 8 || i == 2) {
+        if (w <= r.w - UI_PX(8) || i == 2) {
             break;
         }
         tf = k_smaller[i];
     }
     int x = r.x + (r.w - w) / 2;
     gfx_bitmap(fb, x, y, ui_icon(UI_ICON_sunrise, UI_IC24), GFX_BLACK);
-    gfx_text(fb, tf, x + icon + 6, y + icon / 2 + ink_height(tf) / 2, v->text, GFX_BLACK);
+    gfx_text(fb, tf, x + icon + UI_PX(6), y + icon / 2 + ink_height(tf) / 2, v->text, GFX_BLACK);
     gfx_bitmap(fb, x, y + pitch, ui_icon(UI_ICON_sunset, UI_IC24), GFX_BLACK);
-    gfx_text(fb, tf, x + icon + 6, y + pitch + icon / 2 + ink_height(tf) / 2, v->extra, GFX_BLACK);
+    gfx_text(fb, tf, x + icon + UI_PX(6), y + pitch + icon / 2 + ink_height(tf) / 2, v->extra, GFX_BLACK);
     if (v->detail[0] && size != UI_SIZE_S) {
-        centred(fb, UI_FONT(UI_F_SANS_12), r, y + 2 * pitch + 14, v->detail);
+        centred(fb, UI_FONT(UI_F_SANS_12), r, y + 2 * pitch + UI_PX(14), v->detail);
     }
 }
 
@@ -1123,50 +1124,50 @@ static void draw_level(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_valu
         return;
     }
     if (size == UI_SIZE_S) {
-        bool narrow = r.w < 150 && r.h >= 83; /* M6c: a short, narrow cell draws it side by side */
-        int y = r.y + 10;
+        bool narrow = r.w < UI_SPLIT_NARROW_W && r.h >= UI_PX(83); /* M6c: a short, narrow cell draws it side by side */
+        int y = r.y + UI_PX(10);
         if (narrow) {
             gfx_bitmap(fb, r.x + (r.w - ui_icon_px(24)) / 2, y, icon, GFX_BLACK);
-            centred(fb, UI_FONT(UI_F_BOLD_28), r, y + ui_icon_px(24) + 6 + ink_height(UI_FONT(UI_F_BOLD_28)), v->text);
-            centred(fb, UI_FONT(UI_F_SANS_12), r, y + ui_icon_px(24) + 6 + ink_height(UI_FONT(UI_F_BOLD_28)) + 18, v->extra);
+            centred(fb, UI_FONT(UI_F_BOLD_28), r, y + ui_icon_px(24) + UI_PX(6) + ink_height(UI_FONT(UI_F_BOLD_28)), v->text);
+            centred(fb, UI_FONT(UI_F_SANS_12), r, y + ui_icon_px(24) + UI_PX(6) + ink_height(UI_FONT(UI_F_BOLD_28)) + UI_PX(18), v->extra);
             return;
         }
-        int pad = r.w < 150 ? 6 : 14;
+        int pad = UI_PX(r.w < UI_SPLIT_NARROW_W ? 6 : 14);
         gfx_bitmap(fb, r.x + pad, r.y + (r.h - ui_icon_px(24)) / 2, icon, GFX_BLACK);
-        int x = r.x + pad + ui_icon_px(24) + (r.w < 150 ? 6 : 10), right = r.x + r.w - 6;
-        int base = r.y + r.h / 2 + 2;
+        int x = r.x + pad + ui_icon_px(24) + UI_PX(r.w < UI_SPLIT_NARROW_W ? 6 : 10), right = r.x + r.w - UI_PX(6);
+        int base = r.y + r.h / 2 + UI_PX(2);
         const gfx_font_t *nf = UI_FONT(UI_F_BOLD_28); /* an index past 100 in smaller faces, uncut */
         for (int i = 0; gfx_text_width(nf, v->text) > right - x && i < 2; i++) {
             nf = i == 0 ? UI_FONT(UI_F_BOLD_20) : UI_FONT(UI_F_BOLD_16);
         }
         int pen = gfx_text(fb, nf, x, base, v->text, GFX_BLACK);
-        const gfx_font_t *wf = gfx_text_width(UI_FONT(UI_F_SANS_16), v->extra) <= right - pen - 6 ? UI_FONT(UI_F_SANS_16)
+        const gfx_font_t *wf = gfx_text_width(UI_FONT(UI_F_SANS_16), v->extra) <= right - pen - UI_PX(6) ? UI_FONT(UI_F_SANS_16)
                                                                                               : UI_FONT(UI_F_SANS_12);
-        int cell = (right - x - (bands - 1) * 3) / bands; /* the bar fits what is left of the row */
-        if (gfx_text_width(wf, v->extra) > right - pen - 6) { /* the word under the number, in the bar's place */
+        int cell = (right - x - (bands - 1) * UI_PX(3)) / bands; /* the bar fits what is left of the row */
+        if (gfx_text_width(wf, v->extra) > right - pen - UI_PX(6)) { /* the word under the number, in the bar's place */
             char word[32];
             gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), v->extra, right - x, word, sizeof(word));
-            int wb = base + 4 + ui_ink_above(UI_FONT(UI_F_SANS_12), word);
-            if (wb + ui_ink_below(UI_FONT(UI_F_SANS_12), word) <= r.y + r.h - 2) {
+            int wb = base + UI_PX(4) + ui_ink_above(UI_FONT(UI_F_SANS_12), word);
+            if (wb + ui_ink_below(UI_FONT(UI_F_SANS_12), word) <= r.y + r.h - UI_PX(2)) {
                 gfx_text(fb, UI_FONT(UI_F_SANS_12), x, wb, word, GFX_BLACK);
             } else { /* no room under it either: the bar alone says the band */
-                level_bar(fb, x, base + 10, bands, v->percent + 1, cell > 12 ? 12 : cell, 6);
+                level_bar(fb, x, base + UI_PX(10), bands, v->percent + 1, cell > UI_PX(12) ? UI_PX(12) : cell, UI_PX(6));
             }
             return;
         }
-        gfx_text(fb, wf, pen + 6, base, v->extra, GFX_BLACK);
-        level_bar(fb, x, base + 10, bands, v->percent + 1, cell > 12 ? 12 : cell, 6);
+        gfx_text(fb, wf, pen + UI_PX(6), base, v->extra, GFX_BLACK);
+        level_bar(fb, x, base + UI_PX(10), bands, v->percent + 1, cell > UI_PX(12) ? UI_PX(12) : cell, UI_PX(6));
         return;
     }
     int top = r.y + label_line(fb, r, size == UI_SIZE_M ? UI_FONT(UI_F_SANS_12) : UI_FONT(UI_F_SANS_16), v->label);
     const gfx_font_t *vf = size == UI_SIZE_M ? UI_FONT(UI_F_NUM_48) : UI_FONT(UI_F_NUM_72);
     int ih = ink_height(vf);
-    int block = ih + 8 + 18 + 12;
+    int block = ih + UI_PX(8) + UI_PX(18) + UI_PX(12);
     int y = top + (r.y + r.h - top - block) / 2;
     centred(fb, vf, r, y + ih, v->text);
-    centred(fb, UI_FONT(UI_F_SANS_16), r, y + ih + 8 + 14, v->extra);
-    int bar_w = bands * 12 + (bands - 1) * 3;
-    level_bar(fb, r.x + (r.w - bar_w) / 2, y + ih + 8 + 20, bands, v->percent + 1, 12, 6);
+    centred(fb, UI_FONT(UI_F_SANS_16), r, y + ih + UI_PX(8) + UI_PX(14), v->extra);
+    int bar_w = bands * UI_PX(12) + (bands - 1) * UI_PX(3);
+    level_bar(fb, r.x + (r.w - bar_w) / 2, y + ih + UI_PX(8) + UI_PX(20), bands, v->percent + 1, UI_PX(12), UI_PX(6));
 }
 
 /* pollen.*: a level, and its type or count (D25). */
@@ -1174,47 +1175,47 @@ static void draw_pollen(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_val
 {
     if (size == UI_SIZE_XS) {
         const gfx_bitmap_t *icon = tiny_icon(r) == 24 ? ui_icon(UI_ICON_pollen, UI_IC24) : ui_icon(UI_ICON_pollen, UI_IC16);
-        if (ui_tiny_stacked(r) && gfx_text_width(UI_FONT(UI_F_SANS_12), v->text) > r.w - 8) { /* its level bar */
-            int top = r.y + (r.h - icon->height - 4 - 6) / 2;
+        if (ui_tiny_stacked(r) && gfx_text_width(UI_FONT(UI_F_SANS_12), v->text) > r.w - UI_PX(8)) { /* its level bar */
+            int top = r.y + (r.h - icon->height - UI_PX(4) - UI_PX(6)) / 2;
             gfx_bitmap(fb, r.x + (r.w - icon->width) / 2, top, icon, GFX_BLACK);
-            level_bar(fb, r.x + (r.w - (3 * 10 + 2 * 3)) / 2, top + icon->height + 4, 3, v->percent, 10, 6);
+            level_bar(fb, r.x + (r.w - (3 * UI_PX(10) + 2 * UI_PX(3))) / 2, top + icon->height + UI_PX(4), 3, v->percent, UI_PX(10), UI_PX(6));
             return;
         }
         tiny_row(fb, r, icon, v->text, v->extra[0] ? v->extra : v->label, NULL, NULL, false);
         return;
     }
     if (size == UI_SIZE_S) {
-        int y = r.y + 10;
-        if (r.w < 150 && r.h >= 86) { /* M6c: a short, narrow cell draws it side by side */
+        int y = r.y + UI_PX(10);
+        if (r.w < UI_SPLIT_NARROW_W && r.h >= UI_PX(86)) { /* M6c: a short, narrow cell draws it side by side */
             gfx_bitmap(fb, r.x + (r.w - ui_icon_px(24)) / 2, y, ui_icon(UI_ICON_pollen, UI_IC24), GFX_BLACK);
-            centred(fb, UI_FONT(UI_F_BOLD_16), r, y + ui_icon_px(24) + 6 + 14, v->text);
-            centred(fb, UI_FONT(UI_F_SANS_12), r, y + ui_icon_px(24) + 6 + 14 + 16, v->extra[0] ? v->extra : v->label);
-            level_bar(fb, r.x + (r.w - (3 * 14 + 2 * 3)) / 2, y + ui_icon_px(24) + 6 + 14 + 24, 3, v->percent, 14, 6);
+            centred(fb, UI_FONT(UI_F_BOLD_16), r, y + ui_icon_px(24) + UI_PX(6) + UI_PX(14), v->text);
+            centred(fb, UI_FONT(UI_F_SANS_12), r, y + ui_icon_px(24) + UI_PX(6) + UI_PX(14) + UI_PX(16), v->extra[0] ? v->extra : v->label);
+            level_bar(fb, r.x + (r.w - (3 * UI_PX(14) + 2 * UI_PX(3))) / 2, y + ui_icon_px(24) + UI_PX(6) + UI_PX(14) + UI_PX(24), 3, v->percent, UI_PX(14), UI_PX(6));
             return;
         }
-        int pad = r.w < 150 ? 6 : 14;
+        int pad = UI_PX(r.w < UI_SPLIT_NARROW_W ? 6 : 14);
         gfx_bitmap(fb, r.x + pad, r.y + (r.h - ui_icon_px(24)) / 2, ui_icon(UI_ICON_pollen, UI_IC24), GFX_BLACK);
-        int x = r.x + pad + ui_icon_px(24) + (r.w < 150 ? 6 : 10);
+        int x = r.x + pad + ui_icon_px(24) + UI_PX(r.w < UI_SPLIT_NARROW_W ? 6 : 10);
         char line[48];
-        const gfx_font_t *wf = gfx_text_width(UI_FONT(UI_F_BOLD_20), v->text) <= r.x + r.w - 6 - x
+        const gfx_font_t *wf = gfx_text_width(UI_FONT(UI_F_BOLD_20), v->text) <= r.x + r.w - UI_PX(6) - x
                                    ? UI_FONT(UI_F_BOLD_20)
                                    : UI_FONT(UI_F_BOLD_16);
-        gfx_text_ellipsize(wf, v->text, r.x + r.w - 6 - x, line, sizeof(line));
+        gfx_text_ellipsize(wf, v->text, r.x + r.w - UI_PX(6) - x, line, sizeof(line));
         gfx_text(fb, wf, x, r.y + r.h / 2, line, GFX_BLACK);
-        gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), v->extra[0] ? v->extra : v->label, r.x + r.w - 6 - x, line, sizeof(line));
-        gfx_text(fb, UI_FONT(UI_F_SANS_12), x, r.y + r.h / 2 + 16, line, GFX_BLACK);
+        gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), v->extra[0] ? v->extra : v->label, r.x + r.w - UI_PX(6) - x, line, sizeof(line));
+        gfx_text(fb, UI_FONT(UI_F_SANS_12), x, r.y + r.h / 2 + UI_PX(16), line, GFX_BLACK);
         return;
     }
     int top = r.y + label_line(fb, r, size == UI_SIZE_M ? UI_FONT(UI_F_SANS_12) : UI_FONT(UI_F_SANS_16), v->label);
     const gfx_font_t *vf = size == UI_SIZE_M ? UI_FONT(UI_F_BOLD_20) : UI_FONT(UI_F_BOLD_28);
-    int block = ui_icon_px(24) + 6 + vf->ascent + 6 + 16 + 12;
+    int block = ui_icon_px(24) + UI_PX(6) + vf->ascent + UI_PX(6) + UI_PX(16) + UI_PX(12);
     int y = top + (r.y + r.h - top - block) / 2;
     gfx_bitmap(fb, r.x + (r.w - ui_icon_px(24)) / 2, y, ui_icon(UI_ICON_pollen, UI_IC24), GFX_BLACK);
-    centred(fb, vf, r, y + ui_icon_px(24) + 6 + vf->ascent, v->text);
+    centred(fb, vf, r, y + ui_icon_px(24) + UI_PX(6) + vf->ascent, v->text);
     if (v->extra[0]) {
-        centred(fb, UI_FONT(UI_F_SANS_16), r, y + ui_icon_px(24) + 6 + vf->ascent + 18, v->extra);
+        centred(fb, UI_FONT(UI_F_SANS_16), r, y + ui_icon_px(24) + UI_PX(6) + vf->ascent + UI_PX(18), v->extra);
     }
-    level_bar(fb, r.x + (r.w - (3 * 16 + 2 * 3)) / 2, y + ui_icon_px(24) + 6 + vf->ascent + 26, 3, v->percent, 16, 6);
+    level_bar(fb, r.x + (r.w - (3 * UI_PX(16) + 2 * UI_PX(3))) / 2, y + ui_icon_px(24) + UI_PX(6) + vf->ascent + UI_PX(26), 3, v->percent, UI_PX(16), UI_PX(6));
 }
 
 bool ui_forecast_draw(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_value_t *v)

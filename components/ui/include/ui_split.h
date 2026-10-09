@@ -6,6 +6,7 @@
 #include "gfx.h"
 #include "ui_fields.h"
 #include "ui_layout.h"
+#include "ui_profile.h"
 
 /*
  * The split layout (spec §5.2, D31): the area under the status bar split into rows or columns, each
@@ -16,10 +17,11 @@
 
 #define UI_SPLIT_CELLS 24
 #define UI_SPLIT_NODES (2 * UI_SPLIT_CELLS - 1)
-#define UI_SPLIT_MIN_W 40     /* no part is smaller (spec §5.2; M6c, D34: 90×40 before) */
-#define UI_SPLIT_MIN_H 20
-#define UI_SPLIT_NARROW_W 150 /* narrower: a kind's narrow height; S stacks from 80 px tall (D34) */
-#define UI_SPLIT_INSET 8      /* a separator stops this short of each end */
+/* The board's limits (ui_profile_t.split; the RLCD's in brackets): */
+#define UI_SPLIT_MIN_W (ui_profile()->split.min_w)       /* [40] no part is smaller (spec §5.2; M6c, D34: 90×40 before) */
+#define UI_SPLIT_MIN_H (ui_profile()->split.min_h)       /* [20] */
+#define UI_SPLIT_NARROW_W (ui_profile()->split.narrow_w) /* [150] narrower: a kind's narrow height; S stacks from 80 px tall (D34) */
+#define UI_SPLIT_INSET (ui_profile()->split.inset)       /* [8] a separator stops this short of each end */
 
 typedef enum {
     UI_RATIO_1_4 = 1,
@@ -46,10 +48,10 @@ typedef struct {
     ui_split_line_t line[UI_SPLIT_CELLS - 1]; /* every split, in preorder, its separator shown or not */
 } ui_split_geometry_t;
 
-/* What a split preset divides: everything under the status bar and its line (400×279). */
+/* What a split preset divides: everything under the status bar and its line (400×279 on the RLCD). */
 gfx_rect_t ui_split_area(void);
 /* Lays the tree out over `area`. False if it is cut short, has a node it doesn't know, or has a
- * part under 40×20; *out is then unspecified. */
+ * part under UI_SPLIT_MIN_W×UI_SPLIT_MIN_H; *out is then unspecified. */
 bool ui_split_layout(const uint8_t tree[UI_SPLIT_NODES], gfx_rect_t area, ui_split_geometry_t *out);
 /* How many of the tree's nodes it uses: 1 to UI_SPLIT_NODES, or 0 if it is cut short. */
 int ui_split_nodes(const uint8_t tree[UI_SPLIT_NODES]);
@@ -62,7 +64,7 @@ int ui_split_cell_size(int w, int h);
  * for, that takes the kind, and whose height for the kind the cell has; -1 if there is none. */
 int ui_split_field_size(ui_field_kind_t kind, int w, int h);
 /* What GET /api/layouts publishes (ui_catalog.c): a size's least width and height, in a cell
- * narrower than 150 px or not; and the least height a cell needs to draw `kind` at `size`, at
+ * narrower than UI_SPLIT_NARROW_W or not; and the least height a cell needs to draw `kind` at `size`, at
  * least the size's own, or -1 when the size doesn't take the kind. */
 int ui_split_min_w(ui_size_t size);
 int ui_split_min_h(ui_size_t size, bool narrow);

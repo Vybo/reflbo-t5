@@ -5,32 +5,16 @@
 #include "ui_solar.h"
 #include "ui_split.h"
 
-static void draw_separators(gfx_fb_t *fb, ui_layout_id_t layout)
+/* The fixed layout's lines, from the board's profile (T3a). */
+static void draw_separators(gfx_fb_t *fb, const ui_layout_t *layout)
 {
-    switch (layout) {
-    case UI_LAYOUT_CLASSIC:
-        gfx_hline(fb, 12, 188, 376, GFX_BLACK);
-        for (int i = 1; i < 4; i++) {
-            gfx_vline(fb, i * 100, 199, 90, GFX_BLACK);
+    for (int i = 0; i < layout->sep_count; i++) {
+        const ui_sep_t *sep = &layout->seps[i];
+        if (sep->vertical) {
+            gfx_vline(fb, sep->x, sep->y, sep->len, GFX_BLACK);
+        } else {
+            gfx_hline(fb, sep->x, sep->y, sep->len, GFX_BLACK);
         }
-        break;
-    case UI_LAYOUT_WEATHER:
-        gfx_vline(fb, 200, 29, 144, GFX_BLACK);
-        gfx_hline(fb, 208, 101, 184, GFX_BLACK);
-        gfx_hline(fb, 12, 181, 376, GFX_BLACK);
-        gfx_vline(fb, 200, 190, 102, GFX_BLACK);
-        break;
-    case UI_LAYOUT_GRID:
-        gfx_vline(fb, 133, 29, 263, GFX_BLACK);
-        gfx_vline(fb, 267, 29, 263, GFX_BLACK);
-        gfx_hline(fb, 8, 160, 384, GFX_BLACK);
-        break;
-    case UI_LAYOUT_FOCUS:
-        gfx_hline(fb, 12, 211, 376, GFX_BLACK);
-        gfx_vline(fb, 200, 220, 72, GFX_BLACK);
-        break;
-    default:
-        break;
     }
 }
 
@@ -99,7 +83,7 @@ void ui_draw_dashboard(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t 
     } else if (preset->layout == UI_LAYOUT_ENERGY) {
         any_stale = ui_draw_energy_layout(fb, below, &c);
     } else if (layout != NULL) {
-        draw_separators(fb, (ui_layout_id_t)preset->layout);
+        draw_separators(fb, layout);
         for (int i = 0; i < layout->slot_count; i++) {
             ui_value_t v;
             ui_resolve(&c, (ui_field_id_t)preset->slots[i], &v);

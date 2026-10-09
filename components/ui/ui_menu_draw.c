@@ -5,29 +5,30 @@
 #include "ui_menu.h"
 #include "ui_profile.h"
 
-/* The menu screen (spec §5.7): a title bar, up to seven rows, and the button hints. */
+/* The menu screen (spec §5.7): a title bar, the profile's rows (seven on the RLCD), and the button hints. */
 
-#define HEADER_H 30
-#define ROW_Y0 36
-#define ROW_H 34
-#define ROWS 7
-#define FOOTER_Y 282
+#define HEADER_H (ui_profile()->menu.header_h)
+#define ROW_Y0 (ui_profile()->menu.row_y0)
+#define ROW_H (ui_profile()->menu.row_h)
+#define ROWS (ui_profile()->menu.rows)
+#define FOOTER_Y (fb->height - UI_PX(18))
+#define MID ((fb->height - UI_PX(300)) / 2) /* the RLCD's screen, centred on a larger one */
 
 static void draw_header(gfx_fb_t *fb, const char *title)
 {
     gfx_fill_rect(fb, (gfx_rect_t){ 0, 0, fb->width, HEADER_H }, GFX_BLACK);
     char fit[64];
-    gfx_text_ellipsize(UI_FONT(UI_F_BOLD_20), title, fb->width - 24, fit, sizeof(fit));
-    gfx_text_in_rect(fb, UI_FONT(UI_F_BOLD_20), (gfx_rect_t){ 12, 0, (int16_t)(fb->width - 24), HEADER_H },
+    gfx_text_ellipsize(UI_FONT(UI_F_BOLD_20), title, fb->width - UI_PX(24), fit, sizeof(fit));
+    gfx_text_in_rect(fb, UI_FONT(UI_F_BOLD_20), (gfx_rect_t){ (int16_t)UI_PX(12), 0, (int16_t)(fb->width - UI_PX(24)), HEADER_H },
                      GFX_ALIGN_LEFT, fit, GFX_WHITE);
 }
 
 static void draw_hints(gfx_fb_t *fb, const char *hints)
 {
-    gfx_hline(fb, 0, FOOTER_Y - 4, fb->width, GFX_BLACK);
+    gfx_hline(fb, 0, FOOTER_Y - UI_PX(4), fb->width, GFX_BLACK);
     char fit[96];
-    gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), hints, fb->width - 12, fit, sizeof(fit));
-    gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12), (gfx_rect_t){ 0, FOOTER_Y, fb->width, (int16_t)(fb->height - FOOTER_Y) },
+    gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), hints, fb->width - UI_PX(12), fit, sizeof(fit));
+    gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12), (gfx_rect_t){ 0, (int16_t)FOOTER_Y, fb->width, (int16_t)(fb->height - FOOTER_Y) },
                      GFX_ALIGN_CENTER, fit, GFX_BLACK);
 }
 
@@ -40,7 +41,8 @@ static void draw_list(gfx_fb_t *fb, const ui_menu_t *m, const ui_menu_model_t *m
     for (int row = 0; row < ROWS && first + row < n; row++) {
         int i = first + row;
         ui_menu_item_t item = items[i];
-        gfx_rect_t r = { 6, (int16_t)(ROW_Y0 + row * ROW_H), (int16_t)(fb->width - 12), ROW_H - 2 };
+        gfx_rect_t r = { (int16_t)UI_PX(6), (int16_t)(ROW_Y0 + row * ROW_H), (int16_t)(fb->width - UI_PX(12)),
+                         (int16_t)(ROW_H - UI_PX(2)) };
         bool cursor = i == m->cursor;
         bool editing = cursor && m->mode == UI_MENU_EDIT;
         gfx_color_t ink = cursor && !editing ? GFX_WHITE : GFX_BLACK;
@@ -56,7 +58,7 @@ static void draw_list(gfx_fb_t *fb, const ui_menu_t *m, const ui_menu_model_t *m
         /* Both fit, or the value is shortened: a zone the web UI chose can be long. A short label
          * keeps its width; a long one gets half the room. */
         const char *name = ui_menu_label(item, lang);
-        int room = r.w - 36, name_w = gfx_text_width(f, name);
+        int room = r.w - UI_PX(36), name_w = gfx_text_width(f, name);
         int value_w = value[0] ? gfx_text_width(f, value) : 0;
         int value_max = room - (name_w < room / 2 ? name_w : room / 2);
         if (value_w > value_max) {
@@ -66,15 +68,15 @@ static void draw_list(gfx_fb_t *fb, const ui_menu_t *m, const ui_menu_model_t *m
         }
         char label[48];
         gfx_text_ellipsize(f, name, room - value_w, label, sizeof(label));
-        gfx_text_in_rect(fb, f, (gfx_rect_t){ (int16_t)(r.x + 8), r.y, (int16_t)(r.w - 16), r.h }, GFX_ALIGN_LEFT,
-                         label, ink);
+        gfx_text_in_rect(fb, f, (gfx_rect_t){ (int16_t)(r.x + UI_PX(8)), r.y, (int16_t)(r.w - UI_PX(16)), r.h },
+                         GFX_ALIGN_LEFT, label, ink);
         if (value[0] == '\0') {
             continue;
         }
-        gfx_rect_t vr = { (int16_t)(r.x + r.w - 8 - value_w), r.y, (int16_t)value_w, r.h };
+        gfx_rect_t vr = { (int16_t)(r.x + r.w - UI_PX(8) - value_w), r.y, (int16_t)value_w, r.h };
         if (editing) { /* the value being edited, inverted in a box */
-            gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(vr.x - 8), (int16_t)(r.y + 2), (int16_t)(value_w + 16),
-                                            (int16_t)(r.h - 4) },
+            gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(vr.x - UI_PX(8)), (int16_t)(r.y + UI_PX(2)), (int16_t)(value_w + UI_PX(16)),
+                                            (int16_t)(r.h - UI_PX(4)) },
                           GFX_BLACK);
             gfx_text_in_rect(fb, f, vr, GFX_ALIGN_LEFT, value, GFX_WHITE);
         } else {
@@ -89,8 +91,8 @@ static int draw_field(gfx_fb_t *fb, const gfx_font_t *f, int x, int baseline, co
 {
     int w = gfx_text_width(f, text);
     if (active) {
-        gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(x - 4), (int16_t)(baseline - f->ascent - 2), (int16_t)(w + 8),
-                                        (int16_t)(f->line_height + 2) },
+        gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(x - UI_PX(4)), (int16_t)(baseline - f->ascent - UI_PX(2)), (int16_t)(w + UI_PX(8)),
+                                        (int16_t)(f->line_height + UI_PX(2)) },
                       GFX_BLACK);
     }
     gfx_text(fb, f, x, baseline, text, active ? GFX_WHITE : GFX_BLACK);
@@ -106,9 +108,9 @@ static void draw_datetime(gfx_fb_t *fb, const ui_menu_t *m, const lang_t *lang)
     snprintf(year, sizeof(year), "%04d", m->dt.tm_year + 1900);
     snprintf(hour, sizeof(hour), "%02d", m->dt.tm_hour);
     snprintf(minute, sizeof(minute), "%02d", m->dt.tm_min);
-    int gap = 12, dot = gfx_text_width(f, ".");
+    int gap = UI_PX(12), dot = gfx_text_width(f, ".");
     int date_w = gfx_text_width(f, day) + gfx_text_width(f, month) + gfx_text_width(f, year) + 2 * dot + 4 * gap;
-    int x = (fb->width - date_w) / 2, baseline = 128;
+    int x = (fb->width - date_w) / 2, baseline = MID + UI_PX(128);
     x += draw_field(fb, f, x, baseline, day, m->dt_field == 0) + gap;
     x = gfx_text(fb, f, x, baseline, ".", GFX_BLACK) + gap;
     x += draw_field(fb, f, x, baseline, month, m->dt_field == 1) + gap;
@@ -117,7 +119,7 @@ static void draw_datetime(gfx_fb_t *fb, const ui_menu_t *m, const lang_t *lang)
     int colon = gfx_text_width(f, ":");
     int time_w = gfx_text_width(f, hour) + gfx_text_width(f, minute) + colon + 2 * gap;
     x = (fb->width - time_w) / 2;
-    baseline = 220;
+    baseline = MID + UI_PX(220);
     x += draw_field(fb, f, x, baseline, hour, m->dt_field == 3) + gap;
     x = gfx_text(fb, f, x, baseline, ":", GFX_BLACK) + gap;
     draw_field(fb, f, x, baseline, minute, m->dt_field == 4);
@@ -128,7 +130,7 @@ static void draw_datetime(gfx_fb_t *fb, const ui_menu_t *m, const lang_t *lang)
 static void draw_question(gfx_fb_t *fb, const char *text, int y)
 {
     const gfx_font_t *f = UI_FONT(UI_F_BOLD_20);
-    int max_w = fb->width - 24;
+    int max_w = fb->width - UI_PX(24);
     char line1[96], line2[96];
     snprintf(line1, sizeof(line1), "%s", text);
     line2[0] = '\0';
@@ -143,10 +145,10 @@ static void draw_question(gfx_fb_t *fb, const char *text, int y)
     }
     char fit[96];
     gfx_text_ellipsize(f, line1, max_w, fit, sizeof(fit));
-    gfx_text_in_rect(fb, f, (gfx_rect_t){ 0, (int16_t)y, fb->width, 28 }, GFX_ALIGN_CENTER, fit, GFX_BLACK);
+    gfx_text_in_rect(fb, f, (gfx_rect_t){ 0, (int16_t)y, fb->width, (int16_t)UI_PX(28) }, GFX_ALIGN_CENTER, fit, GFX_BLACK);
     if (line2[0]) {
         gfx_text_ellipsize(f, line2, max_w, fit, sizeof(fit));
-        gfx_text_in_rect(fb, f, (gfx_rect_t){ 0, (int16_t)(y + 30), fb->width, 28 }, GFX_ALIGN_CENTER, fit,
+        gfx_text_in_rect(fb, f, (gfx_rect_t){ 0, (int16_t)(y + UI_PX(30)), fb->width, (int16_t)UI_PX(28) }, GFX_ALIGN_CENTER, fit,
                          GFX_BLACK);
     }
 }
@@ -163,7 +165,7 @@ void ui_draw_menu(gfx_fb_t *fb, const ui_menu_t *m, const ui_menu_model_t *model
         break;
     case UI_MENU_CONFIRM:
         draw_header(fb, ui_menu_label(item, lang));
-        draw_question(fb, ui_menu_question(item, lang), 110);
+        draw_question(fb, ui_menu_question(item, lang), MID + UI_PX(110));
         draw_hints(fb, lang_str(lang, LS_HINT_CONFIRM));
         break;
     default:

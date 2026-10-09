@@ -11,7 +11,7 @@ static const uint8_t k_ratio_num[] = { [UI_RATIO_1_4] = 1, [UI_RATIO_1_3] = 1, [
 static const uint8_t k_ratio_den[] = { [UI_RATIO_1_4] = 4, [UI_RATIO_1_3] = 3, [UI_RATIO_1_2] = 2,
                                        [UI_RATIO_2_3] = 3, [UI_RATIO_3_4] = 4 };
 
-/* Each size's least cell (spec §5.2), and the kinds it takes (spec §5.1). */
+/* Each size's least cell on the RLCD (spec §5.2), scaled by UI_PX() at use, and the kinds it takes (spec §5.1). */
 static const struct {
     int16_t min_w, narrow_h, wide_h;
     uint32_t kinds;
@@ -23,7 +23,8 @@ static const struct {
     [UI_SIZE_XL] = { 400, 120, 120, UI_KINDS_XL },
 };
 
-/* Where a kind's widget needs more height than its size's least cell: the least height at which it
+/* Where a kind's widget needs more height than its size's least cell (on the RLCD; UI_PX() at use): the least
+ * height at which it
  * stays clear of the cell's edges, measured on host renders of every field with Czech text and
  * stale marks; test_ui_widget_fit.c checks each one. Numbers, times and the battery fit their
  * digits to the height (ui_widget.c), so they need no more than the size's own. */
@@ -62,7 +63,7 @@ typedef struct {
 } walk_t;
 
 /* One node and everything under it, laid over r. Each call takes a node, so it recurses at most
- * UI_SPLIT_NODES deep, and 14 deep in a tree of 40×20 parts (13 splits in a chain at most). */
+ * UI_SPLIT_NODES deep, and 14 deep in a tree of 40×20 parts on the RLCD (13 splits in a chain at most). */
 static void walk(walk_t *w, gfx_rect_t r)
 {
     if (!w->ok || w->at >= UI_SPLIT_NODES || r.w < UI_SPLIT_MIN_W || r.h < UI_SPLIT_MIN_H) {
@@ -125,7 +126,7 @@ int ui_split_nodes(const uint8_t tree[UI_SPLIT_NODES])
 
 int ui_split_min_w(ui_size_t size)
 {
-    return (unsigned)size <= UI_SIZE_XL ? k_sizes[size].min_w : -1;
+    return (unsigned)size <= UI_SIZE_XL ? UI_PX(k_sizes[size].min_w) : -1;
 }
 
 int ui_split_min_h(ui_size_t size, bool narrow)
@@ -133,7 +134,7 @@ int ui_split_min_h(ui_size_t size, bool narrow)
     if ((unsigned)size > UI_SIZE_XL) {
         return -1;
     }
-    return narrow ? k_sizes[size].narrow_h : k_sizes[size].wide_h;
+    return UI_PX(narrow ? k_sizes[size].narrow_h : k_sizes[size].wide_h);
 }
 
 int ui_split_need(ui_size_t size, ui_field_kind_t kind, bool narrow)
@@ -144,7 +145,7 @@ int ui_split_need(ui_size_t size, ui_field_kind_t kind, bool narrow)
     int need = ui_split_min_h(size, narrow);
     for (size_t i = 0; i < sizeof(k_needs) / sizeof(k_needs[0]); i++) {
         if (k_needs[i].size == size && k_needs[i].kind == kind) {
-            int h = narrow ? k_needs[i].narrow_h : k_needs[i].wide_h;
+            int h = UI_PX(narrow ? k_needs[i].narrow_h : k_needs[i].wide_h);
             need = h > need ? h : need;
         }
     }
@@ -154,7 +155,7 @@ int ui_split_need(ui_size_t size, ui_field_kind_t kind, bool narrow)
 int ui_split_cell_size(int w, int h)
 {
     for (int size = UI_SIZE_XL; size >= UI_SIZE_XS; size--) {
-        if (w >= k_sizes[size].min_w && h >= ui_split_min_h((ui_size_t)size, w < UI_SPLIT_NARROW_W)) {
+        if (w >= ui_split_min_w((ui_size_t)size) && h >= ui_split_min_h((ui_size_t)size, w < UI_SPLIT_NARROW_W)) {
             return size;
         }
     }
@@ -165,7 +166,7 @@ int ui_split_field_size(ui_field_kind_t kind, int w, int h)
 {
     for (int size = UI_SIZE_XL; size >= UI_SIZE_XS; size--) {
         int need = ui_split_need((ui_size_t)size, kind, w < UI_SPLIT_NARROW_W);
-        if (w >= k_sizes[size].min_w && need >= 0 && h >= need) {
+        if (w >= ui_split_min_w((ui_size_t)size) && need >= 0 && h >= need) {
             return size;
         }
     }
