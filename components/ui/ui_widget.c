@@ -5,6 +5,7 @@
 #include "gfx_fonts.h"
 #include "gfx_icons.h"
 #include "ui_internal.h"
+#include "ui_profile.h"
 
 #define PLACEHOLDER "\xE2\x80\x94" /* em dash */
 #define ARROW_UP "\xE2\x86\x91"
@@ -19,21 +20,35 @@ typedef struct {
     int icon; /* icon size in px */
 } ui_fonts_t;
 
-static const ui_fonts_t k_fonts[] = {
-    [UI_SIZE_XS] = { NULL, &gfx_font_sans_bold_16, &gfx_font_sans_bold_16, &gfx_font_sans_12, 16 },
-    [UI_SIZE_S] = { NULL, &gfx_font_sans_bold_28, &gfx_font_sans_bold_16, &gfx_font_sans_16, 24 },
-    [UI_SIZE_M] = { &gfx_font_sans_12, &gfx_font_num_cb_48, &gfx_font_sans_bold_20, &gfx_font_sans_16, 48 },
-    [UI_SIZE_L] = { &gfx_font_sans_16, &gfx_font_num_cb_72, &gfx_font_sans_bold_28, &gfx_font_sans_bold_20, 48 },
-    [UI_SIZE_XL] = { &gfx_font_sans_16, &gfx_font_num_cb_130, &gfx_font_sans_bold_28, &gfx_font_sans_bold_28, 48 },
+/* Each size's fonts by role (the profile's fonts, T3a); -1: no label. */
+static const struct {
+    int label, value, text, unit, icon;
+} k_fonts[] = {
+    [UI_SIZE_XS] = { -1, UI_F_BOLD_16, UI_F_BOLD_16, UI_F_SANS_12, 16 },
+    [UI_SIZE_S] = { -1, UI_F_BOLD_28, UI_F_BOLD_16, UI_F_SANS_16, 24 },
+    [UI_SIZE_M] = { UI_F_SANS_12, UI_F_NUM_48, UI_F_BOLD_20, UI_F_SANS_16, 48 },
+    [UI_SIZE_L] = { UI_F_SANS_16, UI_F_NUM_72, UI_F_BOLD_28, UI_F_BOLD_20, 48 },
+    [UI_SIZE_XL] = { UI_F_SANS_16, UI_F_NUM_130, UI_F_BOLD_28, UI_F_BOLD_28, 48 },
 };
+
+static ui_fonts_t size_fonts(ui_size_t size)
+{
+    ui_fonts_t f = {
+        .label = k_fonts[size].label >= 0 ? UI_FONT(k_fonts[size].label) : NULL,
+        .value = UI_FONT(k_fonts[size].value),
+        .text = UI_FONT(k_fonts[size].text),
+        .unit = UI_FONT(k_fonts[size].unit),
+        .icon = k_fonts[size].icon,
+    };
+    return f;
+}
 
 /* Fonts for a number that doesn't fit its slot, largest first; each list starts with the size's
  * own value font (spec §5.3). */
-static const gfx_font_t *const k_fit_s[] = { &gfx_font_sans_bold_28, &gfx_font_sans_bold_20, &gfx_font_sans_bold_16 };
-static const gfx_font_t *const k_fit_m[] = { &gfx_font_num_cb_48, &gfx_font_sans_bold_28, &gfx_font_sans_bold_20 };
-static const gfx_font_t *const k_fit_l[] = { &gfx_font_num_cb_72, &gfx_font_num_cb_48, &gfx_font_sans_bold_28 };
-static const gfx_font_t *const k_fit_xl[] = { &gfx_font_num_cb_130, &gfx_font_num_cb_110, &gfx_font_num_cb_72,
-                                              &gfx_font_num_cb_48 };
+static const ui_font_id_t k_fit_s[] = { UI_F_BOLD_28, UI_F_BOLD_20, UI_F_BOLD_16 };
+static const ui_font_id_t k_fit_m[] = { UI_F_NUM_48, UI_F_BOLD_28, UI_F_BOLD_20 };
+static const ui_font_id_t k_fit_l[] = { UI_F_NUM_72, UI_F_NUM_48, UI_F_BOLD_28 };
+static const ui_font_id_t k_fit_xl[] = { UI_F_NUM_130, UI_F_NUM_110, UI_F_NUM_72, UI_F_NUM_48 };
 
 /* Height of a digit's ink, for centring numbers on what shows rather than on the line box. */
 static int digit_height(const gfx_font_t *f)
@@ -209,21 +224,22 @@ static void draw_group(gfx_fb_t *fb, const ui_fonts_t *f, const gfx_font_t *vf, 
  * and `max_h` (0: any height): at each font, largest first, the value as it is, then without its
  * decimals ("101" for "100.8"; in Czech without the comma, whose tail reaches below the digits).
  * If even the smallest font is too wide, the value is cut with an ellipsis into `buf`. */
-static const gfx_font_t *fit_number(const ui_fonts_t *f, const gfx_font_t *const *fonts, int count,
+static const gfx_font_t *fit_number(const ui_fonts_t *f, const ui_font_id_t *fonts, int count,
                                     const ui_value_t *v, const char **value, int max_w, int extra_w, int max_h,
                                     char *buf, size_t size)
 {
     for (int i = 0; i < count; i++) {
-        if (group_width(f, fonts[i], v, *value) + extra_w <= max_w && fits_height(f, fonts[i], v, *value, max_h)) {
-            return fonts[i];
+        const gfx_font_t *vf = UI_FONT(fonts[i]);
+        if (group_width(f, vf, v, *value) + extra_w <= max_w && fits_height(f, vf, v, *value, max_h)) {
+            return vf;
         }
-        if (v->short_text[0] && group_width(f, fonts[i], v, v->short_text) + extra_w <= max_w &&
-            fits_height(f, fonts[i], v, v->short_text, max_h)) {
+        if (v->short_text[0] && group_width(f, vf, v, v->short_text) + extra_w <= max_w &&
+            fits_height(f, vf, v, v->short_text, max_h)) {
             *value = v->short_text;
-            return fonts[i];
+            return vf;
         }
     }
-    const gfx_font_t *vf = fonts[count - 1];
+    const gfx_font_t *vf = UI_FONT(fonts[count - 1]);
     int beside = group_width(f, vf, v, "") + extra_w; /* unit and trend arrow */
     gfx_text_ellipsize(vf, v->short_text[0] ? v->short_text : *value, max_w - beside, buf, size);
     *value = buf;
@@ -295,7 +311,7 @@ static void draw_age(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const lang
 {
     char age[16];
     ui_format_age(lang, v->age_s, age, sizeof(age));
-    const gfx_font_t *f = &gfx_font_sans_12;
+    const gfx_font_t *f = UI_FONT(UI_F_SANS_12);
     int w = gfx_text_width(f, age);
     int x = r.x + r.w - 6 - w;
     int baseline = r.y + r.h - 6 - (f->line_height - f->ascent);
@@ -312,7 +328,7 @@ static void draw_age(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const lang
 static void draw_min_max_mark(gfx_fb_t *fb, const ui_value_t *v, int x, int y)
 {
     if (v->field == UI_FIELD_ENV_TEMP_MIN || v->field == UI_FIELD_ENV_TEMP_MAX) {
-        gfx_text(fb, &gfx_font_sans_bold_16, x, y, v->field == UI_FIELD_ENV_TEMP_MIN ? ARROW_DOWN : ARROW_UP,
+        gfx_text(fb, UI_FONT(UI_F_BOLD_16), x, y, v->field == UI_FIELD_ENV_TEMP_MIN ? ARROW_DOWN : ARROW_UP,
                  GFX_BLACK);
     }
 }
@@ -390,7 +406,7 @@ static bool numeric(const ui_value_t *v)
  * centred. */
 static void draw_small_beside(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
 {
-    const ui_fonts_t *f = &k_fonts[UI_SIZE_S];
+    const ui_fonts_t fs = size_fonts(UI_SIZE_S), *f = &fs;
     int pad = r.w < 150 ? 6 : 14, gap = r.w < 150 ? 6 : 10;
     int sym_y = r.y + (r.h - f->icon) / 2;
     char fit[48];
@@ -462,7 +478,7 @@ static void draw_small_beside(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
 
 static void draw_small(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
 {
-    const ui_fonts_t *f = &k_fonts[UI_SIZE_S];
+    const ui_fonts_t fs = size_fonts(UI_SIZE_S), *f = &fs;
     const gfx_font_t *vf = numeric(v) ? f->value : v->state == UI_VALUE_MISSING ? f->value : f->text;
     const char *value = display_text(v, UI_SIZE_S);
     ui_value_t shown = *v;
@@ -479,14 +495,14 @@ static void draw_small(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
         int sym_x = r.x + (r.w - sym_w) / 2;
         draw_symbol(fb, v, sym_x, r.y + 12, sym_size, true);
         if (shown.trend) {
-            gfx_text(fb, &gfx_font_sans_bold_16, sym_x + sym_w + 4, r.y + 12 + sym_size - 4,
+            gfx_text(fb, UI_FONT(UI_F_BOLD_16), sym_x + sym_w + 4, r.y + 12 + sym_size - 4,
                      shown.trend > 0 ? ARROW_UP : ARROW_DOWN, GFX_BLACK);
             shown.trend = 0;
         }
         if (v->kind == UI_FK_MOON && v->state != UI_VALUE_MISSING) { /* the phase name, small */
-            const char *name = gfx_text_width(&gfx_font_sans_12, v->text) <= r.w - 8 ? v->text : v->short_text;
-            gfx_text_ellipsize(&gfx_font_sans_12, name, r.w - 8, fit, sizeof(fit));
-            gfx_text_in_rect(fb, &gfx_font_sans_12, (gfx_rect_t){ r.x, (int16_t)(r.y + 12 + sym_size + 14), r.w, 20 },
+            const char *name = gfx_text_width(UI_FONT(UI_F_SANS_12), v->text) <= r.w - 8 ? v->text : v->short_text;
+            gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), name, r.w - 8, fit, sizeof(fit));
+            gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12), (gfx_rect_t){ r.x, (int16_t)(r.y + 12 + sym_size + 14), r.w, 20 },
                              GFX_ALIGN_CENTER, fit, GFX_BLACK);
             return;
         }
@@ -519,12 +535,11 @@ static void draw_small(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
 /* ---- XS (M6c, D34): the status bar's look ---- */
 
 /* The faces an XS value tries, largest first; a number's unit goes smaller beside it. */
-static const gfx_font_t *const k_fit_xs[] = { &gfx_font_sans_bold_28, &gfx_font_sans_bold_20, &gfx_font_sans_bold_16,
-                                              &gfx_font_sans_12 };
+static const ui_font_id_t k_fit_xs[] = { UI_F_BOLD_28, UI_F_BOLD_20, UI_F_BOLD_16, UI_F_SANS_12 };
 
 static const gfx_font_t *xs_unit_font(const gfx_font_t *vf)
 {
-    return vf == &gfx_font_sans_bold_28 ? &gfx_font_sans_16 : &gfx_font_sans_12;
+    return vf == UI_FONT(UI_F_BOLD_28) ? UI_FONT(UI_F_SANS_16) : UI_FONT(UI_F_SANS_12);
 }
 
 bool ui_tiny_stacked(gfx_rect_t r)
@@ -548,7 +563,7 @@ static const gfx_font_t *fit_tiny(ui_value_t *shown, const char **value, int max
         *below = false;
     }
     for (int pass = 0; pass < 4; pass++) {
-        if (pass == 2 && (below == NULL || !unit[0] || gfx_text_width(&gfx_font_sans_12, unit) > max_w)) {
+        if (pass == 2 && (below == NULL || !unit[0] || gfx_text_width(UI_FONT(UI_F_SANS_12), unit) > max_w)) {
             continue;
         }
         shown->trend = pass >= 1 ? 0 : trend;
@@ -557,7 +572,7 @@ static const gfx_font_t *fit_tiny(ui_value_t *shown, const char **value, int max
             shown->unit[0] = '\0';
         }
         for (size_t i = 0; i < count; i++) {
-            const gfx_font_t *f = k_fit_xs[i];
+            const gfx_font_t *f = UI_FONT(k_fit_xs[i]);
             uf->unit = xs_unit_font(f);
             const char *forms[2] = { full, shown->short_text };
             for (int k = 0; k < 2; k++) {
@@ -574,17 +589,17 @@ static const gfx_font_t *fit_tiny(ui_value_t *shown, const char **value, int max
     }
     shown->trend = 0;
     shown->unit[0] = '\0';
-    uf->unit = xs_unit_font(&gfx_font_sans_12);
-    gfx_text_ellipsize(&gfx_font_sans_12, shown->short_text[0] ? shown->short_text : full, max_w, buf, size);
+    uf->unit = xs_unit_font(UI_FONT(UI_F_SANS_12));
+    gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), shown->short_text[0] ? shown->short_text : full, max_w, buf, size);
     *value = buf;
-    return &gfx_font_sans_12;
+    return UI_FONT(UI_F_SANS_12);
 }
 
 /* Words: the largest of bold 20, bold 16 and sans 12 that fits max_w, its ink 2 px clear of either edge of max_h;
  * NULL when none does. */
 static const gfx_font_t *tiny_text_face(const char *text, int max_w, int max_h)
 {
-    static const gfx_font_t *const k_faces[] = { &gfx_font_sans_bold_20, &gfx_font_sans_bold_16, &gfx_font_sans_12 };
+    const gfx_font_t *const k_faces[] = { UI_FONT(UI_F_BOLD_20), UI_FONT(UI_F_BOLD_16), UI_FONT(UI_F_SANS_12) };
     for (size_t i = 0; i < sizeof(k_faces) / sizeof(k_faces[0]); i++) {
         const gfx_font_t *f = k_faces[i];
         if (gfx_text_width(f, text) <= max_w && ink_above(f, text) + ink_below(f, text) + 4 <= max_h) {
@@ -602,8 +617,8 @@ static const gfx_font_t *fit_tiny_text(const char *text, int max_w, int max_h, c
         snprintf(buf, size, "%s", text);
         return f;
     }
-    gfx_text_ellipsize(&gfx_font_sans_12, text, max_w, buf, size);
-    return &gfx_font_sans_12;
+    gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), text, max_w, buf, size);
+    return UI_FONT(UI_F_SANS_12);
 }
 
 /* What S marks beside a symbol, XS too: today's low (↓) or high (↑); a charging battery's bolt. */
@@ -650,7 +665,7 @@ static void tiny_symbol_size(const ui_value_t *v, int sym, int *w, int *h)
         const gfx_bitmap_t *icon = field_icon(v->field, sym);
         if (icon != NULL) {
             const char *mark = tiny_mark(v);
-            *w = icon->width + (mark != NULL ? 1 + gfx_text_width(&gfx_font_sans_12, mark) : 0), *h = icon->height;
+            *w = icon->width + (mark != NULL ? 1 + gfx_text_width(UI_FONT(UI_F_SANS_12), mark) : 0), *h = icon->height;
         }
     }
 }
@@ -679,7 +694,7 @@ static void draw_tiny_symbol(gfx_fb_t *fb, const ui_value_t *v, int x, int y, in
             gfx_bitmap(fb, x, cy - icon->height / 2, icon, GFX_BLACK);
             const char *mark = tiny_mark(v);
             if (mark != NULL) {
-                gfx_text(fb, &gfx_font_sans_12, x + icon->width + 1, cy + icon->height / 2, mark, GFX_BLACK);
+                gfx_text(fb, UI_FONT(UI_F_SANS_12), x + icon->width + 1, cy + icon->height / 2, mark, GFX_BLACK);
             }
         }
     }
@@ -701,7 +716,7 @@ static void draw_tiny_line(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
             bool centre = v->kind == UI_FK_TIME || (sym_w > 0 && !with); /* alone, or its symbol given up */
             int x = r.x + 3 + (with ? sym_w + 3 : 0), max_w = centre ? r.w - 4 : r.x + r.w - 2 - x;
             ui_value_t shown = *v;
-            ui_fonts_t uf = k_fonts[UI_SIZE_XS];
+            ui_fonts_t uf = size_fonts(UI_SIZE_XS);
             const char *value = v->text;
             const gfx_font_t *vf = fit_tiny(&shown, &value, max_w, r.h, 4, &uf, NULL, 0, fit, sizeof(fit));
             if (value == fit && with) {
@@ -733,10 +748,10 @@ static void draw_tiny_line(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
     for (int with = sym_w > 0; with >= 0; with--) {
         int x = r.x + 3 + (with ? sym_w + 3 : 0), max_w = r.x + r.w - 4 - x;
         const char *t = text;
-        if (v->kind == UI_FK_DATE && v->state != UI_VALUE_MISSING && gfx_text_width(&gfx_font_sans_12, t) > max_w) {
+        if (v->kind == UI_FK_DATE && v->state != UI_VALUE_MISSING && gfx_text_width(UI_FONT(UI_F_SANS_12), t) > max_w) {
             t = v->short_text;
         }
-        if (with && gfx_text_width(&gfx_font_sans_12, t) > max_w) {
+        if (with && gfx_text_width(UI_FONT(UI_F_SANS_12), t) > max_w) {
             continue;
         }
         const gfx_font_t *tf = fit_tiny_text(t, max_w, r.h, fit, sizeof(fit));
@@ -764,12 +779,13 @@ static void draw_tiny_stacked(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
             *space = '\0';
         }
         const char *weekday = space != NULL ? wd : "";
-        const gfx_font_t *wf = &gfx_font_sans_12;
+        const gfx_font_t *wf = UI_FONT(UI_F_SANS_12);
         int above = ink_above(wf, weekday);
-        const gfx_font_t *df = &gfx_font_sans_12;
+        const gfx_font_t *df = UI_FONT(UI_F_SANS_12);
         for (size_t i = 0; i < sizeof(k_fit_xs) / sizeof(k_fit_xs[0]); i++) {
-            if (above + 4 + digit_height(k_fit_xs[i]) + 4 <= r.h && gfx_text_width(k_fit_xs[i], day) <= r.w - 4) {
-                df = k_fit_xs[i];
+            const gfx_font_t *xf = UI_FONT(k_fit_xs[i]);
+            if (above + 4 + digit_height(xf) + 4 <= r.h && gfx_text_width(xf, day) <= r.w - 4) {
+                df = xf;
                 break;
             }
         }
@@ -790,9 +806,9 @@ static void draw_tiny_stacked(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
     const gfx_font_t *vf;
     const char *value;
     ui_value_t shown = *v;
-    ui_fonts_t uf = k_fonts[UI_SIZE_XS];
+    ui_fonts_t uf = size_fonts(UI_SIZE_XS);
     bool below = false;
-    int unit_h = 4 + ink_above(&gfx_font_sans_12, v->unit) + ink_below(&gfx_font_sans_12, v->unit);
+    int unit_h = 4 + ink_above(UI_FONT(UI_F_SANS_12), v->unit) + ink_below(UI_FONT(UI_F_SANS_12), v->unit);
     int value_h; /* the value's ink: from its top to its lowest tail */
     if (numeric(v)) {
         value = v->text;
@@ -817,8 +833,8 @@ static void draw_tiny_stacked(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
         int baseline = y + digit_height(vf);
         draw_group(fb, &uf, vf, &shown, value, cx - group_width(&uf, vf, &shown, value) / 2, baseline);
         if (below) {
-            int base = top + block - ink_below(&gfx_font_sans_12, v->unit);
-            gfx_text(fb, &gfx_font_sans_12, cx - gfx_text_width(&gfx_font_sans_12, v->unit) / 2, base, v->unit,
+            int base = top + block - ink_below(UI_FONT(UI_F_SANS_12), v->unit);
+            gfx_text(fb, UI_FONT(UI_F_SANS_12), cx - gfx_text_width(UI_FONT(UI_F_SANS_12), v->unit) / 2, base, v->unit,
                      GFX_BLACK);
         }
         return;
@@ -837,7 +853,7 @@ static void draw_tiny(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v)
 
 static void draw_labelled(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_value_t *v)
 {
-    const ui_fonts_t *f = &k_fonts[size];
+    const ui_fonts_t fs = size_fonts(size), *f = &fs;
     int top = r.y + 6;
     if (f->label != NULL && v->kind != UI_FK_TIME && !(size == UI_SIZE_M && v->kind == UI_FK_DATE)) {
         char label[40];
@@ -860,15 +876,15 @@ static void draw_labelled(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_v
         int cx = body.x + 10 + d / 2, cy = body.y + body.h / 2;
         ui_draw_moon(fb, cx, cy, d / 2 - 1, v->moon.age);
         int x = body.x + 20 + d;
-        gfx_text_ellipsize(&gfx_font_sans_16, v->text, body.x + body.w - 6 - x, fit, sizeof(fit));
-        gfx_text(fb, &gfx_font_sans_16, x, cy - 2, fit, GFX_BLACK);
-        gfx_text(fb, &gfx_font_sans_bold_20, x, cy + 22, v->extra, GFX_BLACK);
+        gfx_text_ellipsize(UI_FONT(UI_F_SANS_16), v->text, body.x + body.w - 6 - x, fit, sizeof(fit));
+        gfx_text(fb, UI_FONT(UI_F_SANS_16), x, cy - 2, fit, GFX_BLACK);
+        gfx_text(fb, UI_FONT(UI_F_BOLD_20), x, cy + 22, v->extra, GFX_BLACK);
         return;
     }
     if (!numeric(v)) { /* words: centred, cut to fit */
-        const gfx_font_t *tf = v->state == UI_VALUE_MISSING ? &gfx_font_sans_bold_28 : f->text;
+        const gfx_font_t *tf = v->state == UI_VALUE_MISSING ? UI_FONT(UI_F_BOLD_28) : f->text;
         if (v->kind == UI_FK_DATE && size == UI_SIZE_M) {
-            tf = &gfx_font_sans_20;
+            tf = UI_FONT(UI_F_SANS_20);
             if (gfx_text_width(tf, value) > body.w - 12) {
                 value = v->extra; /* the medium form: "Fri 25 Sep" */
             }
@@ -882,7 +898,7 @@ static void draw_labelled(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_v
     if (v->kind == UI_FK_TIME) {
         shown.unit[0] = '\0'; /* AM/PM and seconds go beside the digits, smaller */
     }
-    const gfx_font_t *side = size == UI_SIZE_XL ? &gfx_font_sans_bold_28 : &gfx_font_sans_bold_20;
+    const gfx_font_t *side = size == UI_SIZE_XL ? UI_FONT(UI_F_BOLD_28) : UI_FONT(UI_F_BOLD_20);
     int extra_w = 0;
     if (v->kind == UI_FK_TIME) { /* AM/PM and the seconds share one column beside the digits */
         int unit_w = v->unit[0] ? gfx_text_width(side, v->unit) : 0;
@@ -890,7 +906,7 @@ static void draw_labelled(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_v
         extra_w = unit_w || sec_w ? 6 + (unit_w > sec_w ? unit_w : sec_w) : 0;
     }
     static const struct {
-        const gfx_font_t *const *fonts;
+        const ui_font_id_t *fonts;
         int count;
     } k_fit[] = { [UI_SIZE_M] = { k_fit_m, 3 }, [UI_SIZE_L] = { k_fit_l, 3 }, [UI_SIZE_XL] = { k_fit_xl, 4 } };
     int extra_lines = v->kind == UI_FK_BATTERY ? f->unit->line_height : 0;

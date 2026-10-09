@@ -5,6 +5,7 @@
 #include "gfx_fonts.h"
 #include "map_draw.h"
 #include "ui_internal.h"
+#include "ui_profile.h"
 #include "ui_radar.h"
 
 /* The flight radar's view (spec §11.3): the map at its centre and range with two rings, the
@@ -173,7 +174,7 @@ static void draw_aircraft(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, co
         name_of(&list->ac[i], name, sizeof(name));
         ui_flight_altitude(list->ac[i].alt_ft, alt, sizeof(alt));
         snprintf(label, sizeof(label), "%s%s%s", name, alt[0] != '\0' ? " " : "", alt);
-        map_label(fb, area, labels, &gfx_font_sans_12, x[i], y[i], ARROW_BOX / 2 + 2, label);
+        map_label(fb, area, labels, UI_FONT(UI_F_SANS_12), x[i], y[i], ARROW_BOX / 2 + 2, label);
     }
     for (int i = list->count - 1; i >= 0; i--) { /* the nearest on top */
         arrow(fb, x[i], y[i], list->ac[i].track);
@@ -216,7 +217,7 @@ void ui_draw_flights_view(gfx_fb_t *fb, gfx_rect_t r, const ui_context_t *ctx)
     gfx_hline(fb, r.x, panel.y - 1, r.w, GFX_BLACK);
     char line1[96], line2[96], credit[32], fit[96];
     ui_flights_panel_text(ctx, line1, line2, credit, sizeof(line1));
-    const gfx_font_t *f1 = &gfx_font_sans_bold_16, *f2 = &gfx_font_sans_12;
+    const gfx_font_t *f1 = UI_FONT(UI_F_BOLD_16), *f2 = UI_FONT(UI_F_SANS_12);
     gfx_text_ellipsize(f1, line1, panel.w - 12, fit, sizeof(fit));
     gfx_text(fb, f1, panel.x + 6, panel.y + 2 + f1->ascent, fit, GFX_BLACK);
     int credit_w = gfx_text_width(f2, credit);

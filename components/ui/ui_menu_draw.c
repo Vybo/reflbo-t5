@@ -3,6 +3,7 @@
 
 #include "gfx_fonts.h"
 #include "ui_menu.h"
+#include "ui_profile.h"
 
 /* The menu screen (spec §5.7): a title bar, up to seven rows, and the button hints. */
 
@@ -16,8 +17,8 @@ static void draw_header(gfx_fb_t *fb, const char *title)
 {
     gfx_fill_rect(fb, (gfx_rect_t){ 0, 0, fb->width, HEADER_H }, GFX_BLACK);
     char fit[64];
-    gfx_text_ellipsize(&gfx_font_sans_bold_20, title, fb->width - 24, fit, sizeof(fit));
-    gfx_text_in_rect(fb, &gfx_font_sans_bold_20, (gfx_rect_t){ 12, 0, (int16_t)(fb->width - 24), HEADER_H },
+    gfx_text_ellipsize(UI_FONT(UI_F_BOLD_20), title, fb->width - 24, fit, sizeof(fit));
+    gfx_text_in_rect(fb, UI_FONT(UI_F_BOLD_20), (gfx_rect_t){ 12, 0, (int16_t)(fb->width - 24), HEADER_H },
                      GFX_ALIGN_LEFT, fit, GFX_WHITE);
 }
 
@@ -25,8 +26,8 @@ static void draw_hints(gfx_fb_t *fb, const char *hints)
 {
     gfx_hline(fb, 0, FOOTER_Y - 4, fb->width, GFX_BLACK);
     char fit[96];
-    gfx_text_ellipsize(&gfx_font_sans_12, hints, fb->width - 12, fit, sizeof(fit));
-    gfx_text_in_rect(fb, &gfx_font_sans_12, (gfx_rect_t){ 0, FOOTER_Y, fb->width, (int16_t)(fb->height - FOOTER_Y) },
+    gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), hints, fb->width - 12, fit, sizeof(fit));
+    gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12), (gfx_rect_t){ 0, FOOTER_Y, fb->width, (int16_t)(fb->height - FOOTER_Y) },
                      GFX_ALIGN_CENTER, fit, GFX_BLACK);
 }
 
@@ -35,7 +36,7 @@ static void draw_list(gfx_fb_t *fb, const ui_menu_t *m, const ui_menu_model_t *m
     ui_menu_item_t items[UI_MI_COUNT];
     int n = ui_menu_visible(m, model, items, UI_MI_COUNT);
     int first = m->cursor >= ROWS ? m->cursor - ROWS + 1 : 0;
-    const gfx_font_t *f = &gfx_font_sans_20;
+    const gfx_font_t *f = UI_FONT(UI_F_SANS_20);
     for (int row = 0; row < ROWS && first + row < n; row++) {
         int i = first + row;
         ui_menu_item_t item = items[i];
@@ -98,7 +99,7 @@ static int draw_field(gfx_fb_t *fb, const gfx_font_t *f, int x, int baseline, co
 
 static void draw_datetime(gfx_fb_t *fb, const ui_menu_t *m, const lang_t *lang)
 {
-    const gfx_font_t *f = &gfx_font_num_cb_48;
+    const gfx_font_t *f = UI_FONT(UI_F_NUM_48);
     char day[12], month[12], year[12], hour[12], minute[12]; /* room for any int, as GCC checks */
     snprintf(day, sizeof(day), "%02d", m->dt.tm_mday);
     snprintf(month, sizeof(month), "%02d", m->dt.tm_mon + 1);
@@ -126,7 +127,7 @@ static void draw_datetime(gfx_fb_t *fb, const ui_menu_t *m, const lang_t *lang)
 /* The question on up to two centred lines, split at a space. */
 static void draw_question(gfx_fb_t *fb, const char *text, int y)
 {
-    const gfx_font_t *f = &gfx_font_sans_bold_20;
+    const gfx_font_t *f = UI_FONT(UI_F_BOLD_20);
     int max_w = fb->width - 24;
     char line1[96], line2[96];
     snprintf(line1, sizeof(line1), "%s", text);

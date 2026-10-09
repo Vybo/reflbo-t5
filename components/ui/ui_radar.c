@@ -4,6 +4,7 @@
 #include "gfx_fonts.h"
 #include "map_draw.h"
 #include "ui_internal.h"
+#include "ui_profile.h"
 #include "ui_radar.h"
 
 /* The weather radar's map (spec §11.2): the rain under the map, then the frame's time and the
@@ -120,7 +121,7 @@ static void draw_map(gfx_fb_t *fb, gfx_rect_t r, const ui_radar_t *rad, ui_size_
     }
     static map_labels_t labels; /* 1.5 KB, off the stack: only the app task draws (spec §3.2) */
     map_labels_init(&labels);
-    const gfx_font_t *cf = size == UI_SIZE_XL ? &gfx_font_sans_bold_16 : &gfx_font_sans_12, *lf = &gfx_font_sans_12;
+    const gfx_font_t *cf = size == UI_SIZE_XL ? UI_FONT(UI_F_BOLD_16) : UI_FONT(UI_F_SANS_12), *lf = UI_FONT(UI_F_SANS_12);
     gfx_rect_t cap = { 0 }, right = { 0 };
     if (rad->frame != NULL) { /* the bottom row first, so the places keep clear of it */
         cap = bottom_box(r, gfx_text_width(cf, caption) + 2 * PAD, cf->line_height + 2 * PAD - 2, false);
@@ -144,7 +145,7 @@ static void draw_map(gfx_fb_t *fb, gfx_rect_t r, const ui_radar_t *rad, ui_size_
         }
     } else if (ctx != NULL) {
         const char *none = lang_str(ctx->lang, LS_NO_RADAR_FRAME);
-        const gfx_font_t *nf = &gfx_font_sans_bold_20;
+        const gfx_font_t *nf = UI_FONT(UI_F_BOLD_20);
         int w = gfx_text_width(nf, none) + 4 * PAD, h = nf->line_height + 4 * PAD;
         gfx_rect_t box = { (int16_t)(r.x + (r.w - w) / 2), (int16_t)(r.y + (r.h - h) / 2), (int16_t)w, (int16_t)h };
         gfx_fill_rect(fb, box, GFX_WHITE);

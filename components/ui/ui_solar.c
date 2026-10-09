@@ -7,6 +7,7 @@
 #include "gfx_fonts.h"
 #include "gfx_icons.h"
 #include "ui_internal.h"
+#include "ui_profile.h"
 #include "weather.h"
 
 /* The pv.* and energy.* fields (spec §5.1, §11.5, §11.6, M6d), the chart and the flow (spec §5.3), and the
@@ -290,7 +291,7 @@ static int labels_left(gfx_rect_t r, const uint16_t *fq, const uint16_t *aq, con
     for (uint32_t g = step; g < scale; g += step) {
         char t[8];
         grid_label(lang, g, t, sizeof(t));
-        int w = gfx_text_width(&gfx_font_sans_12, t);
+        int w = gfx_text_width(UI_FONT(UI_F_SANS_12), t);
         widest = w > widest ? w : widest;
     }
     return widest + 8 > 24 ? r.x + widest + 8 : r.x + 24;
@@ -347,11 +348,11 @@ static void draw_chart(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const la
         if (labels) {
             char t[8];
             grid_label(lang, g, t, sizeof(t));
-            gfx_text(fb, &gfx_font_sans_12, left - 4 - gfx_text_width(&gfx_font_sans_12, t), y + 4, t, GFX_BLACK);
+            gfx_text(fb, UI_FONT(UI_F_SANS_12), left - 4 - gfx_text_width(UI_FONT(UI_F_SANS_12), t), y + 4, t, GFX_BLACK);
         }
     }
     if (labels) {
-        gfx_text(fb, &gfx_font_sans_12, r.x + 2, top + 3, "kW", GFX_BLACK);
+        gfx_text(fb, UI_FONT(UI_F_SANS_12), r.x + 2, top + 3, "kW", GFX_BLACK);
     }
     int prev_x = -1, prev_y = -1;
     for (int i = 0; i < n; i++) {
@@ -398,7 +399,7 @@ static void draw_chart(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const la
             gfx_vline(fb, x, bottom, 3, GFX_BLACK);
             char t[12];
             snprintf(t, sizeof(t), "%d", h);
-            gfx_text(fb, &gfx_font_sans_12, x - gfx_text_width(&gfx_font_sans_12, t) / 2, bottom + 13, t, GFX_BLACK);
+            gfx_text(fb, UI_FONT(UI_F_SANS_12), x - gfx_text_width(UI_FONT(UI_F_SANS_12), t) / 2, bottom + 13, t, GFX_BLACK);
         }
     }
 }
@@ -408,7 +409,7 @@ static void draw_chart_widget(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const 
 {
     int top = r.y + 4;
     gfx_bitmap(fb, r.x + 6, top, &gfx_icon_forecast_16, GFX_BLACK);
-    const gfx_font_t *tf = &gfx_font_sans_bold_16;
+    const gfx_font_t *tf = UI_FONT(UI_F_BOLD_16);
     const char *number = v->short_text[0] ? v->short_text : v->text;
     char forms[3][sizeof(v->text) + sizeof(v->unit) + 2], t[sizeof(forms[0])];
     snprintf(forms[0], sizeof(forms[0]), "%s %s", v->text, v->unit); /* then "2800 kWh", then "2800" */
@@ -421,7 +422,7 @@ static void draw_chart_widget(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const 
     }
     gfx_text_ellipsize(tf, forms[k], room, t, sizeof(t));
     int pen = gfx_text(fb, tf, r.x + 26, top + 13, t, GFX_BLACK);
-    const gfx_font_t *lf = size == UI_SIZE_M ? &gfx_font_sans_12 : &gfx_font_sans_16;
+    const gfx_font_t *lf = size == UI_SIZE_M ? UI_FONT(UI_F_SANS_12) : UI_FONT(UI_F_SANS_16);
     if (pen + 8 + gfx_text_width(lf, v->label) <= r.x + r.w - 6) {
         gfx_text(fb, lf, r.x + r.w - 6 - gfx_text_width(lf, v->label), top + 13, v->label, GFX_BLACK);
     }
@@ -531,7 +532,7 @@ static void flow_diagram(gfx_fb_t *fb, gfx_rect_t r, int top, const ui_solar_t *
     int py = top + (body - (bat ? 100 : 78)) / 2;
     int jy = py + 24 + 20;
     int gx = r.x + 22, hx = r.x + r.w - 22;
-    const gfx_font_t *vf = &gfx_font_sans_bold_16;
+    const gfx_font_t *vf = UI_FONT(UI_F_BOLD_16);
     gfx_bitmap(fb, cx - 12, py, &gfx_icon_solar_24, GFX_BLACK);
     flow_text(lang, e->pv_w, watts, vf, r.x + r.w - 2 - (cx + 16), t, sizeof(t));
     gfx_text(fb, vf, cx + 16, py + 18, t, GFX_BLACK);
@@ -564,7 +565,7 @@ static void flow_row(gfx_fb_t *fb, gfx_rect_t r, int top, const ui_solar_t *s, c
     int iy = top + (r.y + r.h - top - 24 - 20) / 2;
     const gfx_bitmap_t *icons[3] = { &gfx_icon_solar_24, &gfx_icon_house_24, &gfx_icon_grid_24 };
     int32_t power[3] = { e->pv_w, e->load_w, e->grid_w };
-    const gfx_font_t *vf = &gfx_font_sans_bold_16;
+    const gfx_font_t *vf = UI_FONT(UI_F_BOLD_16);
     for (int i = 0; i < n; i++) {
         int cx = r.x + 4 + col * i + col / 2;
         char t[16];
@@ -593,7 +594,7 @@ static void flow_row(gfx_fb_t *fb, gfx_rect_t r, int top, const ui_solar_t *s, c
 /* energy.flow in an M or L slot: a diagram from 76 px under the heading, a row below that. */
 static void draw_flow_widget(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_value_t *v, const lang_t *lang)
 {
-    const gfx_font_t *lf = size == UI_SIZE_M ? &gfx_font_sans_12 : &gfx_font_sans_16;
+    const gfx_font_t *lf = size == UI_SIZE_M ? UI_FONT(UI_F_SANS_12) : UI_FONT(UI_F_SANS_16);
     bool watts = flow_in_watts(v->solar->reading);
     int top = heading(fb, r, lf, v->label, watts ? "W" : "kW");
     if (r.y + r.h - top >= 76) {
@@ -628,15 +629,15 @@ static int ink(const gfx_font_t *f)
 
 static void stat_row(gfx_fb_t *fb, int x, int right, int baseline, const char *label, const char *value)
 {
-    gfx_text(fb, &gfx_font_sans_16, x, baseline, label, GFX_BLACK);
-    gfx_text(fb, &gfx_font_sans_bold_16, right - gfx_text_width(&gfx_font_sans_bold_16, value), baseline, value,
+    gfx_text(fb, UI_FONT(UI_F_SANS_16), x, baseline, label, GFX_BLACK);
+    gfx_text(fb, UI_FONT(UI_F_BOLD_16), right - gfx_text_width(UI_FONT(UI_F_BOLD_16), value), baseline, value,
              GFX_BLACK);
 }
 
 /* What a stat row's number may take beside `label` between `x` and `right`, 8 px apart, before its `unit`. */
 static int stat_room(int x, int right, const char *label, const char *unit)
 {
-    return right - x - 8 - gfx_text_width(&gfx_font_sans_16, label) - gfx_text_width(&gfx_font_sans_bold_16, unit);
+    return right - x - 8 - gfx_text_width(UI_FONT(UI_F_SANS_16), label) - gfx_text_width(UI_FONT(UI_F_BOLD_16), unit);
 }
 
 /* A stat row's power: "390 W", "4.12 kW", a kW number shorter where it wouldn't fit ("200 kW"). */
@@ -645,7 +646,7 @@ static void stat_kw(const lang_t *lang, int32_t w, int x, int right, const char 
     char n[16];
     const char *unit = power_text(lang, w, n, sizeof(n));
     if (strcmp(unit, "kW") == 0) {
-        kw_fit(lang, w, &gfx_font_sans_bold_16, stat_room(x, right, label, " kW"), n, sizeof(n));
+        kw_fit(lang, w, UI_FONT(UI_F_BOLD_16), stat_room(x, right, label, " kW"), n, sizeof(n));
     }
     snprintf(out, size, "%s %s", n, unit);
 }
@@ -659,7 +660,7 @@ static void stat_kwh(const lang_t *lang, uint32_t wh, int x, int right, const ch
         return;
     }
     kwh_text(lang, wh, n, sizeof(n));
-    if (gfx_text_width(&gfx_font_sans_bold_16, n) > stat_room(x, right, label, " kWh") && wh >= 9950) {
+    if (gfx_text_width(UI_FONT(UI_F_BOLD_16), n) > stat_room(x, right, label, " kWh") && wh >= 9950) {
         snprintf(n, sizeof(n), "%lu", (unsigned long)((wh + 500) / 1000));
     }
     snprintf(out, size, "%s kWh", n);
@@ -668,7 +669,7 @@ static void stat_kwh(const lang_t *lang, uint32_t wh, int x, int right, const ch
 static void placeholder(gfx_fb_t *fb, gfx_rect_t a, const gfx_bitmap_t *icon, const char *text)
 {
     gfx_bitmap(fb, a.x + (a.w - icon->width) / 2, a.y + a.h / 2 - 48, icon, GFX_BLACK);
-    gfx_text_in_rect(fb, &gfx_font_sans_bold_20, (gfx_rect_t){ a.x, (int16_t)(a.y + a.h / 2 + 10), a.w, 28 },
+    gfx_text_in_rect(fb, UI_FONT(UI_F_BOLD_20), (gfx_rect_t){ a.x, (int16_t)(a.y + a.h / 2 + 10), a.w, 28 },
                      GFX_ALIGN_CENTER, text, GFX_BLACK);
 }
 
@@ -691,18 +692,18 @@ static void day_total(gfx_fb_t *fb, gfx_rect_t c, const ui_context_t *ctx, const
         snprintf(t, sizeof(t), "%s", PLACEHOLDER);
     }
     const gfx_bitmap_t *icon = sky >= 0 ? ui_sky_icon(sky, false, 24) : NULL;
-    int w = gfx_text_width(&gfx_font_sans_16, name) + 8 + (icon ? 30 : 0) + gfx_text_width(&gfx_font_sans_bold_20, t) +
-            (known ? 3 + gfx_text_width(&gfx_font_sans_16, "kWh") : 0);
-    int base = c.y + (c.h + ink(&gfx_font_sans_bold_20)) / 2;
+    int w = gfx_text_width(UI_FONT(UI_F_SANS_16), name) + 8 + (icon ? 30 : 0) + gfx_text_width(UI_FONT(UI_F_BOLD_20), t) +
+            (known ? 3 + gfx_text_width(UI_FONT(UI_F_SANS_16), "kWh") : 0);
+    int base = c.y + (c.h + ink(UI_FONT(UI_F_BOLD_20))) / 2;
     int x = c.x + (c.w - w) / 2;
-    x = gfx_text(fb, &gfx_font_sans_16, x, base, name, GFX_BLACK) + 8;
+    x = gfx_text(fb, UI_FONT(UI_F_SANS_16), x, base, name, GFX_BLACK) + 8;
     if (icon != NULL) {
         gfx_bitmap(fb, x, c.y + (c.h - 24) / 2, icon, GFX_BLACK);
         x += 30;
     }
-    x = gfx_text(fb, &gfx_font_sans_bold_20, x, base, t, GFX_BLACK) + 3;
+    x = gfx_text(fb, UI_FONT(UI_F_BOLD_20), x, base, t, GFX_BLACK) + 3;
     if (known) {
-        gfx_text(fb, &gfx_font_sans_16, x, base, "kWh", GFX_BLACK);
+        gfx_text(fb, UI_FONT(UI_F_SANS_16), x, base, "kWh", GFX_BLACK);
     }
 }
 
@@ -720,15 +721,15 @@ bool ui_draw_solar_layout(gfx_fb_t *fb, gfx_rect_t a, const ui_context_t *ctx)
     char t[32], u[sizeof(t) + 8];
     /* today, large, and three numbers beside it */
     gfx_bitmap(fb, a.x + 8, a.y + 6, &gfx_icon_forecast_24, GFX_BLACK);
-    gfx_text(fb, &gfx_font_sans_16, a.x + 38, a.y + 23, lang_str(lang, LS_PV_TODAY), GFX_BLACK);
-    int base = a.y + 36 + ink(&gfx_font_num_cb_48);
+    gfx_text(fb, UI_FONT(UI_F_SANS_16), a.x + 38, a.y + 23, lang_str(lang, LS_PV_TODAY), GFX_BLACK);
+    int base = a.y + 36 + ink(UI_FONT(UI_F_NUM_48));
     int col = a.x + 196, right = a.x + a.w - 10;
-    int room = col - 6 - (a.x + 8) - 5 - gfx_text_width(&gfx_font_sans_bold_20, "kWh");
-    const char *big = gfx_text_width(&gfx_font_num_cb_48, chart.text) > room && chart.short_text[0] != '\0'
+    int room = col - 6 - (a.x + 8) - 5 - gfx_text_width(UI_FONT(UI_F_BOLD_20), "kWh");
+    const char *big = gfx_text_width(UI_FONT(UI_F_NUM_48), chart.text) > room && chart.short_text[0] != '\0'
                           ? chart.short_text /* from 100 kWh: whole kWh */
                           : chart.text;
-    int pen = gfx_text(fb, &gfx_font_num_cb_48, a.x + 8, base, big, GFX_BLACK);
-    gfx_text(fb, &gfx_font_sans_bold_20, pen + 5, base, "kWh", GFX_BLACK);
+    int pen = gfx_text(fb, UI_FONT(UI_F_NUM_48), a.x + 8, base, big, GFX_BLACK);
+    gfx_text(fb, UI_FONT(UI_F_BOLD_20), pen + 5, base, "kWh", GFX_BLACK);
     stat_kw(lang, chart.chart_q[chart.quarter] * SOLAR_UNIT_W, col, right, lang_str(lang, LS_NOW), u, sizeof(u));
     stat_row(fb, col, right, a.y + 22, lang_str(lang, LS_NOW), u);
     uint32_t peak_w = 0;
@@ -765,8 +766,8 @@ bool ui_draw_solar_layout(gfx_fb_t *fb, gfx_rect_t a, const ui_context_t *ctx)
 /* A node's words under its icon: the label, then the power, centred on cx. */
 static void node_text(gfx_fb_t *fb, int cx, int y, const char *label, const char *value)
 {
-    gfx_text(fb, &gfx_font_sans_16, cx - gfx_text_width(&gfx_font_sans_16, label) / 2, y + 14, label, GFX_BLACK);
-    gfx_text(fb, &gfx_font_sans_bold_20, cx - gfx_text_width(&gfx_font_sans_bold_20, value) / 2, y + 36, value,
+    gfx_text(fb, UI_FONT(UI_F_SANS_16), cx - gfx_text_width(UI_FONT(UI_F_SANS_16), label) / 2, y + 14, label, GFX_BLACK);
+    gfx_text(fb, UI_FONT(UI_F_BOLD_20), cx - gfx_text_width(UI_FONT(UI_F_BOLD_20), value) / 2, y + 36, value,
              GFX_BLACK);
 }
 
@@ -777,17 +778,17 @@ static void total(gfx_fb_t *fb, gfx_rect_t c, int limit, const gfx_bitmap_t *ico
                   const ui_value_t *v)
 {
     gfx_bitmap(fb, c.x + 6, c.y + 4, icon, GFX_BLACK);
-    gfx_text(fb, &gfx_font_sans_12, c.x + 26, c.y + 15, label, GFX_BLACK);
+    gfx_text(fb, UI_FONT(UI_F_SANS_12), c.x + 26, c.y + 15, label, GFX_BLACK);
     bool known = v->state != UI_VALUE_MISSING;
     const char *text = known ? v->text : PLACEHOLDER;
-    int x = c.x + 26, end = limit - (known ? 3 + gfx_text_width(&gfx_font_sans_16, v->unit) : 0);
-    if (known && x + gfx_text_width(&gfx_font_sans_bold_20, text) > end && v->short_text[0] != '\0') {
+    int x = c.x + 26, end = limit - (known ? 3 + gfx_text_width(UI_FONT(UI_F_SANS_16), v->unit) : 0);
+    if (known && x + gfx_text_width(UI_FONT(UI_F_BOLD_20), text) > end && v->short_text[0] != '\0') {
         text = v->short_text;
-        x = x + gfx_text_width(&gfx_font_sans_bold_20, text) > end ? c.x + 6 : x;
+        x = x + gfx_text_width(UI_FONT(UI_F_BOLD_20), text) > end ? c.x + 6 : x;
     }
-    int pen = gfx_text(fb, &gfx_font_sans_bold_20, x, c.y + 38, text, GFX_BLACK);
+    int pen = gfx_text(fb, UI_FONT(UI_F_BOLD_20), x, c.y + 38, text, GFX_BLACK);
     if (known) {
-        gfx_text(fb, &gfx_font_sans_16, pen + 3, c.y + 38, v->unit, GFX_BLACK);
+        gfx_text(fb, UI_FONT(UI_F_SANS_16), pen + 3, c.y + 38, v->unit, GFX_BLACK);
     }
 }
 
@@ -808,14 +809,14 @@ bool ui_draw_energy_layout(gfx_fb_t *fb, gfx_rect_t a, const ui_context_t *ctx)
     /* the panels, top centre, the power beside them */
     gfx_bitmap(fb, cx - 24, a.y + 4, &gfx_icon_solar_48, GFX_BLACK);
     const char *unit = power_text(lang, e->pv_w, t, sizeof(t));
-    int pen = gfx_text(fb, &gfx_font_sans_bold_28, cx + 34, a.y + 44, t, GFX_BLACK);
-    gfx_text(fb, &gfx_font_sans_16, pen + 3, a.y + 44, unit, GFX_BLACK);
-    gfx_text(fb, &gfx_font_sans_16, cx + 34, a.y + 18, lang_str(lang, LS_EN_PV), GFX_BLACK);
+    int pen = gfx_text(fb, UI_FONT(UI_F_BOLD_28), cx + 34, a.y + 44, t, GFX_BLACK);
+    gfx_text(fb, UI_FONT(UI_F_SANS_16), pen + 3, a.y + 44, unit, GFX_BLACK);
+    gfx_text(fb, UI_FONT(UI_F_SANS_16), cx + 34, a.y + 18, lang_str(lang, LS_EN_PV), GFX_BLACK);
     /* when the inverter's reading came */
     char when[16];
     ui_clock_text(ctx, (time_t)e->at, when, sizeof(when));
     snprintf(v, sizeof(v), "SolaX %s", when);
-    gfx_text(fb, &gfx_font_sans_12, a.x + 6, a.y + 14, v, GFX_BLACK);
+    gfx_text(fb, UI_FONT(UI_F_SANS_12), a.x + 6, a.y + 14, v, GFX_BLACK);
     /* the lines, then the junction */
     flow_line(fb, cx, a.y + 56, cx, jy - 6, flow_dir(e->pv_w), 2, 6);
     flow_line(fb, gx + 30, jy, cx - 6, jy, flow_dir(e->grid_w), 2, 6); /* + import: towards the house */
@@ -837,14 +838,14 @@ bool ui_draw_energy_layout(gfx_fb_t *fb, gfx_rect_t a, const ui_context_t *ctx)
         flow_line(fb, cx, jy + 6, cx, by - 6, flow_dir(e->bat_w), 2, 6);
         ui_draw_battery(fb, cx - 30, by, 60, 28, e->soc);
         snprintf(t, sizeof(t), "%d %%", e->soc);
-        gfx_text(fb, &gfx_font_sans_bold_28, cx + 40, by + 24, t, GFX_BLACK);
+        gfx_text(fb, UI_FONT(UI_F_BOLD_28), cx + 40, by + 24, t, GFX_BLACK);
         int bd = flow_dir(e->bat_w);
         const char *state = lang_str(lang, bd > 0 ? LS_EN_CHARGING : bd < 0 ? LS_EN_DISCHARGING : LS_EN_BATTERY);
         unit = power_text(lang, e->bat_w, t, sizeof(t));
         snprintf(v, sizeof(v), "%s %s", t, unit);
         int rx = cx - 40;
-        gfx_text(fb, &gfx_font_sans_16, rx - gfx_text_width(&gfx_font_sans_16, state), by + 10, state, GFX_BLACK);
-        gfx_text(fb, &gfx_font_sans_bold_20, rx - gfx_text_width(&gfx_font_sans_bold_20, v), by + 32, v, GFX_BLACK);
+        gfx_text(fb, UI_FONT(UI_F_SANS_16), rx - gfx_text_width(UI_FONT(UI_F_SANS_16), state), by + 10, state, GFX_BLACK);
+        gfx_text(fb, UI_FONT(UI_F_BOLD_20), rx - gfx_text_width(UI_FONT(UI_F_BOLD_20), v), by + 32, v, GFX_BLACK);
     }
     /* today's totals, two by two, or in a row with a battery */
     gfx_hline(fb, a.x + 8, totals_y - 6, a.w - 16, GFX_BLACK);
