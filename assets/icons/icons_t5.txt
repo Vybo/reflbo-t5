@@ -1,4 +1,47 @@
-# The T5's 4-bit icons (T5 spec §6.3), rendered into components/gfx/icons/gfx_icons_t5.c by tools/gen_icons.sh.
-# T2 brings the test pattern's; T3 adds the T5's set at its sizes (§7.2).
+# The T5's 4-bit icons (T5 spec §6.3), rendered into components/gfx/icons/gfx_icons_t5.c by tools/gen_icons.sh:
+# the T5's set at its sizes (T5 spec §7.2), one line for each of icons.txt's names.
 # C name          Material Icons name, or wi:<name> from Weather Icons   sizes (px)
-t5_thermometer    device_thermostat     40
+t5_thermometer              device_thermostat            26 40 80
+t5_drop                     water_drop                   26 40 80
+t5_dew                      dew_point                    26 40 80
+t5_bolt                     bolt                         26 40 80
+t5_stale                    sync_problem                 26 40 80
+t5_clock                    schedule                     26 40 80
+t5_calendar                 calendar_today               26 40 80
+t5_person                   person                       26 40 80
+t5_celebration              celebration                  26 40 80
+t5_cloud                    cloud                        26 40 80
+t5_web                      language                     26 40 80
+t5_sync                     sync                         26 40 80
+t5_sync_failed              cloud_off                    26 40 80
+t5_wifi                     wifi                         26 40 80
+t5_wifi_off                 wifi_off                     26 40 80
+t5_air                      air                          26 40 80
+t5_particles                blur_on                      26 40 80
+t5_uv                       light_mode                   26 40 80
+t5_pollen                   local_florist                26 40 80
+t5_forecast                 wb_sunny                     26 40 80
+t5_solar                    solar_power                  26 40 80
+t5_house                    house                        26 40 80
+t5_grid                     electric_meter               26 40 80
+t5_self_use                 energy_savings_leaf          26 40 80
+t5_wx_clear_day             wi:day-sunny                 26 40 80
+t5_wx_clear_night           wi:night-clear               26 40 80
+t5_wx_mainly_day            wi:day-sunny-overcast        26 40 80
+t5_wx_mainly_night          wi:night-alt-partly-cloudy   26 40 80
+t5_wx_partly_day            wi:day-cloudy                26 40 80
+t5_wx_partly_night          wi:night-alt-cloudy          26 40 80
+t5_wx_overcast              wi:cloudy                    26 40 80
+t5_wx_fog                   wi:fog                       26 40 80
+t5_wx_drizzle               wi:sprinkle                  26 40 80
+t5_wx_rain                  wi:rain                      26 40 80
+t5_wx_freezing              wi:sleet                     26 40 80
+t5_wx_snow                  wi:snow                      26 40 80
+t5_wx_showers_day           wi:day-showers               26 40 80
+t5_wx_showers_night         wi:night-alt-showers         26 40 80
+t5_wx_snow_showers_day      wi:day-snow                  26 40 80
+t5_wx_snow_showers_night    wi:night-alt-snow            26 40 80
+t5_wx_thunder               wi:thunderstorm              26 40 80
+t5_wx_unknown               wi:na                        26 40 80
+t5_sunrise                  wi:sunrise                   26 40 80
+t5_sunset                   wi:sunset                    26 40 80
