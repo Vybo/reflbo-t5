@@ -691,8 +691,10 @@ async function placePage() {
 
 const ZOOMS = Array.from({ length: 21 }, (_, i) => 4 + i / 4); /* 4 to 9 in quarters (spec §14.3) */
 const RANGES = [10, 15, 20, 25, 30, 40, 50, 60, 75, 100];
-/* The ground the Radar layout's 400 px span at a zoom and latitude, in web Mercator (spec §11.1). */
-const acrossKm = (zoom, lat) => Math.round(400 * 156543.03 * Math.cos((lat || 0) * Math.PI / 180) / 2 ** zoom / 1000);
+/* The ground the Radar layout's map spans at a zoom and latitude, in web Mercator (spec §11.1): its width on this
+ * board's panel, drawn at the zoom plus the board's step (T5 spec §7.1, GET /api/layouts' radar). */
+const acrossKm = (zoom, lat) => Math.round(catalogue.radar.w * 156543.03 * Math.cos((lat || 0) * Math.PI / 180) /
+  2 ** (zoom + catalogue.radar.zoom_q / 4) / 1000);
 
 /* A radar's centre (spec §11.1): the location, which it then follows, or a place of its own. */
 function centreEditor(group, settings, own, note) {

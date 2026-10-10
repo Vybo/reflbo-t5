@@ -1058,3 +1058,16 @@ test('a preset\'s slot tags sit by the T5\'s panel', async () => {
   const [img] = screens(main);
   assert.equal(img.style.aspectRatio, '960 / 540');
 });
+
+test('a radar zoom gives the kilometres the board\'s map spans', async () => {
+  const settings = { ...RADAR_SETTINGS, location: { name: 'Brno', lat: 49.1951, lon: 16.6068 },
+                     radar: { weather: { zoom: 6.5 }, flights: {} } };
+  const across = async (catalogue) => {
+    const { ctx, main } = await load({ ...radarDevice(settings, [], []), 'GET /api/layouts': () => reply(200, catalogue) });
+    await ctx.radarPage();
+    const zoom = below(main).find((e) => e.tag === 'select' && e.attrs.name === 'zoom');
+    return text(zoom.children.find((o) => o.value === '6.5'));
+  };
+  assert.equal(await across(CATALOGUE), '6.5: about 452 km across');
+  assert.equal(await across(T5_CATALOGUE), '6.5: about 645 km across'); /* 960 px at zoom 6.5 + 3/4 */
+});
