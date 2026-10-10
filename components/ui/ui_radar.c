@@ -127,7 +127,7 @@ static void loop_dots(gfx_fb_t *fb, gfx_rect_t box, const ui_radar_t *rad)
         if (i == rad->loop_at) {
             gfx_fill_circle(fb, cx, cy, UI_PX(3), GFX_BLACK);
         } else {
-            gfx_circle(fb, cx, cy, UI_PX(2), GFX_BLACK);
+            ui_ring(fb, cx, cy, UI_PX(2), GFX_BLACK);
         }
     }
 }
@@ -183,7 +183,7 @@ static void draw_map(gfx_fb_t *fb, gfx_rect_t r, const ui_radar_t *rad, ui_size_
         int w = gfx_text_width(nf, none) + 4 * PAD, h = nf->line_height + 4 * PAD;
         gfx_rect_t box = { (int16_t)(r.x + (r.w - w) / 2), (int16_t)(r.y + (r.h - h) / 2), (int16_t)w, (int16_t)h };
         gfx_fill_rect(fb, box, GFX_WHITE);
-        gfx_rect(fb, box, GFX_BLACK);
+        ui_frame(fb, box, GFX_BLACK);
         gfx_text(fb, nf, box.x + 2 * PAD, box.y + 2 * PAD + nf->ascent, none, GFX_BLACK);
     }
     fb->clip = saved;

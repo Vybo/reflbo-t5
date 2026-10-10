@@ -362,9 +362,88 @@ static void test_the_t5_energy_layout_keeps_its_values_on_the_panel(void)
     TEST_ASSERT_TRUE(last_ink_row(&fb, 35) >= 400);
 }
 
+/* The cell's rows below the flow's last ink, `r` drawn alone on a frame of the profile's own format. */
+static int flow_bottom_gap(gfx_rect_t r)
+{
+    const ui_profile_t *p = ui_profile();
+    gfx_fb_t fb;
+    gfx_fb_init_fmt(&fb, s_buf4, p->width, p->height, p->format);
+    gfx_clear(&fb, GFX_WHITE);
+    ui_draw_cell(&fb, r, &s_ctx, UI_FIELD_EN_FLOW, UI_STALE_STALE);
+    int last = -1;
+    for (int y = r.y; y < r.y + r.h; y++) {
+        for (int x = r.x; x < r.x + r.w; x++) {
+            if (gfx_get_level(&fb, x, y) < 15) {
+                last = y;
+                break;
+            }
+        }
+    }
+    return r.y + r.h - 1 - last;
+}
+
+/* The flow, diagram and row, with the battery, sits in a T5 cell as it does in the RLCD's, scaled: its margin
+ * below is UI_PX() of the RLCD's (the diagram's and the row's heights scaled, not only their parts). */
+static void test_the_t5_flow_keeps_the_rlcds_margins_scaled(void)
+{
+    static const struct {
+        int16_t w, h;
+    } k_cells[] = { { 199, 139 }, { 199, 80 } }; /* a diagram with the battery, a row */
+    for (size_t i = 0; i < sizeof(k_cells) / sizeof(k_cells[0]); i++) {
+        int rlcd = flow_bottom_gap((gfx_rect_t){ 0, 21, k_cells[i].w, k_cells[i].h });
+        ui_profile_use(&ui_profile_t547);
+        int t5 = flow_bottom_gap((gfx_rect_t){ 0, 35, (int16_t)UI_PX(k_cells[i].w), (int16_t)UI_PX(k_cells[i].h) });
+        int want = UI_PX(rlcd);
+        ui_profile_use(NULL);
+        char msg[64];
+        snprintf(msg, sizeof(msg), "%d×%d: T5 margin %d, the RLCD's %d scaled %d", k_cells[i].w, k_cells[i].h, t5,
+                 rlcd, want);
+        TEST_ASSERT_INT_WITHIN_MESSAGE(4, want, t5, msg);
+    }
+}
+
+/* The Grid's M cell on the T5 (240×252) keeps the battery's charge whole under the diagram (review, T3b). */
+static void test_the_t5_flow_with_a_battery_fits_a_grid_cell(void)
+{
+    ui_profile_use(&ui_profile_t547);
+    TEST_ASSERT_TRUE(flow_bottom_gap((gfx_rect_t){ 0, 35, 240, 252 }) >= UI_PX(4));
+}
+
+/* The longest run of inked pixels (level < 8) along a row with nothing inked right above and below: a line
+ * 1 px thick. */
+static int longest_thin_run(const gfx_fb_t *fb, int y0)
+{
+    int best = 0;
+    for (int y = y0; y < fb->height - 1; y++) {
+        int run = 0;
+        for (int x = 0; x < fb->width; x++) {
+            bool thin = gfx_get_level(fb, x, y) < 8 && gfx_get_level(fb, x, y - 1) >= 8 &&
+                        gfx_get_level(fb, x, y + 1) >= 8;
+            run = thin ? run + 1 : 0;
+            best = run > best ? run : best;
+        }
+    }
+    return best;
+}
+
+/* T3b review: on the T5 nothing 1 px wide reads (owner, board check): the Solar and Energy layouts' lines, the
+ * chart's axis and the radar's box for no frame are 2 px wide. Text never makes a thin run this long. */
+static void test_the_t5_views_draw_no_1_px_lines(void)
+{
+    static const char *k_fixtures[] = { "solar", "energy", "energy_battery", "radar_none" };
+    for (size_t i = 0; i < sizeof(k_fixtures) / sizeof(k_fixtures[0]); i++) {
+        gfx_fb_t fb;
+        render_t5(k_fixtures[i], &fb);
+        TEST_ASSERT_LESS_THAN_INT_MESSAGE(24, longest_thin_run(&fb, 36), k_fixtures[i]);
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
+    RUN_TEST(test_the_t5_flow_keeps_the_rlcds_margins_scaled);
+    RUN_TEST(test_the_t5_views_draw_no_1_px_lines);
+    RUN_TEST(test_the_t5_flow_with_a_battery_fits_a_grid_cell);
     RUN_TEST(test_the_chart_and_the_flow_need_m_or_more);
     RUN_TEST(test_the_flow_is_a_diagram_in_a_tall_cell_and_a_row_in_a_short_one);
     RUN_TEST(test_the_battery_joins_the_flow_where_it_has_room);

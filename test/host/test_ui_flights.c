@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L /* setenv() in fixture_zone() */
 
+#include <math.h>
 #include <string.h>
 
 #include "context_fixtures.h"
@@ -136,9 +137,54 @@ static void test_the_flights_view_spans_the_map_its_range_up_to_the_top(void)
     TEST_ASSERT_TRUE(x > 900 && x < 960);
 }
 
+/* T3b review: on the T5 nothing 1 px wide reads (owner, board check), so the ring that marks the panel's aircraft
+ * and the line over the panel are 2 px wide. */
+static uint8_t s_buf4[960 * 540 / 2];
+
+static void draw_t5_flights(gfx_fb_t *fb)
+{
+    ui_profile_use(&ui_profile_t547);
+    s_ctx.radar = fixture_flights(50, fixture_aircraft(50), fixture_route(), s_ctx.now);
+    gfx_fb_init_fmt(fb, s_buf4, 960, 540, GFX_FMT_4BPP);
+    gfx_clear(fb, GFX_WHITE);
+    ui_draw_flights_view(fb, ui_split_area(), &s_ctx);
+}
+
+static void test_the_t5_rings_the_nearest_aircraft_2_px_wide(void)
+{
+    gfx_fb_t fb;
+    draw_t5_flights(&fb);
+    gfx_rect_t m = ui_flights_map_rect(ui_split_area());
+    map_view_t v;
+    ui_flights_view(s_ctx.radar->fl_lat_e4, s_ctx.radar->fl_lon_e4, 50, m, &v);
+    double px, py;
+    map_project(&v, s_ctx.radar->aircraft->ac[0].lat, s_ctx.radar->aircraft->ac[0].lon, &px, &py);
+    int x = m.x + (int)lround(px), y = m.y + (int)lround(py), r = UI_PX(10);
+    static const int k_dirs[4][2] = { { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } };
+    for (int i = 0; i < 4; i++) {
+        int dx = k_dirs[i][0], dy = k_dirs[i][1];
+        TEST_ASSERT_TRUE_MESSAGE(gfx_get_level(&fb, x + dx * r, y + dy * r) < 8, "the ring's inner pixel");
+        TEST_ASSERT_TRUE_MESSAGE(gfx_get_level(&fb, x + dx * (r + 1), y + dy * (r + 1)) < 8, "the ring's outer pixel");
+    }
+}
+
+static void test_the_t5_line_over_the_flights_panel_is_2_px_wide(void)
+{
+    gfx_fb_t fb;
+    draw_t5_flights(&fb);
+    gfx_rect_t m = ui_flights_map_rect(ui_split_area());
+    int y = m.y + m.h; /* the row between the map and the panel */
+    for (int x = 0; x < 960; x += 10) {
+        TEST_ASSERT_TRUE(gfx_get_level(&fb, x, y) < 8);
+        TEST_ASSERT_TRUE(gfx_get_level(&fb, x, y + 1) < 8);
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
+    RUN_TEST(test_the_t5_rings_the_nearest_aircraft_2_px_wide);
+    RUN_TEST(test_the_t5_line_over_the_flights_panel_is_2_px_wide);
     RUN_TEST(test_the_nearest_aircraft_with_its_route);
     RUN_TEST(test_flight_levels_from_ten_thousand_feet);
     RUN_TEST(test_an_aircraft_without_a_callsign_type_or_speed);

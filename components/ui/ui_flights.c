@@ -181,8 +181,8 @@ static void draw_aircraft(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, co
         arrow(fb, x[i], y[i], list->ac[i].track);
     }
     if (list->count > 0) {
-        gfx_circle(fb, x[0], y[0], NEAREST_R + 1, GFX_WHITE);
-        gfx_circle(fb, x[0], y[0], NEAREST_R, GFX_BLACK);
+        gfx_circle(fb, x[0], y[0], NEAREST_R + UI_PX(1), GFX_WHITE); /* the halo, outside the ring */
+        ui_ring(fb, x[0], y[0], NEAREST_R, GFX_BLACK);
     }
 }
 
@@ -228,7 +228,7 @@ void ui_draw_flights_view(gfx_fb_t *fb, gfx_rect_t r, const ui_context_t *ctx)
     fb->clip = saved;
 
     gfx_rect_t panel = { r.x, (int16_t)(r.y + r.h - PANEL_H), r.w, PANEL_H };
-    gfx_hline(fb, r.x, panel.y - 1, r.w, GFX_BLACK);
+    ui_hline(fb, r.x, panel.y - 1, r.w, GFX_BLACK);
     char line1[96], line2[96], credit[32], fit[96];
     ui_flights_panel_text(ctx, line1, line2, credit, sizeof(line1));
     const gfx_font_t *f1 = UI_FONT(UI_F_BOLD_16), *f2 = UI_FONT(UI_F_SANS_12);

@@ -48,5 +48,11 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
 void ui_split_two_lines(const gfx_font_t *font, const char *text, int max_w, char *line1, char *line2, size_t size);
 /* A battery outline w x h with a nub, filled to `pct` (no fill if pct < 0). */
 void ui_draw_battery(gfx_fb_t *fb, int x, int y, int w, int h, int pct);
+/* Lines UI_PX(1) wide: 1 px on the RLCD, 2 on the T5, where nothing 1 px wide reads (T5 spec §6.4). A horizontal
+ * line grows down from y, a vertical one right from x, a frame inwards and a ring outwards from r. */
+void ui_hline(gfx_fb_t *fb, int x, int y, int w, gfx_color_t c);
+void ui_vline(gfx_fb_t *fb, int x, int y, int h, gfx_color_t c);
+void ui_frame(gfx_fb_t *fb, gfx_rect_t r, gfx_color_t c);
+void ui_ring(gfx_fb_t *fb, int cx, int cy, int r, gfx_color_t c);
 /* The Moon's disc in a thin outline, its shadow inked. */
 void ui_draw_moon(gfx_fb_t *fb, int cx, int cy, int r, double age);

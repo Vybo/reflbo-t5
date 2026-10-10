@@ -1017,14 +1017,44 @@ void ui_widget_draw(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_value_t
 void ui_draw_battery(gfx_fb_t *fb, int x, int y, int w, int h, int pct)
 {
     int nub = w / 10 < 2 ? 2 : w / 10;
-    gfx_rect(fb, (gfx_rect_t){ (int16_t)x, (int16_t)y, (int16_t)(w - nub), (int16_t)h }, GFX_BLACK);
+    int in = UI_PX(1) + 1; /* the charge a pixel clear of the outline */
+    ui_frame(fb, (gfx_rect_t){ (int16_t)x, (int16_t)y, (int16_t)(w - nub), (int16_t)h }, GFX_BLACK);
     gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(x + w - nub), (int16_t)(y + h / 4), (int16_t)nub, (int16_t)(h - h / 2) },
                   GFX_BLACK);
     if (pct >= 0) {
-        int inner = w - nub - 4;
+        int inner = w - nub - 2 * in;
         int fill = (pct > 100 ? 100 : pct) * inner / 100;
-        gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(x + 2), (int16_t)(y + 2), (int16_t)fill, (int16_t)(h - 4) },
+        gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(x + in), (int16_t)(y + in), (int16_t)fill, (int16_t)(h - 2 * in) },
                       GFX_BLACK);
+    }
+}
+
+void ui_hline(gfx_fb_t *fb, int x, int y, int w, gfx_color_t c)
+{
+    for (int k = 0; k < UI_PX(1); k++) {
+        gfx_hline(fb, x, y + k, w, c);
+    }
+}
+
+void ui_vline(gfx_fb_t *fb, int x, int y, int h, gfx_color_t c)
+{
+    for (int k = 0; k < UI_PX(1); k++) {
+        gfx_vline(fb, x + k, y, h, c);
+    }
+}
+
+void ui_frame(gfx_fb_t *fb, gfx_rect_t r, gfx_color_t c)
+{
+    for (int k = 0; k < UI_PX(1) && 2 * k < r.w && 2 * k < r.h; k++) {
+        gfx_rect(fb, (gfx_rect_t){ (int16_t)(r.x + k), (int16_t)(r.y + k), (int16_t)(r.w - 2 * k), (int16_t)(r.h - 2 * k) },
+                 c);
+    }
+}
+
+void ui_ring(gfx_fb_t *fb, int cx, int cy, int r, gfx_color_t c)
+{
+    for (int k = 0; k < UI_PX(1); k++) {
+        gfx_circle(fb, cx, cy, r + k, c);
     }
 }
 

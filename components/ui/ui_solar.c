@@ -250,14 +250,14 @@ bool ui_resolve_solar(const ui_context_t *ctx, ui_field_id_t field, ui_value_t *
 static void dotted_hline(gfx_fb_t *fb, int x, int y, int w)
 {
     for (int i = 0; i < w; i += UI_PX(3)) {
-        gfx_pixel(fb, x + i, y, GFX_BLACK);
+        gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(x + i), (int16_t)y, (int16_t)UI_PX(1), (int16_t)UI_PX(1) }, GFX_BLACK);
     }
 }
 
 static void dashed_vline(gfx_fb_t *fb, int x, int y, int h)
 {
     for (int i = 0; i < h; i += UI_PX(4)) {
-        gfx_vline(fb, x, y + i, h - i < UI_PX(2) ? h - i : UI_PX(2), GFX_BLACK);
+        ui_vline(fb, x, y + i, h - i < UI_PX(2) ? h - i : UI_PX(2), GFX_BLACK);
     }
 }
 
@@ -387,7 +387,7 @@ static void draw_chart(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const la
             prev_x = cx, prev_y = cy;
         }
     }
-    gfx_hline(fb, x0, bottom, pitch * n, GFX_BLACK);
+    ui_hline(fb, x0, bottom, pitch * n, GFX_BLACK);
     if (step >= first && step <= last) { /* now: a dashed line and a mark above it, the mark inside the plot */
         int x = x0 + ((step - first) * 15 + v->minute % 15) * pitch / (per * 15);
         int mark = x < left + UI_PX(4) ? left + UI_PX(4) : x > left + plot_w - UI_PX(4) ? left + plot_w - UI_PX(4) : x;
@@ -400,7 +400,7 @@ static void draw_chart(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const la
                 continue;
             }
             int x = x0 + (h * 4 - first) * pitch / per;
-            gfx_vline(fb, x, bottom, UI_PX(3), GFX_BLACK);
+            ui_vline(fb, x, bottom, UI_PX(3), GFX_BLACK);
             char t[12];
             snprintf(t, sizeof(t), "%d", h);
             gfx_text(fb, UI_FONT(UI_F_SANS_12), x - gfx_text_width(UI_FONT(UI_F_SANS_12), t) / 2, bottom + UI_PX(13), t,
@@ -534,7 +534,7 @@ static void flow_diagram(gfx_fb_t *fb, gfx_rect_t r, int top, const ui_solar_t *
     int body = r.y + r.h - top;
     bool bat = s->battery && e->soc >= 0 && body >= UI_PX(100);
     int cx = r.x + r.w / 2;
-    int py = top + (body - (bat ? 100 : 78)) / 2;
+    int py = top + (body - UI_PX(bat ? 100 : 78)) / 2; /* the diagram's height, scaled like its parts */
     int i24 = ui_icon_px(24);
     int jy = py + i24 + UI_PX(20);
     int gx = r.x + UI_PX(22), hx = r.x + r.w - UI_PX(22);
@@ -569,7 +569,7 @@ static void flow_row(gfx_fb_t *fb, gfx_rect_t r, int top, const ui_solar_t *s, c
     bool bat = s->battery && e->soc >= 0 && r.w >= UI_PX(180);
     int n = bat ? 4 : 3, col = (r.w - UI_PX(8)) / n;
     int i24 = ui_icon_px(24);
-    int iy = top + (r.y + r.h - top - i24 - 20) / 2;
+    int iy = top + (r.y + r.h - top - i24 - UI_PX(20)) / 2;
     const gfx_bitmap_t *icons[3] = { ui_icon(UI_ICON_solar, UI_IC24), ui_icon(UI_ICON_house, UI_IC24),
                                      ui_icon(UI_ICON_grid, UI_IC24) };
     int32_t power[3] = { e->pv_w, e->load_w, e->grid_w };
@@ -757,13 +757,13 @@ bool ui_draw_solar_layout(gfx_fb_t *fb, gfx_rect_t a, const ui_context_t *ctx)
     stat_kwh(lang, solar_left_wh(f, today, chart.quarter, seconds), col, right, lang_str(lang, LS_PV_LEFT), u,
              sizeof(u));
     stat_row(fb, col, right, a.y + UI_PX(70), lang_str(lang, LS_PV_LEFT), u);
-    gfx_hline(fb, a.x + UI_PX(8), a.y + UI_PX(82), a.w - UI_PX(16), GFX_BLACK);
+    ui_hline(fb, a.x + UI_PX(8), a.y + UI_PX(82), a.w - UI_PX(16), GFX_BLACK);
     /* the day's chart */
     draw_chart(fb, (gfx_rect_t){ (int16_t)(a.x + UI_PX(2)), (int16_t)(a.y + UI_PX(88)), (int16_t)(a.w - UI_PX(6)), (int16_t)UI_PX(152) }, &chart, lang,
                true);
     /* tomorrow and the day after */
-    gfx_hline(fb, a.x + UI_PX(8), a.y + UI_PX(245), a.w - UI_PX(16), GFX_BLACK);
-    gfx_vline(fb, a.x + a.w / 2, a.y + UI_PX(251), UI_PX(22), GFX_BLACK);
+    ui_hline(fb, a.x + UI_PX(8), a.y + UI_PX(245), a.w - UI_PX(16), GFX_BLACK);
+    ui_vline(fb, a.x + a.w / 2, a.y + UI_PX(251), UI_PX(22), GFX_BLACK);
     for (int d = 1; d <= 2; d++) {
         gfx_rect_t c = { (int16_t)(a.x + (d - 1) * a.w / 2), (int16_t)(a.y + UI_PX(247)), (int16_t)(a.w / 2), (int16_t)UI_PX(32) };
         day_total(fb, c, ctx, lang->weekdays_short[(ctx->local.tm_wday + d) % 7], sky_on(ctx, today + d),
@@ -860,7 +860,7 @@ bool ui_draw_energy_layout(gfx_fb_t *fb, gfx_rect_t a, const ui_context_t *ctx)
         gfx_text(fb, UI_FONT(UI_F_BOLD_20), rx - gfx_text_width(UI_FONT(UI_F_BOLD_20), v), by + UI_PX(32), v, GFX_BLACK);
     }
     /* today's totals, two by two, or in a row with a battery */
-    gfx_hline(fb, a.x + UI_PX(8), totals_y - UI_PX(6), a.w - UI_PX(16), GFX_BLACK);
+    ui_hline(fb, a.x + UI_PX(8), totals_y - UI_PX(6), a.w - UI_PX(16), GFX_BLACK);
     static const ui_field_id_t k_totals[4] = { UI_FIELD_EN_YIELD, UI_FIELD_EN_EXPORT, UI_FIELD_EN_IMPORT,
                                                UI_FIELD_EN_SELF };
     static const lang_str_t k_labels[4] = { LS_EN_PRODUCED, LS_EN_EXPORTED, LS_EN_IMPORTED, LS_EN_SELF };

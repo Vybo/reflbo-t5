@@ -60,6 +60,10 @@ static esp_err_t panel_up(void)
     ESP_RETURN_ON_FALSE(epaper_internal_ram_ok(free_internal, largest), ESP_ERR_NO_MEM, TAG,
                         "internal RAM short for epdiy: %u free, %u largest; update skipped", (unsigned)free_internal,
                         (unsigned)largest);
+    size_t largest_psram = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+    ESP_RETURN_ON_FALSE(epaper_lut_ram_ok(largest, largest_psram), ESP_ERR_NO_MEM, TAG,
+                        "no block for epdiy's LUT: %u internal, %u PSRAM; update skipped", (unsigned)largest,
+                        (unsigned)largest_psram);
     /* epd_init() sets the board each time and warns from the second on; routine wakes print warnings. P5's
      * LUT fallback logs as "epd" and stays. */
     esp_log_level_set("epdiy", ESP_LOG_ERROR);
