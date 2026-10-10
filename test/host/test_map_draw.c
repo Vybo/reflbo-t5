@@ -101,7 +101,7 @@ static void test_lines_stay_inside_their_area(void)
     map_view_t v;
     map_view_init(&v, 491951, 166068, 6.5, 200, 140);
     gfx_rect_t area = { 100, 80, 200, 140 };
-    map_style_t s = { .halo = false };
+    map_style_t s = { .halo = false, .font = &gfx_font_sans_12 };
     map_draw_lines(&s_fb, area, &v, &s_map, &s);
     TEST_ASSERT_TRUE(ink_in(area) > 50);
     int outside = ink_in((gfx_rect_t){ 0, 0, 400, 80 }) + ink_in((gfx_rect_t){ 0, 220, 400, 80 }) +
@@ -114,7 +114,7 @@ static void test_the_border_lands_where_it_is_projected(void)
     map_view_t v;
     map_view_init(&v, 487967, 166368, 9.0, 400, 280); /* Mikulov, on the Czech-Austrian border */
     gfx_rect_t area = { 0, 20, 400, 280 };
-    map_style_t s = { .halo = true };
+    map_style_t s = { .halo = true, .font = &gfx_font_sans_12 };
     map_draw_lines(&s_fb, area, &v, &s_map, &s);
     double x, y;
     map_project(&v, 48.7783, 16.6431, &x, &y); /* a vertex of the border south of Mikulov, from map.bin */
@@ -129,7 +129,8 @@ static void test_home_is_a_ring_with_a_dot_and_is_reserved(void)
     gfx_rect_t area = { 0, 20, 400, 280 };
     map_labels_t l;
     map_labels_init(&l);
-    map_draw_home(&s_fb, area, &v, 491951, 166068, &l);
+    map_style_t s = { .font = &gfx_font_sans_12 };
+    map_draw_home(&s_fb, area, &v, 491951, 166068, &s, &l);
     TEST_ASSERT_TRUE(gfx_get_pixel(&s_fb, 200, 160));  /* the dot at the centre */
     TEST_ASSERT_FALSE(gfx_get_pixel(&s_fb, 202, 160)); /* white inside the ring */
     TEST_ASSERT_TRUE(gfx_get_pixel(&s_fb, 205, 160));  /* the ring, 5 px out */
@@ -144,7 +145,8 @@ static void test_rings_mark_the_range_and_its_half(void)
     gfx_rect_t area = { 0, 21, 400, 238 };
     map_labels_t l;
     map_labels_init(&l);
-    map_draw_rings(&s_fb, area, &v, 50000.0, &l);
+    map_style_t s = { .font = &gfx_font_sans_12 };
+    map_draw_rings(&s_fb, area, &v, 50000.0, &s, &l);
     int cx = 200, cy = 21 + 119;
     TEST_ASSERT_TRUE(gfx_get_pixel(&s_fb, cx, cy - 119 + 1) || gfx_get_pixel(&s_fb, cx, cy - 119)); /* 50 km */
     TEST_ASSERT_TRUE(gfx_get_pixel(&s_fb, cx, cy - 60) || gfx_get_pixel(&s_fb, cx, cy - 59));   /* 25 km */
@@ -159,13 +161,75 @@ static void test_places_are_labelled_without_overlaps(void)
     gfx_rect_t area = { 0, 21, 400, 238 };
     map_labels_t l;
     map_labels_init(&l);
-    map_style_t s = { .airports = true, .max_towns = 12 };
+    map_style_t s = { .airports = true, .max_towns = 12, .font = &gfx_font_sans_12 };
     map_draw_places(&s_fb, area, &v, &s_map, &s, &l);
     TEST_ASSERT_TRUE(l.count >= 2); /* Brno and its airport, BRQ, at least */
     for (int i = 0; i < l.count; i++) {
         TEST_ASSERT_TRUE(l.r[i].x >= area.x && l.r[i].x + l.r[i].w <= area.x + area.w);
         for (int j = i + 1; j < l.count; j++) {
             TEST_ASSERT_FALSE(overlap(l.r[i], l.r[j]));
+        }
+    }
+}
+
+/* T3b: the T5's marks at its scale, its labels in the style's font, its borders in the style's gray. */
+static uint8_t s_buf4[400 * 300 / 2];
+
+static void test_home_scales_with_the_style(void)
+{
+    map_view_t v;
+    map_view_init(&v, 491951, 166068, 6.5, 400, 280);
+    gfx_rect_t area = { 0, 20, 400, 280 };
+    map_labels_t l;
+    map_labels_init(&l);
+    map_style_t s = { .font = &gfx_font_sans_12, .px_num = 17, .px_den = 10 };
+    map_draw_home(&s_fb, area, &v, 491951, 166068, &s, &l);
+    TEST_ASSERT_EQUAL_INT(1, l.count);
+    TEST_ASSERT_EQUAL_INT(2 * 9 + 3, l.r[0].w); /* HOME_R 5 → 9 */
+    TEST_ASSERT_TRUE(gfx_get_pixel(&s_fb, 200 + 9, 160)); /* the ring, 9 px out */
+    TEST_ASSERT_FALSE(gfx_get_pixel(&s_fb, 200 + 5, 160));
+}
+
+static void test_towns_and_labels_follow_the_style(void)
+{
+    map_view_t v;
+    double z = map_zoom_for_range(491951, 100000.0, 119);
+    map_view_init(&v, 491951, 166068, z, 400, 238);
+    gfx_rect_t area = { 0, 21, 400, 238 };
+    map_labels_t l;
+    map_labels_init(&l);
+    map_style_t s = { .max_towns = 12, .font = &gfx_font_sans_16, .px_num = 17, .px_den = 10 };
+    map_draw_places(&s_fb, area, &v, &s_map, &s, &l);
+    TEST_ASSERT_TRUE(l.count >= 2);
+    bool dot = false, label = false;
+    for (int i = 0; i < l.count; i++) {
+        dot |= l.r[i].w == 9 && l.r[i].h == 9;                  /* a town's 5 px mark at 1.7 */
+        label |= l.r[i].h == gfx_font_sans_16.line_height + 2; /* a label in the style's font */
+    }
+    TEST_ASSERT_TRUE(dot);
+    TEST_ASSERT_TRUE(label);
+}
+
+static void test_lines_take_the_styles_colour(void)
+{
+    gfx_fb_t fb;
+    gfx_fb_init_fmt(&fb, s_buf4, 400, 300, GFX_FMT_4BPP);
+    gfx_clear(&fb, GFX_WHITE);
+    map_view_t v;
+    map_view_init(&v, 487967, 166368, 9.0, 400, 280); /* Mikulov, on the Czech-Austrian border */
+    gfx_rect_t area = { 0, 20, 400, 280 };
+    map_style_t s = { .halo = false, .font = &gfx_font_sans_12, .line = GFX_GRAY(6) };
+    map_draw_lines(&fb, area, &v, &s_map, &s);
+    int levels[16] = { 0 };
+    for (int y = 0; y < 300; y++) {
+        for (int x = 0; x < 400; x++) {
+            levels[gfx_get_level(&fb, x, y)]++;
+        }
+    }
+    TEST_ASSERT_TRUE(levels[6] > 50);
+    for (int k = 0; k < 15; k++) {
+        if (k != 6) {
+            TEST_ASSERT_EQUAL_INT_MESSAGE(0, levels[k], "only the line's gray and white");
         }
     }
 }
@@ -182,6 +246,9 @@ int main(void)
     RUN_TEST(test_home_is_a_ring_with_a_dot_and_is_reserved);
     RUN_TEST(test_rings_mark_the_range_and_its_half);
     RUN_TEST(test_places_are_labelled_without_overlaps);
+    RUN_TEST(test_home_scales_with_the_style);
+    RUN_TEST(test_towns_and_labels_follow_the_style);
+    RUN_TEST(test_lines_take_the_styles_colour);
     int failures = UNITY_END();
     free(s_blob);
     return failures;

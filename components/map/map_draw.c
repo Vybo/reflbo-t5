@@ -3,10 +3,25 @@
 #include <math.h>
 #include <stdio.h>
 
-#include "gfx_fonts.h"
 
 #define TOWNS_TRIED 300 /* places looked at per map, so a dense view stays quick */
 #define HOME_R 5
+
+/* A mark's n pixels at the style's scale, rounded half away from zero. */
+static int px(const map_style_t *s, int n)
+{
+    if (s->px_den == 0 || s->px_num == s->px_den) {
+        return n;
+    }
+    int num = n * s->px_num;
+    return num >= 0 ? (num + s->px_den / 2) / s->px_den : -((-num + s->px_den / 2) / s->px_den);
+}
+
+/* A square or rectangle of w × h centred on (x, y), as the RLCD's marks were (x − w/2). */
+static gfx_rect_t centred_rect(int x, int y, int w, int h)
+{
+    return (gfx_rect_t){ (int16_t)(x - w / 2), (int16_t)(y - h / 2), (int16_t)w, (int16_t)h };
+}
 #define PI_F 3.14159265f
 
 /* The view's projection in single precision, with its constants worked out once: the S3's FPU
@@ -136,6 +151,7 @@ typedef struct {
     fast_view_t fast;
     bool halo;
     bool white; /* this pass draws the halo */
+    gfx_color_t line;
 } lines_ctx_t;
 
 static void on_segment(void *arg, map_line_kind_t kind, double lat0, double lon0, double lat1, double lon1)
@@ -156,7 +172,7 @@ static void on_segment(void *arg, map_line_kind_t kind, double lat0, double lon0
             gfx_line(c->fb, x0 + k_cross[i][0], y0 + k_cross[i][1], x1 + k_cross[i][0], y1 + k_cross[i][1], GFX_WHITE);
         }
     } else {
-        gfx_line(c->fb, x0, y0, x1, y1, GFX_BLACK);
+        gfx_line(c->fb, x0, y0, x1, y1, c->line);
     }
 }
 
@@ -166,7 +182,8 @@ void map_draw_lines(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, const ma
     gfx_set_clip(fb, gfx_rect_intersect(saved, area));
     map_bounds_t b;
     map_view_bounds(v, &b);
-    lines_ctx_t c = { .fb = fb, .area = area, .fast = fast_view(v), .halo = s->halo };
+    lines_ctx_t c = { .fb = fb, .area = area, .fast = fast_view(v), .halo = s->halo,
+                      .line = s->line ? s->line : GFX_BLACK };
     if (s->halo) { /* every halo first, then every line, so no halo cuts a line already drawn */
         c.white = true;
         map_data_segments(d, &b, on_segment, &c);
@@ -181,6 +198,7 @@ typedef struct {
     gfx_rect_t area;
     fast_view_t fast;
     map_labels_t *l;
+    const map_style_t *s;
     int placed, tried, max;
 } places_ctx_t;
 
@@ -190,19 +208,19 @@ static bool place(places_ctx_t *c, double lat, double lon, const char *text, boo
     float fx, fy;
     fast_project(&c->fast, lat, lon, &fx, &fy);
     int x = c->area.x + (int)lroundf(fx), y = c->area.y + (int)lroundf(fy);
-    gfx_rect_t mark = airport ? (gfx_rect_t){ (int16_t)(x - 4), (int16_t)(y - 2), 9, 4 }
-                              : (gfx_rect_t){ (int16_t)(x - 2), (int16_t)(y - 2), 5, 5 };
+    const map_style_t *s = c->s;
+    gfx_rect_t mark = airport ? centred_rect(x, y, px(s, 9), px(s, 4)) : centred_rect(x, y, px(s, 5), px(s, 5));
     if (!inside(mark, c->area) || !is_free(c->l, mark)) {
         return false;
     }
-    if (!map_label(c->fb, c->area, c->l, &gfx_font_sans_12, x, y, mark.w / 2 + 2, text)) {
+    if (!map_label(c->fb, c->area, c->l, s->font, x, y, mark.w / 2 + px(s, 2), text)) {
         return false;
     }
     gfx_fill_rect(c->fb, mark, GFX_WHITE); /* the halo */
     if (airport) {
-        gfx_fill_rect(c->fb, (gfx_rect_t){ (int16_t)(x - 3), (int16_t)(y - 1), 7, 2 }, GFX_BLACK); /* a runway */
+        gfx_fill_rect(c->fb, centred_rect(x, y, px(s, 7), px(s, 2)), GFX_BLACK); /* a runway */
     } else {
-        gfx_fill_rect(c->fb, (gfx_rect_t){ (int16_t)(x - 1), (int16_t)(y - 1), 3, 3 }, GFX_BLACK);
+        gfx_fill_rect(c->fb, centred_rect(x, y, px(s, 3), px(s, 3)), GFX_BLACK);
     }
     map_labels_reserve(c->l, mark);
     return true;
@@ -233,7 +251,7 @@ void map_draw_places(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, const m
     gfx_set_clip(fb, gfx_rect_intersect(saved, area));
     map_bounds_t b;
     map_view_bounds(v, &b);
-    places_ctx_t c = { .fb = fb, .area = area, .fast = fast_view(v), .l = l,
+    places_ctx_t c = { .fb = fb, .area = area, .fast = fast_view(v), .l = l, .s = s,
                        .max = s->max_towns > 0 ? s->max_towns : 8 };
     if (s->airports) {
         map_data_airports(d, &b, on_airport, &c);
@@ -244,22 +262,24 @@ void map_draw_places(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, const m
 }
 
 void map_draw_home(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, int32_t lat_e4, int32_t lon_e4,
-                   map_labels_t *l)
+                   const map_style_t *s, map_labels_t *l)
 {
+    int r = px(s, HOME_R);
     double fx, fy;
     map_project(v, lat_e4 / 1e4, lon_e4 / 1e4, &fx, &fy);
     int x = area.x + (int)lround(fx), y = area.y + (int)lround(fy);
     gfx_rect_t saved = fb->clip;
     gfx_set_clip(fb, gfx_rect_intersect(saved, area));
-    gfx_fill_circle(fb, x, y, HOME_R + 1, GFX_WHITE);
-    gfx_circle(fb, x, y, HOME_R, GFX_BLACK);
-    gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(x - 1), (int16_t)(y - 1), 3, 3 }, GFX_BLACK);
+    gfx_fill_circle(fb, x, y, r + 1, GFX_WHITE);
+    gfx_circle(fb, x, y, r, GFX_BLACK);
+    gfx_fill_rect(fb, centred_rect(x, y, px(s, 3), px(s, 3)), GFX_BLACK);
     fb->clip = saved;
-    map_labels_reserve(l, (gfx_rect_t){ (int16_t)(x - HOME_R - 1), (int16_t)(y - HOME_R - 1), 2 * HOME_R + 3,
-                                        2 * HOME_R + 3 });
+    map_labels_reserve(l, (gfx_rect_t){ (int16_t)(x - r - 1), (int16_t)(y - r - 1), (int16_t)(2 * r + 3),
+                                        (int16_t)(2 * r + 3) });
 }
 
-void map_draw_rings(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, double range_m, map_labels_t *l)
+void map_draw_rings(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, double range_m, const map_style_t *s,
+                    map_labels_t *l)
 {
     gfx_rect_t saved = fb->clip;
     gfx_set_clip(fb, gfx_rect_intersect(saved, area));
@@ -272,7 +292,7 @@ void map_draw_rings(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, double r
         char text[12];
         snprintf(text, sizeof(text), "%d km", (int)lround(metres / 1000));
         int lx = cx + (int)lround(r * 0.7071), ly = cy - (int)lround(r * 0.7071);
-        map_label(fb, area, l, &gfx_font_sans_12, lx, ly, 2, text);
+        map_label(fb, area, l, s->font, lx, ly, px(s, 2), text);
     }
     fb->clip = saved;
 }

@@ -6,6 +6,7 @@
 #include "dashboard_fixtures.h"
 #include "gfx_fonts.h"
 #include "gfx_icons.h"
+#include "map_draw.h"
 #include "ui_layout.h"
 #include "ui_profile.h"
 #include "screen_fixtures.h"
@@ -391,10 +392,28 @@ static void test_the_t5_sun_in_a_narrow_cell_stacks_from_the_top_in_a_larger_fac
     TEST_ASSERT_TRUE(right - left + 1 >= ui_icon_px(24) + ui_px(6) + gfx_text_width(UI_FONT(UI_F_BOLD_16), "06:44") + 8);
 }
 
+/* T3b: the map's style from the profile: the RLCD's font, scale and black lines; the T5's 4-bit font, 1.7, gray. */
+static void test_the_map_style_follows_the_profile(void)
+{
+    map_style_t s = { 0 };
+    ui_map_style(&s);
+    TEST_ASSERT_EQUAL_PTR(UI_FONT(UI_F_SANS_12), s.font);
+    TEST_ASSERT_EQUAL_INT(1, s.px_num);
+    TEST_ASSERT_EQUAL_INT(1, s.px_den);
+    TEST_ASSERT_EQUAL(GFX_BLACK, s.line);
+    ui_profile_use(&ui_profile_t547);
+    ui_map_style(&s);
+    TEST_ASSERT_EQUAL_UINT8(4, s.font->bpp);
+    TEST_ASSERT_EQUAL_INT(17, s.px_num);
+    TEST_ASSERT_EQUAL_INT(10, s.px_den);
+    TEST_ASSERT_TRUE(s.line >= GFX_GRAY(0) && s.line <= GFX_GRAY(8));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_the_rlcd_is_the_default_profile);
+    RUN_TEST(test_the_map_style_follows_the_profile);
     RUN_TEST(test_the_t5_sun_in_a_narrow_cell_stacks_from_the_top_in_a_larger_face);
     RUN_TEST(test_a_frame_matches_the_profile_only_in_size_and_format);
     RUN_TEST(test_the_t5_layouts_fit_the_screen);

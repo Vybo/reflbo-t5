@@ -197,14 +197,18 @@ void ui_draw_flights_view(gfx_fb_t *fb, gfx_rect_t r, const ui_context_t *ctx)
                   area.h);
     gfx_rect_t saved = fb->clip;
     gfx_set_clip(fb, gfx_rect_intersect(saved, area));
-    map_style_t style = { .airports = true, .halo = false, .max_towns = 8 };
+    map_style_t style;
+    ui_map_style(&style);
+    style.airports = true;
+    style.halo = false;
+    style.max_towns = 8;
     if (rad->map != NULL) {
         map_draw_lines(fb, area, &v, rad->map, &style);
     }
     static map_labels_t labels; /* 1.5 KB, off the stack: only the app task draws (spec §3.2) */
     map_labels_init(&labels);
-    map_draw_rings(fb, area, &v, range_m, &labels);
-    map_draw_home(fb, area, &v, rad->home_lat_e4, rad->home_lon_e4, &labels);
+    map_draw_rings(fb, area, &v, range_m, &style, &labels);
+    map_draw_home(fb, area, &v, rad->home_lat_e4, rad->home_lon_e4, &style, &labels);
     if (fresh(ctx, rad)) {
         draw_aircraft(fb, area, &v, rad->aircraft, &labels);
     }

@@ -5,6 +5,7 @@
 #include "adsb.h"
 #include "gfx.h"
 #include "map_data.h"
+#include "map_draw.h"
 #include "radar.h"
 #include "ui_fields.h"
 
@@ -32,6 +33,10 @@ struct ui_radar {
     const adsb_list_t *aircraft;      /* from the last good poll, the nearest first */
     const adsb_route_t *route;        /* the nearest one's route, once known (D27) */
 };
+
+/* A map's style from the board's profile (T3b): its labels' font, its marks' scale and its lines' colour, black
+ * on a 1 bpp panel and a gray from the dark half on the T5's; the views add airports, halo and towns. */
+void ui_map_style(map_style_t *s);
 
 /* The Radar layout's map in `r`: the rain, the frame's time and source at the bottom left, the legend
  * or the loop's progress at the bottom right; "No radar frame yet" before the first. */

@@ -27,6 +27,15 @@ void ui_fill(const char *pattern, const char *value, char *out, size_t size)
     snprintf(out, size, "%.*s%s%s", (int)(at - pattern), pattern, value, at + 2);
 }
 
+void ui_map_style(map_style_t *s)
+{
+    const ui_profile_t *p = ui_profile();
+    s->font = UI_FONT(UI_F_SANS_12);
+    s->px_num = p->px_num;
+    s->px_den = p->px_den;
+    s->line = p->format == GFX_FMT_4BPP ? GFX_GRAY(6) : GFX_BLACK; /* T5 spec §6.4: the map's borders in gray */
+}
+
 /* "20:40 · ČHMÚ", or once the frame is old "17:40 · 3 h ago"; `brief`: the time alone. */
 static void caption_text(const ui_context_t *ctx, const radar_frame_t *f, bool brief, char *out, size_t size)
 {
@@ -114,8 +123,11 @@ static void draw_map(gfx_fb_t *fb, gfx_rect_t r, const ui_radar_t *rad, ui_size_
     if (rad->frame != NULL) {
         radar_render(fb, r, &v, rad->frame);
     }
-    map_style_t style = { .airports = false, .halo = true,
-                          .max_towns = size == UI_SIZE_XL ? 12 : size == UI_SIZE_L ? 5 : 3 };
+    map_style_t style;
+    ui_map_style(&style);
+    style.airports = false;
+    style.halo = true;
+    style.max_towns = size == UI_SIZE_XL ? 12 : size == UI_SIZE_L ? 5 : 3;
     if (rad->map != NULL) {
         map_draw_lines(fb, r, &v, rad->map, &style);
     }
@@ -133,7 +145,7 @@ static void draw_map(gfx_fb_t *fb, gfx_rect_t r, const ui_radar_t *rad, ui_size_
             map_labels_reserve(&labels, right);
         }
     }
-    map_draw_home(fb, r, &v, rad->home_lat_e4, rad->home_lon_e4, &labels);
+    map_draw_home(fb, r, &v, rad->home_lat_e4, rad->home_lon_e4, &style, &labels);
     if (rad->map != NULL) {
         map_draw_places(fb, r, &v, rad->map, &style, &labels);
     }

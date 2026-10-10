@@ -21,9 +21,12 @@ typedef struct {
 } map_labels_t;
 
 typedef struct {
-    bool airports;  /* the flight radar's map: airports with their IATA codes */
-    bool halo;      /* lines get a white halo: there is rain under them */
-    int max_towns;  /* labelled towns at most */
+    bool airports;          /* the flight radar's map: airports with their IATA codes */
+    bool halo;              /* lines get a white halo: there is rain under them */
+    int max_towns;          /* labelled towns at most */
+    const gfx_font_t *font; /* the labels' (required) */
+    int px_num, px_den;     /* the marks' scale: n × num / den, rounded; 0/0 reads as 1/1 */
+    gfx_color_t line;       /* borders and coasts; 0 reads as black */
 } map_style_t;
 
 void map_labels_init(map_labels_t *l);
@@ -40,8 +43,10 @@ void map_draw_lines(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, const ma
  * the flight radar cares more for them); a place whose label has no room is left out. */
 void map_draw_places(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, const map_data_t *d,
                      const map_style_t *s, map_labels_t *l);
-/* Home as ⊙ at (lat_e4, lon_e4); its square is reserved. */
+/* Home as ⊙ at (lat_e4, lon_e4), at the style's scale; its square is reserved. */
 void map_draw_home(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, int32_t lat_e4, int32_t lon_e4,
-                   map_labels_t *l);
-/* Rings around the view's centre at `range_m` and half of it, labelled in km at their top right. */
-void map_draw_rings(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, double range_m, map_labels_t *l);
+                   const map_style_t *s, map_labels_t *l);
+/* Rings around the view's centre at `range_m` and half of it, labelled in km at their top right in the style's
+ * font. */
+void map_draw_rings(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, double range_m, const map_style_t *s,
+                    map_labels_t *l);
