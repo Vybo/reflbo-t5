@@ -234,6 +234,48 @@ static void test_lines_take_the_styles_colour(void)
     }
 }
 
+/* T3b board check: on the T5 a 1 px border vanishes; the style's line width draws it wider. */
+static void test_lines_take_the_styles_width(void)
+{
+    map_view_t v;
+    map_view_init(&v, 487967, 166368, 9.0, 400, 280); /* Mikulov, on the Czech-Austrian border */
+    gfx_rect_t area = { 0, 20, 400, 280 };
+    map_style_t s = { .halo = false, .font = &gfx_font_sans_12 };
+    map_draw_lines(&s_fb, area, &v, &s_map, &s);
+    int thin = ink_in(area);
+    gfx_clear(&s_fb, GFX_WHITE);
+    s.line_w = 2;
+    map_draw_lines(&s_fb, area, &v, &s_map, &s);
+    TEST_ASSERT_TRUE_MESSAGE(ink_in(area) >= thin * 17 / 10, "about twice the ink");
+    map_labels_t l;
+    map_labels_init(&l);
+    gfx_clear(&s_fb, GFX_WHITE);
+    map_view_init(&v, 491951, 166068, 9.0, 400, 280);
+    map_draw_rings(&s_fb, area, &v, 20000.0, &s, &l);
+    int x = 200, y = 160, r = 0; /* the inner ring's top: two inked rows */
+    while (y - r > 20 && !gfx_get_pixel(&s_fb, x, y - r)) {
+        r++;
+    }
+    TEST_ASSERT_TRUE(gfx_get_pixel(&s_fb, x, y - r) && (gfx_get_pixel(&s_fb, x, y - r - 1) || gfx_get_pixel(&s_fb, x, y - r + 1)));
+}
+
+/* T3b board check: home's ⊙ didn't show on the T5; with the style's 2 px lines its ring is 2 px and its dot larger. */
+static void test_home_takes_the_styles_line_width(void)
+{
+    map_view_t v;
+    map_view_init(&v, 491951, 166068, 6.5, 400, 280);
+    gfx_rect_t area = { 0, 20, 400, 280 };
+    map_labels_t l;
+    map_labels_init(&l);
+    map_style_t s = { .font = &gfx_font_sans_12, .px_num = 17, .px_den = 10, .line_w = 2 };
+    map_draw_home(&s_fb, area, &v, 491951, 166068, &s, &l);
+    TEST_ASSERT_TRUE(gfx_get_pixel(&s_fb, 200 + 9, 160) && gfx_get_pixel(&s_fb, 200 + 10, 160)); /* the ring, 2 px */
+    TEST_ASSERT_FALSE(gfx_get_pixel(&s_fb, 200 + 11, 160));
+    TEST_ASSERT_TRUE(gfx_get_pixel(&s_fb, 200 + 3, 160));  /* the dot, 7 px */
+    TEST_ASSERT_FALSE(gfx_get_pixel(&s_fb, 200 + 5, 160)); /* white between them */
+    TEST_ASSERT_EQUAL_INT(2 * 11 + 1, l.r[0].w);           /* its halo reserved */
+}
+
 int main(void)
 {
     load();
@@ -249,6 +291,8 @@ int main(void)
     RUN_TEST(test_home_scales_with_the_style);
     RUN_TEST(test_towns_and_labels_follow_the_style);
     RUN_TEST(test_lines_take_the_styles_colour);
+    RUN_TEST(test_lines_take_the_styles_width);
+    RUN_TEST(test_home_takes_the_styles_line_width);
     int failures = UNITY_END();
     free(s_blob);
     return failures;

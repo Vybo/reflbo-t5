@@ -1,6 +1,7 @@
 #include "ui_dashboard.h"
 
 #include "ui_internal.h"
+#include "ui_profile.h"
 #include "ui_radar.h"
 #include "ui_solar.h"
 #include "ui_split.h"
@@ -10,10 +11,12 @@ static void draw_separators(gfx_fb_t *fb, const ui_layout_t *layout)
 {
     for (int i = 0; i < layout->sep_count; i++) {
         const ui_sep_t *sep = &layout->seps[i];
-        if (sep->vertical) {
-            gfx_vline(fb, sep->x, sep->y, sep->len, GFX_BLACK);
-        } else {
-            gfx_hline(fb, sep->x, sep->y, sep->len, GFX_BLACK);
+        for (int k = 0; k < UI_PX(1); k++) { /* the T5's 2 px (owner, board check) */
+            if (sep->vertical) {
+                gfx_vline(fb, sep->x + k, sep->y, sep->len, GFX_BLACK);
+            } else {
+                gfx_hline(fb, sep->x, sep->y + k, sep->len, GFX_BLACK);
+            }
         }
     }
 }
@@ -45,10 +48,12 @@ static bool draw_split(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t 
         if (l->node & UI_SPLIT_NO_LINE) {
             continue;
         }
-        if (l->node & UI_SPLIT_COLUMNS) {
-            gfx_vline(fb, l->at, l->rect.y + UI_SPLIT_INSET, l->rect.h - 2 * UI_SPLIT_INSET, GFX_BLACK);
-        } else {
-            gfx_hline(fb, l->rect.x + UI_SPLIT_INSET, l->at, l->rect.w - 2 * UI_SPLIT_INSET, GFX_BLACK);
+        for (int k = 0; k < UI_PX(1); k++) { /* the T5's 2 px (owner, board check) */
+            if (l->node & UI_SPLIT_COLUMNS) {
+                gfx_vline(fb, l->at + k, l->rect.y + UI_SPLIT_INSET, l->rect.h - 2 * UI_SPLIT_INSET, GFX_BLACK);
+            } else {
+                gfx_hline(fb, l->rect.x + UI_SPLIT_INSET, l->at + k, l->rect.w - 2 * UI_SPLIT_INSET, GFX_BLACK);
+            }
         }
     }
     bool any_stale = false;

@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 
 #define TOWNS_TRIED 300 /* places looked at per map, so a dense view stays quick */
@@ -152,6 +153,7 @@ typedef struct {
     bool halo;
     bool white; /* this pass draws the halo */
     gfx_color_t line;
+    int w; /* px wide */
 } lines_ctx_t;
 
 static void on_segment(void *arg, map_line_kind_t kind, double lat0, double lon0, double lat1, double lon1)
@@ -166,13 +168,20 @@ static void on_segment(void *arg, map_line_kind_t kind, double lat0, double lon0
     }
     int x0 = c->area.x + (int)lroundf(ax), y0 = c->area.y + (int)lroundf(ay);
     int x1 = c->area.x + (int)lroundf(bx), y1 = c->area.y + (int)lroundf(by);
-    if (c->white) {
+    if (c->white && c->w <= 1) {
         static const int8_t k_cross[4][2] = { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } };
         for (int i = 0; i < 4; i++) {
             gfx_line(c->fb, x0 + k_cross[i][0], y0 + k_cross[i][1], x1 + k_cross[i][0], y1 + k_cross[i][1], GFX_WHITE);
         }
     } else {
-        gfx_line(c->fb, x0, y0, x1, y1, c->line);
+        /* w lines side by side across the segment's main direction, the halo's a pixel more each side: 6 lines a
+         * segment at w 2, where a w × w brush took 20 and held the app task over the watchdog's 5 s (board check) */
+        int n = c->white ? c->w + 2 : c->w, o = c->white ? -1 : 0;
+        bool steep = abs(y1 - y0) > abs(x1 - x0);
+        for (int k = o; k < o + n; k++) {
+            int dx = steep ? k : 0, dy = steep ? 0 : k;
+            gfx_line(c->fb, x0 + dx, y0 + dy, x1 + dx, y1 + dy, c->white ? GFX_WHITE : c->line);
+        }
     }
 }
 
@@ -183,7 +192,7 @@ void map_draw_lines(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, const ma
     map_bounds_t b;
     map_view_bounds(v, &b);
     lines_ctx_t c = { .fb = fb, .area = area, .fast = fast_view(v), .halo = s->halo,
-                      .line = s->line ? s->line : GFX_BLACK };
+                      .line = s->line ? s->line : GFX_BLACK, .w = s->line_w > 1 ? s->line_w : 1 };
     if (s->halo) { /* every halo first, then every line, so no halo cuts a line already drawn */
         c.white = true;
         map_data_segments(d, &b, on_segment, &c);
@@ -264,18 +273,21 @@ void map_draw_places(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, const m
 void map_draw_home(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, int32_t lat_e4, int32_t lon_e4,
                    const map_style_t *s, map_labels_t *l)
 {
-    int r = px(s, HOME_R);
+    int r = px(s, HOME_R), w = s->line_w > 1 ? s->line_w : 1, halo = r + w;
+    int dot = w > 1 ? px(s, 3) + 2 : px(s, 3); /* the T5's ⊙ bolder: its 1 px ring didn't show (board check) */
     double fx, fy;
     map_project(v, lat_e4 / 1e4, lon_e4 / 1e4, &fx, &fy);
     int x = area.x + (int)lround(fx), y = area.y + (int)lround(fy);
     gfx_rect_t saved = fb->clip;
     gfx_set_clip(fb, gfx_rect_intersect(saved, area));
-    gfx_fill_circle(fb, x, y, r + 1, GFX_WHITE);
-    gfx_circle(fb, x, y, r, GFX_BLACK);
-    gfx_fill_rect(fb, centred_rect(x, y, px(s, 3), px(s, 3)), GFX_BLACK);
+    gfx_fill_circle(fb, x, y, halo, GFX_WHITE);
+    for (int k = 0; k < w; k++) {
+        gfx_circle(fb, x, y, r + k, GFX_BLACK);
+    }
+    gfx_fill_rect(fb, centred_rect(x, y, dot, dot), GFX_BLACK);
     fb->clip = saved;
-    map_labels_reserve(l, (gfx_rect_t){ (int16_t)(x - r - 1), (int16_t)(y - r - 1), (int16_t)(2 * r + 3),
-                                        (int16_t)(2 * r + 3) });
+    map_labels_reserve(l, (gfx_rect_t){ (int16_t)(x - halo), (int16_t)(y - halo), (int16_t)(2 * halo + 1),
+                                        (int16_t)(2 * halo + 1) });
 }
 
 void map_draw_rings(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, double range_m, const map_style_t *s,
@@ -288,7 +300,9 @@ void map_draw_rings(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, double r
     for (int i = 1; i <= 2; i++) {
         double metres = range_m * i / 2;
         int r = (int)lround(metres * px_per_m);
-        gfx_circle(fb, cx, cy, r, GFX_BLACK);
+        for (int k = 0; k < (s->line_w > 1 ? s->line_w : 1); k++) { /* wider outwards */
+            gfx_circle(fb, cx, cy, r + k, GFX_BLACK);
+        }
         char text[12];
         snprintf(text, sizeof(text), "%d km", (int)lround(metres / 1000));
         int lx = cx + (int)lround(r * 0.7071), ly = cy - (int)lround(r * 0.7071);

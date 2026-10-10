@@ -11,6 +11,8 @@
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "gfx_test_pattern.h"
 #include "util_crc32.h"
 
@@ -101,6 +103,8 @@ static esp_err_t clean_update(void)
     enum EpdDrawError err = epd_hl_update_screen(&s_hl, MODE_GC16, TEMPERATURE_C);
     int64_t drawn = now_ms();
     panel_down();
+    vTaskDelay(1); /* CPU 1's idle task runs: two updates and a render back to back at boot held it past the task
+                    * watchdog's 5 s (T3b board check) */
     s_stats.updates++;
     s_stats.last_ms = (uint32_t)(now_ms() - start);
     ESP_LOGI(TAG, "clean update: up %lld ms, clear %lld ms, GC16 %lld ms, %lu ms in all; internal RAM %lu free",

@@ -27,6 +27,7 @@ typedef struct {
     const gfx_font_t *font; /* the labels' (required) */
     int px_num, px_den;     /* the marks' scale: n × num / den, rounded; 0/0 reads as 1/1 */
     gfx_color_t line;       /* borders and coasts; 0 reads as black */
+    int line_w;             /* borders, coasts and rings, px wide; 0 reads as 1 */
 } map_style_t;
 
 void map_labels_init(map_labels_t *l);

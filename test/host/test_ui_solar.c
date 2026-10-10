@@ -344,11 +344,11 @@ static void test_the_t5_forecast_still_to_come_is_gray(void)
     for (int x = 480; x < 950; x++) { /* the chart's afternoon: after 13:20 */
         int run = 0;
         for (int y = 150; y < 420; y++) {
-            run = gfx_get_level(&fb, x, y) == 8 ? run + 1 : 0;
+            run = gfx_get_level(&fb, x, y) == 6 ? run + 1 : 0;
             run_max = run > run_max ? run : run_max;
         }
     }
-    TEST_ASSERT_TRUE_MESSAGE(run_max >= 30, "a filled bar of level 8, taller than any glyph edge");
+    TEST_ASSERT_TRUE_MESSAGE(run_max >= 30, "a filled bar of level 6, taller than any glyph edge");
 }
 
 static void test_the_t5_energy_layout_keeps_its_values_on_the_panel(void)

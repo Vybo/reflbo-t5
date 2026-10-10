@@ -363,7 +363,8 @@ static void test_rainviewer_tiles_cover_a_t5_view(void)
     radar_frame_free(&f, NULL);
 }
 
-/* On a 4 bpp frame rain is gray, from the panel's dark half (T5 spec §6.4): light 8, moderate 4, heavy black. */
+/* On a 4 bpp frame rain is gray, from the panel's dark half (T5 spec §6.4): light 4, moderate 2, heavy black (the
+ * board check: lighter levels read as almost white on the panel; the owner asked for the palette darker). */
 static void test_rain_is_gray_on_a_4bpp_frame(void)
 {
     static uint8_t buf[200 * 100 / 2];
@@ -376,7 +377,7 @@ static void test_rain_is_gray_on_a_4bpp_frame(void)
     radar_frame_t f;
     TEST_ASSERT_TRUE(radar_rv_frame_alloc(&f, &t, 1790889000, NULL));
     const radar_level_t levels[3] = { RADAR_LIGHT, RADAR_MODERATE, RADAR_HEAVY };
-    const uint8_t want[3] = { 8, 4, 0 };
+    const uint8_t want[3] = { 4, 2, 0 };
     for (int k = 0; k < 3; k++) {
         for (int y = 0; y < f.h; y++) {
             for (int x = 0; x < f.w; x++) {

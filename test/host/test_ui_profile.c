@@ -402,12 +402,14 @@ static void test_the_map_style_follows_the_profile(void)
     TEST_ASSERT_EQUAL_INT(1, s.px_num);
     TEST_ASSERT_EQUAL_INT(1, s.px_den);
     TEST_ASSERT_EQUAL(GFX_BLACK, s.line);
+    TEST_ASSERT_EQUAL_INT(1, s.line_w);
     ui_profile_use(&ui_profile_t547);
     ui_map_style(&s);
     TEST_ASSERT_EQUAL_UINT8(4, s.font->bpp);
     TEST_ASSERT_EQUAL_INT(17, s.px_num);
     TEST_ASSERT_EQUAL_INT(10, s.px_den);
-    TEST_ASSERT_TRUE(s.line >= GFX_GRAY(0) && s.line <= GFX_GRAY(8));
+    TEST_ASSERT_EQUAL(GFX_GRAY(2), s.line); /* a dark gray: 6 vanished on the panel (board check) */
+    TEST_ASSERT_EQUAL_INT(2, s.line_w);    /* "nothing 1px wide will be contrasty enough" (owner, board check) */
 }
 
 /* T3b: a radar map's view is the setting's zoom plus the profile's step; the fetch asks for that very view. */
@@ -448,8 +450,11 @@ static void test_the_status_line_is_gray_on_the_t5(void)
     TEST_ASSERT_TRUE(fixture_dashboard("home", &ctx, &preset));
     gfx_fb_init_fmt(&fb, buf, 960, 540, GFX_FMT_4BPP);
     ui_draw_dashboard(&fb, &ctx, &preset);
-    uint8_t level = gfx_get_level(&fb, 480, 34);
-    TEST_ASSERT_TRUE_MESSAGE(level > 0 && level <= 8, "a gray from the dark half");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(2, gfx_get_level(&fb, 480, 34), "a dark gray (board check)");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(2, gfx_get_level(&fb, 480, 33), "2 px wide: 1 px hardly shows on the panel");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(15, gfx_get_level(&fb, 480, 35), "the content's first row stays clear");
+    /* the layout's separators 2 px wide too: Classic's first vertical one at x 160 */
+    TEST_ASSERT_TRUE(gfx_get_pixel(&fb, 160, 420) && gfx_get_pixel(&fb, 161, 420));
 }
 
 int main(void)

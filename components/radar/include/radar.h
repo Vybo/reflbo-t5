@@ -127,8 +127,8 @@ void radar_render(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, const rada
 bool radar_any_rain(const map_view_t *v, const radar_frame_t *f);
 /* The dither: whether screen pixel (x, y) is inked at `level`, as radar_render() draws it on a 1 bpp frame. */
 bool radar_inks(radar_level_t level, int x, int y);
-/* The level's colour on a 4 bpp frame, from the T5's dark half (T5 spec §6.4): light GFX_GRAY(8), moderate
- * GFX_GRAY(4), heavy black; white for none. radar_render() fills rain with it there instead of the dither. */
+/* The level's colour on a 4 bpp frame, from the T5's dark half (T5 spec §6.4): light GFX_GRAY(4), moderate
+ * GFX_GRAY(2), heavy black; white for none. radar_render() fills rain with it there instead of the dither. */
 gfx_color_t radar_level_color(radar_level_t level);
 
 /* ---- the frames kept ---- */

@@ -372,7 +372,7 @@ static void draw_chart(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const la
             if (past) {
                 gfx_fill_rect(fb, b, GFX_BLACK);
             } else if (fb->format == GFX_FMT_4BPP) { /* T5 spec §6.4: the forecast to come filled in gray */
-                gfx_fill_rect(fb, b, GFX_GRAY(8));
+                gfx_fill_rect(fb, b, GFX_GRAY(6));
                 gfx_rect(fb, b, GFX_BLACK);
             } else {
                 gfx_rect(fb, b, GFX_BLACK);

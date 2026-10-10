@@ -47,7 +47,8 @@ void ui_map_style(map_style_t *s)
     s->font = UI_FONT(UI_F_SANS_12);
     s->px_num = p->px_num;
     s->px_den = p->px_den;
-    s->line = p->format == GFX_FMT_4BPP ? GFX_GRAY(6) : GFX_BLACK; /* T5 spec §6.4: the map's borders in gray */
+    s->line = p->format == GFX_FMT_4BPP ? GFX_GRAY(2) : GFX_BLACK; /* T5 spec §6.4; a 1 px line at 6 vanished */
+    s->line_w = UI_PX(1); /* the T5's 2: "nothing 1px wide will be contrasty enough" (owner, board check) */
 }
 
 /* "20:40 · ČHMÚ", or once the frame is old "17:40 · 3 h ago"; `brief`: the time alone. */

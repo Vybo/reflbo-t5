@@ -137,10 +137,10 @@ bool radar_inks(radar_level_t level, int x, int y)
 gfx_color_t radar_level_color(radar_level_t level)
 {
     switch (level) {
-    case RADAR_LIGHT:
-        return GFX_GRAY(8);
-    case RADAR_MODERATE:
+    case RADAR_LIGHT: /* T3b board check: 8 read as almost white on the panel; the owner asked for darker */
         return GFX_GRAY(4);
+    case RADAR_MODERATE:
+        return GFX_GRAY(2);
     case RADAR_HEAVY:
         return GFX_BLACK;
     default:
