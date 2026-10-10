@@ -134,6 +134,9 @@ size_t ui_catalog_fields_json(const ui_context_t *ctx, char *out, size_t size)
     cJSON *root = cJSON_CreateObject();
     cJSON *fields = cJSON_AddArrayToObject(root, "fields");
     for (int f = UI_FIELD_NONE + 1; f < UI_FIELD_COUNT; f++) {
+        if (!ui_field_on_board((ui_field_id_t)f)) {
+            continue; /* the page offers only what the board can fill (T5 spec §4.3) */
+        }
         const ui_field_info_t *info = ui_field_info((ui_field_id_t)f);
         static ui_value_t v;
         ui_resolve(ctx, (ui_field_id_t)f, &v);

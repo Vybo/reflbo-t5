@@ -98,6 +98,9 @@ typedef struct {
 const ui_field_info_t *ui_field_info(ui_field_id_t field);
 /* UI_FIELD_NONE for an unknown id. */
 ui_field_id_t ui_field_by_name(const char *id);
+/* Whether this board can fill the field (T5 spec §4.3): env.* need the temperature and humidity sensor. The web
+ * page offers only these; a preset that names another draws its placeholder. */
+bool ui_field_on_board(ui_field_id_t field);
 
 typedef enum {
     UI_SYNC_IDLE,

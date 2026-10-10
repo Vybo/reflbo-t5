@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "ui_internal.h"
+#include "ui_profile.h"
 
 #define TEMP_TREND_C100 50 /* spec §5.1: arrows beyond 0.5 °C or 3 % an hour */
 #define HUM_TREND_PCT100 300
@@ -63,6 +64,20 @@ const ui_field_info_t *ui_field_info(ui_field_id_t field)
         return NULL;
     }
     return &k_fields[field];
+}
+
+bool ui_field_on_board(ui_field_id_t field)
+{
+    switch (field) {
+    case UI_FIELD_ENV_TEMP:
+    case UI_FIELD_ENV_HUM:
+    case UI_FIELD_ENV_DEW:
+    case UI_FIELD_ENV_TEMP_MIN:
+    case UI_FIELD_ENV_TEMP_MAX:
+        return (ui_profile()->caps & UI_CAP_ENV_SENSOR) != 0;
+    default:
+        return ui_field_info(field) != NULL;
+    }
 }
 
 ui_field_id_t ui_field_by_name(const char *id)

@@ -265,6 +265,34 @@ static void test_layouts_publish_the_panels_format_and_the_radars_map(void)
     TEST_ASSERT_EQUAL_INT(3, num(radar, "zoom_q"));
 }
 
+/* T3c's board check: the T5's page offered the temperature and humidity it can't measure (T5 spec §4.3). */
+static void test_fields_leave_out_what_the_board_cannot_fill(void)
+{
+    static const char *const k_env[] = { "env.temp", "env.hum", "env.dew", "env.temp_min", "env.temp_max" };
+    ui_context_t ctx = fixture_context();
+    TEST_ASSERT_TRUE(ui_catalog_fields_json(&ctx, s_out, sizeof(s_out)) > 0);
+    s_root = cJSON_Parse(s_out);
+    TEST_ASSERT_NOT_NULL(s_root);
+    const cJSON *fields = cJSON_GetObjectItemCaseSensitive(s_root, "fields");
+    for (size_t i = 0; i < sizeof(k_env) / sizeof(k_env[0]); i++) {
+        TEST_ASSERT_NOT_NULL_MESSAGE(by_id(fields, k_env[i]), k_env[i]);
+    }
+    cJSON_Delete(s_root);
+
+    ui_profile_use(&ui_profile_t547);
+    size_t n = ui_catalog_fields_json(&ctx, s_out, sizeof(s_out));
+    ui_profile_use(NULL);
+    TEST_ASSERT_TRUE(n > 0);
+    s_root = cJSON_Parse(s_out);
+    TEST_ASSERT_NOT_NULL(s_root);
+    fields = cJSON_GetObjectItemCaseSensitive(s_root, "fields");
+    for (size_t i = 0; i < sizeof(k_env) / sizeof(k_env[0]); i++) {
+        TEST_ASSERT_NULL_MESSAGE(by_id(fields, k_env[i]), k_env[i]);
+    }
+    TEST_ASSERT_NOT_NULL(by_id(fields, "time.clock"));
+    TEST_ASSERT_NOT_NULL(by_id(fields, "bat.level"));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -273,6 +301,7 @@ int main(void)
     RUN_TEST(test_layouts_name_the_board_and_its_capabilities);
     RUN_TEST(test_layouts_publish_the_panels_format_and_the_radars_map);
     RUN_TEST(test_fields_carry_their_kind_label_and_current_value);
+    RUN_TEST(test_fields_leave_out_what_the_board_cannot_fill);
     RUN_TEST(test_a_buffer_too_small_gives_nothing);
     return UNITY_END();
 }
