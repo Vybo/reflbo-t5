@@ -8,6 +8,7 @@
 #include "gfx_fonts.h"
 #include "gfx_icons.h"
 #include "ui_internal.h"
+#include "ui_profile.h"
 #include "ui_split.h"
 #include "unity.h"
 
@@ -25,7 +26,10 @@ void setUp(void)
     fixture_dashboard("weather_solar", &s_ctx, &preset); /* 13:20, the sample day with a battery */
 }
 
-void tearDown(void) {}
+void tearDown(void)
+{
+    ui_profile_use(NULL);
+}
 
 static void draw(gfx_rect_t r, ui_field_id_t field)
 {
@@ -297,6 +301,67 @@ static void test_the_largest_totals_keep_to_their_places(void)
     }
 }
 
+/* T3b: the Solar and Energy layouts at the T5's scale, the forecast still to come in gray. */
+static uint8_t s_buf4[960 * 540 / 2];
+
+static void render_t5(const char *name, gfx_fb_t *fb)
+{
+    ui_profile_use(&ui_profile_t547);
+    ui_context_t ctx;
+    ui_preset_t preset;
+    TEST_ASSERT_TRUE_MESSAGE(fixture_dashboard(name, &ctx, &preset), name);
+    gfx_fb_init_fmt(fb, s_buf4, 960, 540, GFX_FMT_4BPP);
+    ui_draw_dashboard(fb, &ctx, &preset);
+}
+
+static int last_ink_row(const gfx_fb_t *fb, int y0)
+{
+    int last = -1;
+    for (int y = y0; y < fb->height; y++) {
+        for (int x = 0; x < fb->width; x++) {
+            if (gfx_get_level(fb, x, y) < 15) {
+                last = y;
+                break;
+            }
+        }
+    }
+    return last;
+}
+
+static void test_the_t5_solar_layout_fills_its_height(void)
+{
+    gfx_fb_t fb;
+    render_t5("solar", &fb);
+    int last = last_ink_row(&fb, 35);
+    TEST_ASSERT_TRUE_MESSAGE(last >= 450 && last < 540, "the day totals' row near the bottom");
+}
+
+static void test_the_t5_forecast_still_to_come_is_gray(void)
+{
+    gfx_fb_t fb;
+    render_t5("solar", &fb);
+    int run_max = 0;
+    for (int x = 480; x < 950; x++) { /* the chart's afternoon: after 13:20 */
+        int run = 0;
+        for (int y = 150; y < 420; y++) {
+            run = gfx_get_level(&fb, x, y) == 8 ? run + 1 : 0;
+            run_max = run > run_max ? run : run_max;
+        }
+    }
+    TEST_ASSERT_TRUE_MESSAGE(run_max >= 30, "a filled bar of level 8, taller than any glyph edge");
+}
+
+static void test_the_t5_energy_layout_keeps_its_values_on_the_panel(void)
+{
+    gfx_fb_t fb;
+    render_t5("energy", &fb);
+    for (int y = 36; y < 540; y++) {
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(15, gfx_get_level(&fb, 959, y), "nothing cut at the right edge");
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(15, gfx_get_level(&fb, 0, y), "nothing cut at the left edge");
+    }
+    TEST_ASSERT_TRUE(last_ink_row(&fb, 35) >= 400);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -304,6 +369,9 @@ int main(void)
     RUN_TEST(test_the_flow_is_a_diagram_in_a_tall_cell_and_a_row_in_a_short_one);
     RUN_TEST(test_the_battery_joins_the_flow_where_it_has_room);
     RUN_TEST(test_a_flow_under_20_watts_has_no_arrow);
+    RUN_TEST(test_the_t5_solar_layout_fills_its_height);
+    RUN_TEST(test_the_t5_forecast_still_to_come_is_gray);
+    RUN_TEST(test_the_t5_energy_layout_keeps_its_values_on_the_panel);
     RUN_TEST(test_without_data_the_chart_and_the_flow_are_missing);
     RUN_TEST(test_the_solar_layout_marks_a_day_without_a_total_with_a_dash);
     RUN_TEST(test_stale_data_raises_the_status_bars_warning);
