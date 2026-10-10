@@ -94,6 +94,9 @@ typedef struct {
 bool radar_rv_parse_index(const char *json, size_t len, radar_rv_index_t *out);
 /* The tiles that cover the view. */
 void radar_rv_tiles(const map_view_t *v, radar_rv_tiles_t *t);
+/* How many of the view's frames the loop keeps (T3c): the hour's, or as many as `budget` bytes of PSRAM hold (a frame
+ * is its tiles' grid at 2 bits a pixel), at least 1. */
+int radar_rv_keep(const map_view_t *v, size_t budget);
 /* A tile's URL, in RainViewer's one colour scheme and without smoothing, so its colours are exact. */
 int radar_rv_tile_url(char *out, size_t size, const char *host, const char *path, int z, int x, int y);
 /* A frame for those tiles: its grid allocated, its place set. */

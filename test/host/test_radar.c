@@ -363,6 +363,24 @@ static void test_rainviewer_tiles_cover_a_t5_view(void)
     radar_frame_free(&f, NULL);
 }
 
+/* T3c's board check: at the T5's 960 px, RainViewer's hour (6 frames of up to 5 x 3 tiles) ran PSRAM out at the
+ * sixth ("png: no memory"). The loop keeps the frames a board's budget holds; the RLCD keeps its hour. */
+static void test_rainviewer_keeps_the_frames_a_budget_holds(void)
+{
+    map_view_t rlcd, t5;
+    map_view_init(&rlcd, 515074, -1278, 6.5, 400, 279); /* London, outside ČHMÚ's coverage */
+    map_view_init(&t5, 515074, -1278, 7.25, 960, 505);
+    TEST_ASSERT_EQUAL_INT(6, radar_rv_keep(&rlcd, (size_t)2048 * 1024));
+    TEST_ASSERT_EQUAL_INT(3, radar_rv_keep(&t5, (size_t)720 * 1024));
+    map_view_init(&t5, 525200, 134050, 7.25, 960, 505); /* Berlin: 4 x 2 tiles, 128 KB a frame */
+    radar_rv_tiles_t t;
+    radar_rv_tiles(&t5, &t);
+    TEST_ASSERT_EQUAL_INT(4, t.nx);
+    TEST_ASSERT_EQUAL_INT(2, t.ny);
+    TEST_ASSERT_EQUAL_INT(5, radar_rv_keep(&t5, (size_t)720 * 1024));
+    TEST_ASSERT_EQUAL_INT(1, radar_rv_keep(&t5, (size_t)100 * 1024)); /* never none */
+}
+
 /* On a 4 bpp frame rain is gray, from the panel's dark half (T5 spec §6.4): light 4, moderate 2, heavy black (the
  * board check: lighter levels read as almost white on the panel; the owner asked for the palette darker). */
 static void test_rain_is_gray_on_a_4bpp_frame(void)
@@ -406,6 +424,7 @@ int main(void)
     RUN_TEST(test_a_rainviewer_tile_decodes_by_its_colour_table);
     RUN_TEST(test_a_frame_covers_the_views_it_has_the_rain_for);
     RUN_TEST(test_rainviewer_tiles_cover_a_t5_view);
+    RUN_TEST(test_rainviewer_keeps_the_frames_a_budget_holds);
     RUN_TEST(test_rain_is_gray_on_a_4bpp_frame);
     RUN_TEST(test_the_store_keeps_frames_in_order_and_frees_the_rest);
     RUN_TEST(test_a_fetch_wants_the_hour_it_lacks);

@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "app_internal.h"
+#include "board_caps.h"
 #include "display.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
@@ -49,13 +50,23 @@ static uint8_t source_now(void)
     return radar_chmu_covers(set->wx_lat_e4 / 1e4, set->wx_lon_e4 / 1e4) ? RADAR_SOURCE_CHMU : RADAR_SOURCE_RAINVIEWER;
 }
 
-/* One frame, or in sync mode `always` the loop's hour (D28): 12 of ČHMÚ's, 6 of RainViewer's. */
+/* One frame, or in sync mode `always` the loop's hour (D28): 12 of ČHMÚ's, 6 of RainViewer's, or as many of
+ * RainViewer's as the board's budget holds at its view (the T5's 960 px: 3 to 5, T3c). */
 static int keep_count(void)
 {
-    if (app_settings()->sync_mode != SETTINGS_SYNC_ALWAYS) {
+    const settings_t *set = app_settings();
+    if (set->sync_mode != SETTINGS_SYNC_ALWAYS) {
         return 1;
     }
-    return source_now() == RADAR_SOURCE_CHMU ? RADAR_LOOP_FRAMES : 3600 / RADAR_RV_STEP_S;
+    if (source_now() == RADAR_SOURCE_CHMU) {
+        return RADAR_LOOP_FRAMES;
+    }
+    uint8_t zoom_q;
+    uint16_t w, h;
+    ui_radar_fetch_size(set->wx_zoom_q, &zoom_q, &w, &h);
+    map_view_t v;
+    map_view_init(&v, set->wx_lat_e4, set->wx_lon_e4, zoom_q / 4.0, (int16_t)w, (int16_t)h);
+    return radar_rv_keep(&v, (size_t)BOARD_RADAR_RV_KB * 1024);
 }
 
 uint32_t app_radar_step_s(void)

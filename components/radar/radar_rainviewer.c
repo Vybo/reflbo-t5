@@ -92,6 +92,16 @@ void radar_rv_tiles(const map_view_t *v, radar_rv_tiles_t *t)
     t->ny = y1 - y0 + 1 > RADAR_RV_TILES_MAX ? RADAR_RV_TILES_MAX : y1 - y0 + 1;
 }
 
+int radar_rv_keep(const map_view_t *v, size_t budget)
+{
+    radar_rv_tiles_t t;
+    radar_rv_tiles(v, &t);
+    size_t frame = (size_t)t.nx * MAP_TILE_PX * t.ny * MAP_TILE_PX / 4; /* 2 bits a pixel */
+    size_t n = frame > 0 ? budget / frame : 0;
+    int hour = 3600 / RADAR_RV_STEP_S;
+    return n < 1 ? 1 : n > (size_t)hour ? hour : (int)n;
+}
+
 int radar_rv_tile_url(char *out, size_t size, const char *host, const char *path, int z, int x, int y)
 {
     return snprintf(out, size, "%s%s/256/%d/%d/%d/2/0_0.png", host, path, z, x, y);

@@ -176,7 +176,7 @@ static esp_err_t fetch_rainviewer(fetch_session_t *s, const radar_fetch_req_t *r
     radar_rv_tiles(&v, &t);
     const radar_rv_frame_t *newest = &idx.frames[idx.count - 1];
     uint32_t times[RADAR_LOOP_FRAMES];
-    int want = req->want > 1 ? RV_HOUR : 1; /* the hour holds 6 of its frames */
+    int want = req->want < 1 ? 1 : req->want > RV_HOUR ? RV_HOUR : req->want; /* the app's, at most the hour's 6 */
     int n = radar_wanted(newest->time, RADAR_RV_STEP_S, want, req->have, req->have_count, times);
     for (int i = 0; i < n; i++) { /* newest first; the index's times sit on the 10-minute steps */
         for (int k = idx.count - 1; k >= 0; k--) {
