@@ -89,5 +89,5 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
     gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12),
                      (gfx_rect_t){ (int16_t)(x - UI_PX(124)), 0, (int16_t)UI_PX(120), UI_STATUS_H }, GFX_ALIGN_RIGHT,
                      fit, GFX_BLACK);
-    gfx_hline(fb, 0, UI_STATUS_H, fb->width, GFX_BLACK);
+    gfx_hline(fb, 0, UI_STATUS_H, fb->width, fb->format == GFX_FMT_4BPP ? GFX_GRAY(6) : GFX_BLACK); /* T5 spec §6.4 */
 }

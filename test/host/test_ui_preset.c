@@ -686,9 +686,9 @@ static void test_the_t5_defaults_have_no_env_field(void)
     TEST_ASSERT_TRUE(s_p.presets[1].in_cycle);
     TEST_ASSERT_TRUE(s_p.presets[1].status_clock && s_p.presets[2].status_clock);
     TEST_ASSERT_EQUAL_INT(4, ui_presets_find(&s_p, "rain"));
-    for (int i = 4; i < 8; i++) { /* the radars, Solar and Energy: out of the cycle until T3b draws them at 960×540 */
-        TEST_ASSERT_FALSE_MESSAGE(s_p.presets[i].in_cycle, s_p.presets[i].id);
-    }
+    /* T3b draws the views at 960×540: the radars in the cycle, Solar and Energy out of it, as on the RLCD */
+    TEST_ASSERT_TRUE(s_p.presets[4].in_cycle && s_p.presets[5].in_cycle);
+    TEST_ASSERT_FALSE(s_p.presets[6].in_cycle || s_p.presets[7].in_cycle);
     for (int i = 0; i < s_p.count; i++) {
         for (int k = 0; k < UI_SLOT_MAX; k++) {
             const ui_field_info_t *info = ui_field_info((ui_field_id_t)s_p.presets[i].slots[k]);

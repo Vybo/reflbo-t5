@@ -433,10 +433,30 @@ static void test_the_radar_view_and_its_fetch_agree(void)
     TEST_ASSERT_DOUBLE_WITHIN(1e-9, fz / 4.0, v.zoom);
 }
 
+/* T5 spec §6.4: the status bar's line in gray on the T5, black on the RLCD. */
+static void test_the_status_line_is_gray_on_the_t5(void)
+{
+    static uint8_t buf[960 * 540 / 2];
+    ui_context_t ctx;
+    ui_preset_t preset;
+    gfx_fb_t fb;
+    TEST_ASSERT_TRUE(fixture_dashboard("home", &ctx, &preset));
+    gfx_fb_init(&fb, buf, 400, 300);
+    ui_draw_dashboard(&fb, &ctx, &preset);
+    TEST_ASSERT_TRUE(gfx_get_pixel(&fb, 200, 20));
+    ui_profile_use(&ui_profile_t547);
+    TEST_ASSERT_TRUE(fixture_dashboard("home", &ctx, &preset));
+    gfx_fb_init_fmt(&fb, buf, 960, 540, GFX_FMT_4BPP);
+    ui_draw_dashboard(&fb, &ctx, &preset);
+    uint8_t level = gfx_get_level(&fb, 480, 34);
+    TEST_ASSERT_TRUE_MESSAGE(level > 0 && level <= 8, "a gray from the dark half");
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_the_rlcd_is_the_default_profile);
+    RUN_TEST(test_the_status_line_is_gray_on_the_t5);
     RUN_TEST(test_the_radar_view_and_its_fetch_agree);
     RUN_TEST(test_the_map_style_follows_the_profile);
     RUN_TEST(test_the_t5_sun_in_a_narrow_cell_stacks_from_the_top_in_a_larger_face);
