@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b (§13)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c (§13)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -154,7 +154,7 @@ The bits go out last first, then the strobe rises: output enable, mode, PWR_EN (
 
 ### 4.3 Capabilities
 
-`board_caps.h` states, per board, at compile time: `BOARD_NAME`, `BOARD_HAS_ENV_SENSOR`, `BOARD_HAS_AUDIO`, `BOARD_HAS_RTC_TRIM`, `BOARD_HAS_RTC_ALARM_WAKE`, `BOARD_HAS_RTC_PRECISE_SET`, `BOARD_HAS_LPM_RATE`; `BOARD_GRAYSCALE` joins at T2. The UI's profile carries the same as `UI_CAP_*` bits, and `main` checks with `_Static_assert` that they agree. The catalogue (`/api/layouts`) publishes them with the panel's size, so the web page hides what the board can't do. Fields a board can't fill are left out of its catalogue and its menu's field lists; a preset from another board that names one draws the placeholder (upstream §5.3).
+`board_caps.h` states, per board, at compile time: `BOARD_NAME`, `BOARD_HAS_ENV_SENSOR`, `BOARD_HAS_AUDIO`, `BOARD_HAS_RTC_TRIM`, `BOARD_HAS_RTC_ALARM_WAKE`, `BOARD_HAS_RTC_PRECISE_SET`, `BOARD_HAS_LPM_RATE`; `BOARD_GRAYSCALE` joins at T2. The UI's profile carries the same as `UI_CAP_*` bits, and `main` checks with `_Static_assert` that they agree. The catalogue (`/api/layouts`) publishes them with the panel's size, so the web page hides what the board can't do. Fields a board can't fill are left out of its catalogue and its menu's field lists; a preset from another board that names one draws the placeholder (upstream §5.3). As built at T3c: `ui_field_on_board()` (the `env.*` fields need `UI_CAP_ENV_SENSOR`), which `/api/fields` follows; the page keeps such a field in a preset that names it.
 
 ### 4.4 Display API
 
@@ -263,7 +263,7 @@ The panel keeps showing the dashboard. At the start of a night the status bar ge
 
 Text and icon edges; the radar's rain intensity (in place of `radar_inks()`' dither); the solar chart's fill; the map's land and borders; the status bar's separators. Each is checked for legibility in the T3 renders.
 
-On the owner's panel (T2, 2026-10-09) the waveform's levels 0–8 are distinct and 9–15 look nearly alike, so T3 takes its grays from the dark half. Ghosting shows through dark grays after a clean update (partly old burn-in); a clean update with more clear cycles is a T4 question.
+On the owner's panel (T2, 2026-10-09) the waveform's levels 0–8 are distinct and 9–15 look nearly alike, so T3 takes its grays from the dark half (0–8); after the owner's checks at T3b the T5 draws with 0–6 (the table below; AGENTS.md's T11). Ghosting shows through dark grays after a clean update (partly old burn-in); a clean update with more clear cycles is a T4 question.
 
 As built at T3b, after the owner's photos and checks at the panel (2026-10-10: "nothing 1px wide will be contrasty enough"; the lighter grays read as white):
 
@@ -281,7 +281,7 @@ The map's land stays white. Only outlines around a gray fill stay 1 px (the lege
 ### 6.5 Screenshots, previews, goldens
 
 - `screenshot` prints a PGM (P5, 8-bit) between `-----BEGIN RLCD PGM-----` and `-----END RLCD PGM-----` on a 4 bpp board, and the PBM as today on 1 bpp. `tools/screenshot.py` reads both and writes a PNG.
-- `/api/screenshot.bmp` and `/api/preview.bmp` send a 4-bit BMP with a 16-gray palette on the T5.
+- `/api/screenshot.bmp` and `/api/preview.bmp` send a 4-bit BMP with a 16-gray palette on the T5. The preview draws into a frame as deep as the panel's (`ui_profile_fb_size()`, `ui_profile_fb_init()`: 259 KB of PSRAM on the T5, allocated at the first preview and kept); until T3c's board check it was 1 bpp on every board. Checked over Wi-Fi at T3c: `panel test`'s BMP equals the golden test pattern, and a preset's preview equals the screenshot taken in the same minute, pixel for pixel.
 - The T5's goldens are gzip-compressed PGMs (`.pgm.gz`, as a plain one is 518 KB) in `test/host/golden/t5/`, read and written through `test/host/golden_io.h`; `render_dashboard` and `render_screen` take `--board t5` (and `render_dashboard [--board t5] --layouts` lists each fixture's layout). `tools/render.py --board t5` renders every fixture as the T5 draws it, and `tools/pbm_png.py` reads compressed images. The T5's golden set is every dashboard fixture (76: T3a's 41 on Classic, Grid, Weather and Focus; T3b's 35 on Radar, Flights, Solar, Energy and the split, with the radar, chart and flow widgets in slots) and every screen (24) (`k_t5_dashboard_fixtures`, `k_t5_screen_fixtures`). A fixture that asks for the Indoor preset gets the T5's Sky.
 - The T5's UI draws its 960×540 4 bpp frame directly, in epdiy's layout (T3a): `display_fb()` is the frame the panel gets and `display_screenshot_fb()` returns it, with no composition. A T5 screenshot is about 690 KB of base64, about a minute at 115200 baud (66 s measured); `/api/screenshot.bmp`'s reply buffer is 264 KB on the T5.
 
@@ -366,6 +366,12 @@ Found at the board (2026-10-10): where the Moon's name would be cut beside its d
 
 The page reads the panel's size, aspect ratio and capabilities from `/api/layouts` (today `web/style.css:98,101` fix 400 px and 4:3, and `web/app.js:675` the radar's 400). The split editor's grid follows the panel's aspect. The preview shows the gray BMP.
 
+As built (T3c):
+- `/api/layouts` adds `bpp` (1 or 4) and `radar` (`w`, `h`: the Radar layout's map; `zoom_q`: the board's zoom step), beside T0's `board`, `width`, `height`, `status_h` and `caps`.
+- `web/app.js` loads it once (`panel()`; a failed load is tried again by the next page). Every image of the panel comes from `screenImg()`: the panel's aspect, at most its own width, and on a gray panel smooth scaling (the RLCD keeps `style.css`'s 400 px, 4:3 and crisp pixels). The preview's slot tags sit by percentages of the panel, so an RLCD preset restored on the T5 tags the T5's slots.
+- A radar zoom's kilometres are the Radar layout's map at the zoom plus the board's step: at Brno, zoom 6.5 spans about 452 km on the RLCD and 645 km on the T5.
+- `has(cap)` hides what the board lacks: the Status page's temperature and humidity, the Device page's offsets and refresh rate (its save then leaves them as they are in the file), the Sync page's clock-chip trim.
+
 ## 8. Time, wake, buttons, battery and power on the T5
 
 ### 8.1 Time without an RTC (DT10)
@@ -416,7 +422,7 @@ T1 (2026-10-07/08): a deep-sleep minute wakes for about 2.2 s, the clean update'
 
 - **Settings:** `display.clean_after` (1–240, default 60) joins `display.*`, default in `components/storage` (AGENTS.md §8). On the T5, `display.lpm_hz`, `display.contrast`, `sensors.temp_offset_c` and `sensors.hum_offset_pct` stay in the file but nothing reads or shows them.
 - **Menu:** Display ▸ Clean refresh on the T5, in place of Display ▸ Refresh rate. Items for missing hardware are hidden.
-- **Web:** the Display page's clean refresh and sentence (§5.3); the capabilities hide the rest (§4.3).
+- **Web:** the Display page's clean refresh and sentence (§5.3, T4); the capabilities hide the rest (§4.3; as built at T3c, §7.4).
 - **Console on the T5** (DT11):
   - UART0 at 115200 through the CH9102, line mode as upstream.
   - Console input keeps the board awake for 5 minutes. A PC can't be detected on UART, so this replaces upstream's tethered mode on this board.
@@ -465,7 +471,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | T2 | Grayscale gfx: 4 bpp, anti-aliased fonts and icons, PGM screenshots, gray BMPs | The gray ramp and anti-aliased text on the panel match their screenshots (done 2026-10-09) |
 | T3a | The native frame: the profile holds fonts, icons, `UI_PX()`, layouts, the menu and split limits; the T5's fonts and icons; `UI_PX()` through the UI; the T5's layouts, menu, screens and presets; the display hands the UI its 960×540 4 bpp frame; the T5's goldens | The owner approves the renders; the T5's goldens committed; the presets and the menu on the panel (done 2026-10-10) |
 | T3b | The views and the grays: Radar and Flights at 960×540, the Solar and Energy layouts, the chart and flow widgets, the map's fonts and marks; §6.4's gray uses | Their renders approved and their goldens committed; each view on the panel (done 2026-10-10) |
-| T3c | The web page: the panel's size and aspect from `/api/layouts`, the split editor's grid, the gray preview; the T5's gray BMPs fetched over Wi-Fi | The page edits a T5 preset and its preview matches the panel |
+| T3c | The web page: the panel's size and aspect from `/api/layouts`, the split editor's grid, the gray preview; the T5's gray BMPs fetched over Wi-Fi | The page edits a T5 preset and its preview matches the panel (done 2026-10-10) |
 | T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured |
 
 ## 12. Risks and open items
@@ -477,7 +483,8 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 - **Ghosting** from fast updates between clean ones; the default may need lowering after the owner sees the panel.
 - **The CH9102's auto-reset:** a tool that opens the port the wrong way resets the board (§2.5).
 - **Image size:** T5 fonts at 4 bits and up to 220 px; at T3b the image is 3.40 MB of the 3.6 MB budget (its 4 MB slot), the views having added almost nothing.
-- **Radar frames at 960 px** are about 2.4 times the RLCD's pixels. Measured at T3b's board check (2026-10-10), with a live ČHMÚ frame and the flight radar polling: PSRAM 2.19 MB free of 4 MB mapped at boot, at least 1.67 MB free through a sync; internal RAM at least 29.9 KB free through a sync, so an update that falls in a sync waits for epdiy's RAM budget (§5.1). RainViewer's loop (outside ČHMÚ's coverage, in sync mode `always`) holds up to 7 frames of at most 240 KB at the T5's view, about as much as that floor: not measured yet (T3c, where the page sets the radar's centre). Should PSRAM run short, a frame's fetch fails cleanly, and an update without a block for epdiy's 64 KB LUT in internal RAM or PSRAM is skipped rather than aborted (`epaper_lut_ram_ok()`, T3b review).
+- **Radar frames at 960 px** are about 2.4 times the RLCD's pixels. Measured at T3b's board check (2026-10-10), with a live ČHMÚ frame and the flight radar polling: PSRAM 2.19 MB free of 4 MB mapped at boot, at least 1.67 MB free through a sync; internal RAM at least 29.9 KB free through a sync, so an update that falls in a sync waits for epdiy's RAM budget (§5.1). Measured at T3c's board check in sync mode `always` (2026-10-10; 1.54 MB of PSRAM free before): ČHMÚ's 12 frames (its 598×378 grid, 56.5 KB each on both boards) leave 906 KB free; RainViewer's hour at London (960×505 at zoom 7.25) ran out at the sixth frame ("png: no memory", the sync's radar step failed; 611 KB free with five, 272 KB at the least). So RainViewer's loop keeps the frames a board's budget holds at its view (`radar_rv_keep()`, `BOARD_RADAR_RV_KB`: 720 KB on the T5, 3 to 5 frames, 30 to 50 minutes of D28's hour; 2 MB on the RLCD, its hour); re-measured at T4's radar-loop check. Should PSRAM run short, a frame's fetch fails cleanly, and an update without a block for epdiy's 64 KB LUT in internal RAM or PSRAM is skipped rather than aborted (`epaper_lut_ram_ok()`, T3b review).
+- **4-bit BMPs in the owner's phone browser:** Chrome shows them (T3c); the page on the owner's phone is an owner check.
 - **Lines 1 px wide vanish on the panel** (owner, 2026-10-10): T5 drawing takes lines `UI_PX(1)` (2 px) wide and grays from level 6 down (§6.4).
 - **The task watchdog at boot:** a boot to the radar ran two clean updates and the map's render back to back on the app task and starved IDLE1 (found at T3b); `clean_update()` yields a tick after each update.
 - **Merge conflicts** with upstream's M7 in `components/ui`, mostly from `UI_PX()`. Merging `upstream/main` into the fork after each upstream milestone keeps them small.
@@ -497,3 +504,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r5 | 2026-10-09 | T2 as built: the formats and blending (§6.1–6.2), the asset formats (§6.3), the panel frame and screenshots (§6.5), `panel test` (§9), the panel's grays and ghosting (§6.4), the ESP32's minimum revision (§4.1) |
 | r6 | 2026-10-10 | T3a as built: T3 split into T3a, T3b and T3c (§11); the compressed goldens (§6.5); the profile's members (§7.1); the sizes and faces (§7.2); the layouts, menu, split limits and presets as the owner approved them, the Moon's disc (§7.3); the console's lost input during an update (§2.5); the open items (§12) |
 | r7 | 2026-10-10 | T3b as built: the grays and line widths the owner chose at the panel, every line 2 px after the review (§6.4); the golden set (§6.5); the maps' zoom step and style (§7.1); the fonts left in the image (§7.2); the views' geometry, the radar's fetch view and the presets' cycle (§7.3); T3b done (§11); PSRAM measured, RainViewer's loop and the LUT's block, line widths, the watchdog at boot (§12) |
+| r8 | 2026-10-10 | T3c as built: the catalogue's `bpp` and `radar`, the page's images, kilometres and hidden rows (§7.4, §9); the fields a board can't fill left out (§4.3); the gray preview and the BMPs checked over Wi-Fi (§6.5); T3c done (§11); RainViewer's loop measured and bounded by PSRAM, ČHMÚ's measured (§12); §6.4's dark half made to agree with AGENTS.md (T3b review) |
