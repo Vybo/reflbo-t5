@@ -58,6 +58,24 @@ function reply(status, body, type = 'application/json') {
   };
 }
 
+/* The RLCD's catalogue as far as these tests need it (GET /api/layouts, ui_catalog.c); every page loads it. */
+const CATALOGUE = {
+  board: 'rlcd42', width: 400, height: 300, status_h: 20, bpp: 1,
+  caps: ['env_sensor', 'audio', 'rtc_trim', 'rtc_alarm_wake', 'lpm_rate'], radar: { w: 400, h: 279, zoom_q: 0 },
+  layouts: [{ id: 'classic', slots: [
+    { id: 'main', x: 0, y: 21, w: 400, h: 150, size: 'XL', kinds: ['time'] },
+    { id: 's1', x: 0, y: 172, w: 200, h: 128, size: 'S', kinds: ['number'] },
+  ] }],
+};
+/* The T5's (T5 spec §7): 960×540 in 16 grays, none of the RLCD's extra hardware, its Classic's main and s1. */
+const T5_CATALOGUE = {
+  board: 't547', width: 960, height: 540, status_h: 34, bpp: 4, caps: [], radar: { w: 960, h: 505, zoom_q: 3 },
+  layouts: [{ id: 'classic', slots: [
+    { id: 'main', x: 0, y: 35, w: 960, h: 212, size: 'XL', kinds: ['time'] },
+    { id: 's1', x: 0, y: 318, w: 160, h: 222, size: 'S', kinds: ['number'] },
+  ] }],
+};
+
 /* The server's own rule (components/webui/webui.c): a request that changes something, other than a
  * firmware upload, must say it is JSON, which a cross-site form cannot. */
 function device(routes) {
@@ -92,6 +110,7 @@ async function load(routes = {}, opts = {}) {
   const answer = device({
     'GET /api/auth': () => reply(200, { password_set: true, logged_in: false, on_ap: true, host: 'reflbo-bb94',
                                         ap_ssid: 'reflbo-bb94', version: '0.4.0' }),
+    'GET /api/layouts': () => reply(200, CATALOGUE),
     ...routes,
   });
   const ctx = vm.createContext({
@@ -165,13 +184,6 @@ test('Factory reset erases and says so', async () => {
 
 /* ---- the preset editor ---- */
 
-const CATALOGUE = {
-  width: 400, height: 300, status_h: 20,
-  layouts: [{ id: 'classic', slots: [
-    { id: 'main', x: 0, y: 21, w: 400, h: 150, size: 'XL', kinds: ['time'] },
-    { id: 's1', x: 0, y: 172, w: 200, h: 128, size: 'S', kinds: ['number'] },
-  ] }],
-};
 const FIELDS = { fields: [{ id: 'time.clock', kind: 'time', name: 'Time', value: '12:15' },
                           { id: 'env.temp', kind: 'number', name: 'Temperature', value: '23.7 °C' }] };
 const preset = (id, name, inCycle) => ({ id, name, layout: 'classic', in_cycle: inCycle,
@@ -985,4 +997,64 @@ test('the field lists group the Solar and Energy fields and mark those whose ste
   const options = below(main).filter((e) => e.tag === 'option').map(text);
   assert.ok(options.some((o) => /^Solar — 3.42 kW \(its sync step is off\)$/.test(o)), options.join(' | '));
   assert.ok(options.some((o) => /^Forecast now — 3.50 kW$/.test(o)), options.join(' | '));
+});
+
+/* ---- the panel's size, aspect and grays (T5 spec §7.4) ---- */
+
+/* GET /api/status as the Status page reads it (main/app_web.c). */
+const STATUS = {
+  device: { id: 'reflbo-5d58', firmware: '0.1.0-dev', uptime_s: 3600, free_heap: 2097152 },
+  time: { valid: true, epoch: Math.floor(Date.now() / 1000), local: '2026-10-10T18:00:00', tz_iana: 'Europe/Prague' },
+  battery: { percent: 82, mv: 4050, state: 'discharging', days_left: null },
+  sensors: { temp_c: 23.7, hum_pct: 41 },
+  preset: { name: 'Home', cycle: false },
+  wifi: { state: 'station', ssid: 'Home', ip: '192.168.1.249', ap_on: false },
+  sync: { mode: 'times', running: false },
+};
+const statusDevice = (catalogue) => ({
+  'GET /api/layouts': () => reply(200, catalogue),
+  'GET /api/status': () => reply(200, STATUS),
+});
+const screens = (root) => below(root).filter((e) => e.tag === 'img' && e.className === 'screen');
+
+test('the T5\'s screen image is 16:9, up to its 960 px, scaled smoothly', async () => {
+  const { ctx, main } = await load(statusDevice(T5_CATALOGUE));
+  await ctx.statusPage();
+  const [shot] = screens(main);
+  assert.equal(shot.style.aspectRatio, '960 / 540');
+  assert.equal(shot.style.maxWidth, '960px');
+  assert.equal(shot.style.imageRendering, 'auto');
+});
+
+test('the RLCD\'s screen image stays 4:3, 400 px and pixelated', async () => {
+  const { ctx, main } = await load(statusDevice(CATALOGUE));
+  await ctx.statusPage();
+  const [shot] = screens(main);
+  assert.equal(shot.style.aspectRatio, '400 / 300');
+  assert.equal(shot.style.maxWidth, '400px');
+  assert.equal(shot.style.imageRendering, undefined, 'style.css\'s pixelated stays');
+});
+
+test('a catalogue that failed to load is fetched again', async () => {
+  let fail = true;
+  const { ctx, main, calls } = await load({
+    'GET /api/layouts': () => (fail ? reply(500, { error: 'busy' }) : reply(200, T5_CATALOGUE)),
+    'GET /api/status': () => reply(200, STATUS),
+  });
+  await assert.rejects(ctx.statusPage());
+  fail = false;
+  await ctx.statusPage();
+  assert.equal(screens(main)[0].style.aspectRatio, '960 / 540');
+  assert.equal(calls.filter((c) => c.path === '/api/layouts').length, 2);
+});
+
+test('a preset\'s slot tags sit by the T5\'s panel', async () => {
+  const saved = [];
+  const { ctx, main } = await load({ ...presetDevice(saved), 'GET /api/layouts': () => reply(200, T5_CATALOGUE) });
+  await ctx.presetsPage();
+  const tags = below(main).filter((e) => e.className === 'slot-tag');
+  assert.deepEqual(tags.map((t) => [text(t), t.style.left, t.style.top]),
+                   [['main', '100%', '6.481%'], ['s1', '16.667%', '58.889%']]);
+  const [img] = screens(main);
+  assert.equal(img.style.aspectRatio, '960 / 540');
 });

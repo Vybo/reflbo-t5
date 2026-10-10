@@ -94,6 +94,7 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 .list li.sel { background: var(--bg); margin: 0 -8px; padding-left: 8px; padding-right: 8px; border-radius: 6px; }
 a { color: var(--accent); }
 .bars { font-family: ui-monospace, monospace; letter-spacing: -2px; color: var(--muted); }
+/* The RLCD's 400 px and 4:3; app.js's screenImg() sets each board's own (T5 spec §7.4). */
 .screen {
   display: block; width: 100%; max-width: 400px; aspect-ratio: 4 / 3;
   image-rendering: pixelated; border: 1px solid var(--line); border-radius: 4px; background: #fff;

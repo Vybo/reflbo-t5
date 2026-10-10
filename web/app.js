@@ -247,7 +247,27 @@ function wifiText(w) {
   }
 }
 
+let catalogue = null; /* GET /api/layouts: it doesn't change while the page is open */
+
+/* The board's catalogue (T5 spec §7.4): the panel, its capabilities and the layouts, fetched once; a failed
+ * fetch is tried again by the next page. */
+async function panel() {
+  if (!catalogue) catalogue = await api('GET', '/api/layouts');
+  return catalogue;
+}
+
+/* An image of the panel: its aspect, at most its own width; a gray panel's scales smoothly, while the 1 bpp
+ * panel's keeps style.css's crisp pixels. */
+function screenImg(alt, src) {
+  const img = h('img', src ? { class: 'screen', alt, src } : { class: 'screen', alt });
+  img.style.aspectRatio = `${catalogue.width} / ${catalogue.height}`;
+  img.style.maxWidth = `${catalogue.width}px`;
+  if (catalogue.bpp > 1) img.style.imageRendering = 'auto';
+  return img;
+}
+
 async function statusPage() {
+  await panel();
   let s = await api('GET', '/api/status');
   let clockNote = null;
   if (!s.time.valid) { /* no backup cell (D9): the phone's clock is better than none */
@@ -257,7 +277,7 @@ async function statusPage() {
   }
   const off = Math.round(s.time.epoch - Date.now() / 1000);
   const b = s.battery, env = s.sensors;
-  const shot = h('img', { class: 'screen', alt: 'What the device shows', src: '/api/screenshot.bmp?t=' + Date.now() });
+  const shot = screenImg('What the device shows', '/api/screenshot.bmp?t=' + Date.now());
   main.replaceChildren(
     h('h1', { text: 'Status' }),
     card('Screen', shot, actions(button('Refresh', () => statusPage().catch(() => {})))),
@@ -711,6 +731,7 @@ async function radarPreview(img, layout) {
 const link = (href, text) => h('a', { href, target: '_blank', rel: 'noopener' }, text);
 
 async function radarPage() {
+  await panel();
   const [s, st] = await Promise.all([api('GET', '/api/settings'), api('GET', '/api/status')]);
   const radar = s.radar || {}, wx = radar.weather || {}, fl = radar.flights || {}, now = st.radar || {};
   const always = (s.sync || {}).mode === 'always';
@@ -721,7 +742,7 @@ async function radarPage() {
   const zoom = h('select', { name: 'zoom' }, ZOOMS.map((z) => h('option', { value: String(z), selected: z === (wx.zoom ?? 6.5) },
     `${z}: about ${acrossKm(z, lat)} km across`)));
   zoom.value = String(ZOOMS.includes(wx.zoom) ? wx.zoom : 6.5);
-  const wxImg = h('img', { class: 'screen', alt: 'The Radar layout' });
+  const wxImg = screenImg('The Radar layout');
   const w = now.weather || {};
   const wxCard = card('Weather radar', wxImg, facts([
     ['Source', w.source === 'rainviewer' ? 'RainViewer, as the centre is outside ČHMÚ\'s area' : 'ČHMÚ'],
@@ -751,7 +772,7 @@ async function radarPage() {
   const ground = h('input', { type: 'checkbox', name: 'ground', checked: !!fl.ground });
   const max = h('input', { type: 'number', name: 'max', min: 1, max: 100, step: 1, value: fl.max ?? 100 });
   const f = now.flights || {};
-  const flImg = h('img', { class: 'screen', alt: 'The Flights layout' });
+  const flImg = screenImg('The Flights layout');
   const flCard = card('Flight radar',
     always ? null : h('p', { class: 'bad small' }, 'It runs only in sync mode Always on, set on the ',
       h('a', { href: '#sync' }, 'Sync'), ' page.'),
@@ -1048,7 +1069,6 @@ function fieldOptions(ed, fits, selected) {
 const CYCLE_S = [10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
 const cycleLabel = (s) => (s < 60 ? `${s} s` : s < 3600 ? `${s / 60} min` : `${s / 3600} h`);
 const DAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']; /* bit 0 is Monday */
-let catalogue = null; /* GET /api/layouts, cached: it doesn't change while the page is open */
 
 function uniqueId(doc, base) {
   const stem = (base.toLowerCase().normalize('NFD').replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'preset')
@@ -1059,7 +1079,7 @@ function uniqueId(doc, base) {
 }
 
 async function presetsPage() {
-  if (!catalogue) catalogue = await api('GET', '/api/layouts');
+  await panel();
   const [doc, fieldList, settings] = await Promise.all([api('GET', '/api/presets'), api('GET', '/api/fields'),
     api('GET', '/api/settings').catch(() => ({}))]);
   const steps = (settings.sync || {}).steps;
@@ -1067,7 +1087,7 @@ async function presetsPage() {
     doc, fields: fieldList.fields, dirty: false,
     stepsOff: new Set(Array.isArray(steps) ? STEP_SWITCHES.map(([k]) => k).filter((k) => !steps.includes(k)) : []),
     sel: Math.max(0, doc.presets.findIndex((p) => p.id === doc.active)),
-    img: h('img', { class: 'screen', alt: 'Preview' }), previewNote: h('p', { class: 'small' }),
+    img: screenImg('Preview'), previewNote: h('p', { class: 'small' }),
     timer: null, url: null, saveNote: h('p'),
   };
   if (!ed.doc.schedule) ed.doc.schedule = { enabled: false, entries: [] };
@@ -1079,12 +1099,14 @@ async function presetsPage() {
  * (the renderer puts captions top left); a split preset's cells by their numbers. */
 function previewBox(ed, slots) {
   const pct = (v, of) => `${+(100 * v / of).toFixed(3)}%`;
-  return h('div', { class: 'preview' }, ed.img, slots.map((slot) => {
+  const box = h('div', { class: 'preview' }, ed.img, slots.map((slot) => {
     const tag = h('span', { class: 'slot-tag', text: slot.id });
     tag.style.left = pct(slot.x + slot.w, catalogue.width);
     tag.style.top = pct(slot.y, catalogue.height);
     return tag;
   }));
+  box.style.maxWidth = `${catalogue.width}px`;
+  return box;
 }
 
 function layoutOf(id) {
