@@ -68,3 +68,15 @@ bool ui_profile_matches(const gfx_fb_t *fb)
     const ui_profile_t *p = ui_profile();
     return fb != NULL && fb->width == p->width && fb->height == p->height && fb->format == p->format;
 }
+
+size_t ui_profile_fb_size(void)
+{
+    const ui_profile_t *p = ui_profile();
+    return gfx_fb_size_fmt((gfx_format_t)p->format, p->width, p->height);
+}
+
+void ui_profile_fb_init(gfx_fb_t *fb, uint8_t *buf)
+{
+    const ui_profile_t *p = ui_profile();
+    gfx_fb_init_fmt(fb, buf, p->width, p->height, (gfx_format_t)p->format);
+}

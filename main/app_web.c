@@ -298,18 +298,18 @@ static void get_status(uint8_t *out, size_t size, webui_reply_t *reply)
     reply_cjson(reply, out, size, o);
 }
 
-/* The framebuffer the previews draw into; the display's own stays as it is. */
+/* The framebuffer the previews draw into, as deep as the panel's (16 grays on the T5, T3c); the display's own stays
+ * as it is. */
 static gfx_fb_t *preview_fb(void)
 {
     static gfx_fb_t fb;
     static uint8_t *buf;
     if (buf == NULL) {
-        const ui_profile_t *p = ui_profile();
-        buf = heap_caps_malloc(gfx_fb_size(p->width, p->height), MALLOC_CAP_SPIRAM);
+        buf = heap_caps_malloc(ui_profile_fb_size(), MALLOC_CAP_SPIRAM);
         if (buf == NULL) {
             return NULL;
         }
-        gfx_fb_init(&fb, buf, p->width, p->height);
+        ui_profile_fb_init(&fb, buf);
     }
     return &fb;
 }

@@ -103,3 +103,7 @@ ui_icon_class_t ui_icon_class(int rlcd_px);
 int ui_icon_px(int rlcd_px);
 /* Whether fb is the frame the profile draws: its width, height and format (T3a); false for NULL. */
 bool ui_profile_matches(const gfx_fb_t *fb);
+/* A frame the profile draws (T3c): its size in bytes, and `fb` over `buf` of that size, as wide, tall and deep as the
+ * panel's. The web preview draws into one; the display's own frame stays the display's. */
+size_t ui_profile_fb_size(void);
+void ui_profile_fb_init(gfx_fb_t *fb, uint8_t *buf);

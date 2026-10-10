@@ -457,6 +457,24 @@ static void test_the_status_line_is_gray_on_the_t5(void)
     TEST_ASSERT_TRUE(gfx_get_pixel(&fb, 160, 420) && gfx_get_pixel(&fb, 161, 420));
 }
 
+/* T3c's board check: the web preview's frame was 1 bpp on the T5, so its BMP lost every gray. */
+static void test_the_profiles_own_frame_is_its_size_and_format(void)
+{
+    static uint8_t buf[960 * 540 / 2];
+    gfx_fb_t fb;
+    TEST_ASSERT_EQUAL_UINT32(400 * 300 / 8, ui_profile_fb_size());
+    ui_profile_fb_init(&fb, buf);
+    TEST_ASSERT_TRUE(ui_profile_matches(&fb));
+
+    ui_profile_use(&ui_profile_t547);
+    size_t size = ui_profile_fb_size();
+    ui_profile_fb_init(&fb, buf);
+    bool matches = ui_profile_matches(&fb);
+    ui_profile_use(NULL);
+    TEST_ASSERT_EQUAL_UINT32(960 * 540 / 2, size);
+    TEST_ASSERT_TRUE(matches);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -477,5 +495,6 @@ int main(void)
     RUN_TEST(test_the_rlcd_fonts_and_icons_are_todays);
     RUN_TEST(test_the_rlcd_layouts_and_separators_are_todays);
     RUN_TEST(test_the_t5_tables);
+    RUN_TEST(test_the_profiles_own_frame_is_its_size_and_format);
     return UNITY_END();
 }
