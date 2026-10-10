@@ -266,6 +266,9 @@ function screenImg(alt, src) {
   return img;
 }
 
+/* Whether the board has this hardware (T5 spec §4.3): the page shows nothing for what it lacks. */
+const has = (cap) => catalogue.caps.includes(cap);
+
 async function statusPage() {
   await panel();
   let s = await api('GET', '/api/status');
@@ -299,12 +302,14 @@ async function statusPage() {
         await statusPage();
       });
     }))),
-    card('Battery and sensors', facts([
+    card(has('env_sensor') ? 'Battery and sensors' : 'Battery', facts([
       ['Battery', b.percent !== undefined ? `${b.percent} % · ${(b.mv / 1000).toFixed(2)} V · ${b.state}` : 'no reading yet'],
       b.days_left !== null ? ['Lasts', `about ${b.days_left.toFixed(1)} days`] : null,
-      ['Temperature', env.temp_c !== null ? `${env.temp_c.toFixed(1)} °C` : '—'],
-      ['Humidity', env.hum_pct !== null ? `${env.hum_pct.toFixed(0)} %` : '—'],
-      env.age_s !== undefined ? ['Measured', `${duration(env.age_s)} ago`] : null,
+      ...(has('env_sensor') ? [
+        ['Temperature', env.temp_c !== null ? `${env.temp_c.toFixed(1)} °C` : '—'],
+        ['Humidity', env.hum_pct !== null ? `${env.hum_pct.toFixed(0)} %` : '—'],
+        env.age_s !== undefined ? ['Measured', `${duration(env.age_s)} ago`] : null,
+      ] : []),
     ])),
     card('Wi-Fi', facts([['Now', wifiText(s.wifi)], s.wifi.ap_on ? ['On its network', `${s.wifi.ap_clients} device(s)`] : null])),
     card('Sync', facts(syncFacts(s.sync)), actions(h('a', { class: 'btn', href: '#sync' }, 'Sync settings'))),
@@ -356,6 +361,7 @@ function syncFacts(sync) {
 }
 
 async function syncPage() {
+  await panel();
   const [s, st] = await Promise.all([api('GET', '/api/settings'), api('GET', '/api/status')]);
   const sync = s.sync || {}, quiet = sync.quiet || {};
   const steps = h('dl', { class: 'facts' });
@@ -368,12 +374,12 @@ async function syncPage() {
                   : last.steps[k] || '—' })]));
   };
   const summary = h('div');
-  const rtc = h('p', { class: 'muted small' });
+  const rtc = has('rtc_trim') ? h('p', { class: 'muted small' }) : null; /* the RLCD's clock chip (T5 spec §4.3) */
   const showStatus = (status) => {
     summary.replaceChildren(facts(syncFacts(status.sync)));
     showSteps(status);
     const r = status.time.rtc || {};
-    rtc.textContent = `The clock chip's trim: ${r.trim_steps ?? 0} steps` +
+    if (rtc) rtc.textContent = `The clock chip's trim: ${r.trim_steps ?? 0} steps` +
       (r.drift_s_per_day !== undefined ? `; it drifted ${r.drift_s_per_day > 0 ? '+' : ''}${r.drift_s_per_day} s a day before the last sync.` : '.');
   };
   showStatus(st);
@@ -471,7 +477,7 @@ async function syncPage() {
   const stepsNote = h('p');
   const stepsCard = card('Steps',
     h('p', { class: 'muted small', text: 'A step that is off makes no requests, and its data age out as usual. The time ' +
-      'always runs: the clock and its trim need it.' }),
+      `always runs: ${has('rtc_trim') ? 'the clock and its trim need it.' : 'the clock needs it.'}` }),
     ...switches, stepsNote,
     actions(button('Save steps', () => busy(stepsCard, stepsNote, async () => {
       const list = STEP_SWITCHES.filter((_, i) => switches[i].children[0].checked).map(([k]) => k);
@@ -973,6 +979,8 @@ const SENSOR_MIN = [1, 2, 5, 10, 15, 30];
 const RATES = [0.25, 0.5, 1, 2, 4, 8];
 
 async function devicePage() {
+  await panel();
+  const env = has('env_sensor'), lpm = has('lpm_rate'); /* the RLCD's SHTC3 and its panel's refresh rate */
   const [s, st] = await Promise.all([api('GET', '/api/settings'), api('GET', '/api/status')]);
   const sensors = s.sensors || {}, display = s.display || {};
   const select = (pairs, current) => h('select', {}, pairs.map(([v, t]) => h('option', { value: v, selected: v === current }, t)));
@@ -1010,18 +1018,18 @@ async function devicePage() {
   learnNote, actions(learnButton));
   const form = h('div', {},
     card('Language and units', field('Language on the device', language), field('Temperature', unit)),
-    card('Sensors', field('Temperature offset, °C', temp, 'Added to every reading. The board warms the sensor by ' +
-      'about 2 °C, which the default −2.0 makes up for; trim it against a thermometer you trust.'),
-    field('Humidity offset, %', hum), field('Measure every', every)),
+    card('Sensors', env ? field('Temperature offset, °C', temp, 'Added to every reading. The board warms the sensor ' +
+      'by about 2 °C, which the default −2.0 makes up for; trim it against a thermometer you trust.') : null,
+    env ? field('Humidity offset, %', hum) : null, field('Measure every', every)),
     card('Screen', field('Update every', update, 'How often the dashboard is redrawn. Each update wakes the device.'),
-      field('Refresh rate', rate, 'How often the panel repaints its image between updates. At 1 Hz it looked as ' +
-        'good as the faster rates (D12).')),
+      lpm ? field('Refresh rate', rate, 'How often the panel repaints its image between updates. At 1 Hz it looked as ' +
+        'good as the faster rates (D12).') : null),
     batCard,
     note,
     actions(button('Save', () => busy(form, note, async () => {
       const t = Number(temp.value), hu = Number(hum.value);
-      if (temp.value === '' || !(t >= -10 && t <= 10)) throw new ApiError('Temperature offset: -10 to 10 °C.');
-      if (hum.value === '' || !(hu >= -20 && hu <= 20)) throw new ApiError('Humidity offset: -20 to 20 %.');
+      if (env && (temp.value === '' || !(t >= -10 && t <= 10))) throw new ApiError('Temperature offset: -10 to 10 °C.');
+      if (env && (hum.value === '' || !(hu >= -20 && hu <= 20))) throw new ApiError('Humidity offset: -20 to 20 %.');
       const battery = { level_from: levelFrom.value };
       if (levelFrom.value === 'manual') {
         const fv = Number(fullV.value), ev = Number(emptyV.value);
@@ -1033,9 +1041,9 @@ async function devicePage() {
       await api('PATCH', '/api/settings', {
         language: language.value,
         units: { temp: unit.value },
-        sensors: { temp_offset_c: Math.round(t * 10) / 10, hum_offset_pct: Math.round(hu * 2) / 2,
-                   interval_min: Number(every.value) },
-        display: { update_min: Number(update.value), lpm_hz: Number(rate.value) },
+        sensors: { ...(env ? { temp_offset_c: Math.round(t * 10) / 10, hum_offset_pct: Math.round(hu * 2) / 2 } : {}),
+                   interval_min: Number(every.value) }, /* what the page doesn't show stays as it is (T5 spec §9) */
+        display: { update_min: Number(update.value), ...(lpm ? { lpm_hz: Number(rate.value) } : {}) },
         battery,
       });
       toast('Saved');

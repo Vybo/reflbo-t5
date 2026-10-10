@@ -1071,3 +1071,42 @@ test('a radar zoom gives the kilometres the board\'s map spans', async () => {
   assert.equal(await across(CATALOGUE), '6.5: about 452 km across');
   assert.equal(await across(T5_CATALOGUE), '6.5: about 645 km across'); /* 960 px at zoom 6.5 + 3/4 */
 });
+
+/* ---- what a board lacks (T5 spec §4.3, §9) ---- */
+
+test('the T5\'s Status page has no temperature or humidity', async () => {
+  const { ctx, main } = await load(statusDevice(T5_CATALOGUE));
+  await ctx.statusPage();
+  assert.doesNotMatch(text(main), /Temperature|Humidity/);
+  assert.match(text(main), /Battery/);
+});
+
+test('the RLCD\'s Status page keeps them', async () => {
+  const { ctx, main } = await load(statusDevice(CATALOGUE));
+  await ctx.statusPage();
+  assert.match(text(main), /Temperature/);
+  assert.match(text(main), /Humidity/);
+});
+
+test('the T5\'s Device page has no offsets or refresh rate, and its save leaves them as they were', async () => {
+  const patches = [];
+  const { ctx, main } = await load({ ...settingsDevice(patches), 'GET /api/layouts': () => reply(200, T5_CATALOGUE) });
+  await ctx.devicePage();
+  assert.doesNotMatch(text(main), /Temperature offset|Humidity offset|Refresh rate/);
+  await buttonNamed(main, 'Save').click();
+  await settle();
+  const p = patches.at(-1);
+  assert.deepEqual(Object.keys(p.sensors), ['interval_min']);
+  assert.deepEqual(Object.keys(p.display), ['update_min']);
+});
+
+test('the T5\'s Sync page names no clock chip or trim', async () => {
+  const { ctx, main } = await load({
+    'GET /api/settings': () => reply(200, SYNC_SETTINGS),
+    'GET /api/status': () => reply(200, syncStatus({ mode: 'times', running: false })),
+    'GET /api/layouts': () => reply(200, T5_CATALOGUE),
+  });
+  await ctx.syncPage();
+  assert.doesNotMatch(text(main), /clock chip|trim/);
+  assert.match(text(main), /The time always runs: the clock needs it\./);
+});
