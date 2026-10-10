@@ -240,12 +240,38 @@ static void test_layouts_name_the_board_and_its_capabilities(void)
     TEST_ASSERT_EQUAL_INT(0, cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(s_root, "caps")));
 }
 
+/* T3c: the page sizes its images by the panel's format and gives a radar's zoom in the board's kilometres. */
+static void test_layouts_publish_the_panels_format_and_the_radars_map(void)
+{
+    TEST_ASSERT_TRUE(ui_catalog_layouts_json(s_out, sizeof(s_out)) > 0);
+    s_root = cJSON_Parse(s_out);
+    TEST_ASSERT_NOT_NULL(s_root);
+    TEST_ASSERT_EQUAL_INT(1, num(s_root, "bpp"));
+    const cJSON *radar = cJSON_GetObjectItemCaseSensitive(s_root, "radar");
+    TEST_ASSERT_EQUAL_INT(400, num(radar, "w"));
+    TEST_ASSERT_EQUAL_INT(279, num(radar, "h"));
+    TEST_ASSERT_EQUAL_INT(0, num(radar, "zoom_q"));
+    cJSON_Delete(s_root);
+
+    ui_profile_use(&ui_profile_t547);
+    TEST_ASSERT_TRUE(ui_catalog_layouts_json(s_out, sizeof(s_out)) > 0);
+    ui_profile_use(NULL);
+    s_root = cJSON_Parse(s_out);
+    TEST_ASSERT_NOT_NULL(s_root);
+    TEST_ASSERT_EQUAL_INT(4, num(s_root, "bpp"));
+    radar = cJSON_GetObjectItemCaseSensitive(s_root, "radar");
+    TEST_ASSERT_EQUAL_INT(960, num(radar, "w"));
+    TEST_ASSERT_EQUAL_INT(505, num(radar, "h"));
+    TEST_ASSERT_EQUAL_INT(3, num(radar, "zoom_q"));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_layouts_list_their_slots_with_rectangles_sizes_and_kinds);
     RUN_TEST(test_layouts_publish_the_split_rules);
     RUN_TEST(test_layouts_name_the_board_and_its_capabilities);
+    RUN_TEST(test_layouts_publish_the_panels_format_and_the_radars_map);
     RUN_TEST(test_fields_carry_their_kind_label_and_current_value);
     RUN_TEST(test_a_buffer_too_small_gives_nothing);
     return UNITY_END();

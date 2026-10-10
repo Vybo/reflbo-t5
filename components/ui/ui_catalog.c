@@ -6,6 +6,7 @@
 #include "cJSON.h"
 #include "ui_layout.h"
 #include "ui_profile.h"
+#include "ui_radar.h"
 #include "ui_split.h"
 
 static const char *const k_kinds[UI_FK_COUNT] = {
@@ -82,6 +83,14 @@ size_t ui_catalog_layouts_json(char *out, size_t size)
     cJSON_AddNumberToObject(root, "width", p->width);
     cJSON_AddNumberToObject(root, "height", p->height);
     cJSON_AddNumberToObject(root, "status_h", p->status_h);
+    cJSON_AddNumberToObject(root, "bpp", p->format == GFX_FMT_4BPP ? 4 : 1); /* T3c: the page scales grays smoothly */
+    uint8_t zoom_q;
+    uint16_t radar_w, radar_h;
+    ui_radar_fetch_size(0, &zoom_q, &radar_w, &radar_h); /* the Radar layout's map and the board's zoom step */
+    cJSON *radar = cJSON_AddObjectToObject(root, "radar");
+    cJSON_AddNumberToObject(radar, "w", radar_w);
+    cJSON_AddNumberToObject(radar, "h", radar_h);
+    cJSON_AddNumberToObject(radar, "zoom_q", zoom_q);
     cJSON *caps = cJSON_AddArrayToObject(root, "caps");
     for (uint32_t bit = 1; bit != 0; bit <<= 1) {
         const char *name = ui_cap_name(bit);
