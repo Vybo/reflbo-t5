@@ -9,6 +9,7 @@
 #include "map_draw.h"
 #include "ui_layout.h"
 #include "ui_profile.h"
+#include "ui_radar.h"
 #include "screen_fixtures.h"
 #include "ui_split.h"
 #include "unity.h"
@@ -409,10 +410,34 @@ static void test_the_map_style_follows_the_profile(void)
     TEST_ASSERT_TRUE(s.line >= GFX_GRAY(0) && s.line <= GFX_GRAY(8));
 }
 
+/* T3b: a radar map's view is the setting's zoom plus the profile's step; the fetch asks for that very view. */
+static void test_the_radar_view_and_its_fetch_agree(void)
+{
+    map_view_t v;
+    uint8_t fz;
+    uint16_t w, h;
+    ui_radar_view(491951, 166068, 26, ui_split_area(), &v);
+    ui_radar_fetch_size(26, &fz, &w, &h);
+    TEST_ASSERT_EQUAL_INT(400, w);
+    TEST_ASSERT_EQUAL_INT(279, h);
+    TEST_ASSERT_EQUAL_UINT8(26, fz);
+    TEST_ASSERT_DOUBLE_WITHIN(1e-9, 6.5, v.zoom);
+    ui_profile_use(&ui_profile_t547);
+    ui_radar_view(491951, 166068, 26, ui_split_area(), &v);
+    ui_radar_fetch_size(26, &fz, &w, &h);
+    TEST_ASSERT_EQUAL_INT(960, w);
+    TEST_ASSERT_EQUAL_INT(505, h);
+    TEST_ASSERT_EQUAL_UINT8(29, fz);
+    TEST_ASSERT_EQUAL_INT(960, (int)v.w);
+    TEST_ASSERT_EQUAL_INT(505, (int)v.h);
+    TEST_ASSERT_DOUBLE_WITHIN(1e-9, fz / 4.0, v.zoom);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_the_rlcd_is_the_default_profile);
+    RUN_TEST(test_the_radar_view_and_its_fetch_agree);
     RUN_TEST(test_the_map_style_follows_the_profile);
     RUN_TEST(test_the_t5_sun_in_a_narrow_cell_stacks_from_the_top_in_a_larger_face);
     RUN_TEST(test_a_frame_matches_the_profile_only_in_size_and_format);

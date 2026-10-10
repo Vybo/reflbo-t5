@@ -6,11 +6,12 @@
 #include "ui_internal.h"
 #include "ui_profile.h"
 #include "ui_radar.h"
+#include "ui_split.h"
 
 /* The weather radar's map (spec §11.2): the rain under the map, then the frame's time and the
  * legend, or the loop's progress, on boxes along the bottom. */
 
-#define PAD 3
+#define PAD UI_PX(3)
 
 static bool frame_old(time_t now, const radar_frame_t *f)
 {
@@ -25,6 +26,19 @@ void ui_fill(const char *pattern, const char *value, char *out, size_t size)
         return;
     }
     snprintf(out, size, "%.*s%s%s", (int)(at - pattern), pattern, value, at + 2);
+}
+
+void ui_radar_view(int32_t lat_e4, int32_t lon_e4, uint8_t zoom_q, gfx_rect_t r, map_view_t *v)
+{
+    map_view_init(v, lat_e4, lon_e4, (zoom_q + ui_profile()->map_zoom_q) / 4.0, r.w, r.h);
+}
+
+void ui_radar_fetch_size(uint8_t zoom_q, uint8_t *fetch_zoom_q, uint16_t *w, uint16_t *h)
+{
+    gfx_rect_t a = ui_split_area(); /* the Radar layout's map */
+    *fetch_zoom_q = (uint8_t)(zoom_q + ui_profile()->map_zoom_q);
+    *w = (uint16_t)a.w;
+    *h = (uint16_t)a.h;
 }
 
 void ui_map_style(map_style_t *s)
@@ -66,14 +80,14 @@ static void boxed(gfx_fb_t *fb, gfx_rect_t box, const gfx_font_t *f, const char 
 
 /* The three levels as swatches with their words. */
 static const lang_str_t k_level_words[3] = { LS_RAIN_LIGHT, LS_RAIN_MODERATE, LS_RAIN_HEAVY };
-#define SWATCH_W 12
-#define SWATCH_H 9
+#define SWATCH_W UI_PX(12)
+#define SWATCH_H UI_PX(9)
 
 static int legend_w(const ui_context_t *ctx, const gfx_font_t *f)
 {
     int w = PAD;
     for (int i = 0; i < 3; i++) {
-        w += SWATCH_W + 3 + gfx_text_width(f, lang_str(ctx->lang, k_level_words[i])) + (i < 2 ? 8 : PAD);
+        w += SWATCH_W + UI_PX(3) + gfx_text_width(f, lang_str(ctx->lang, k_level_words[i])) + (i < 2 ? UI_PX(8) : PAD);
     }
     return w;
 }
@@ -83,16 +97,22 @@ static void legend(gfx_fb_t *fb, gfx_rect_t box, const ui_context_t *ctx, const 
     gfx_fill_rect(fb, box, GFX_WHITE);
     int x = box.x + PAD, base = box.y + PAD + f->ascent;
     for (int i = 0; i < 3; i++) {
-        gfx_rect_t sw = { (int16_t)x, (int16_t)(base - SWATCH_H + 1), SWATCH_W, SWATCH_H };
+        gfx_rect_t sw = { (int16_t)x, (int16_t)(base - SWATCH_H + 1), (int16_t)SWATCH_W, (int16_t)SWATCH_H };
         gfx_rect(fb, sw, GFX_BLACK);
-        for (int y = sw.y + 1; y < sw.y + sw.h - 1; y++) {
-            for (int px = sw.x + 1; px < sw.x + sw.w - 1; px++) {
-                if (radar_inks((radar_level_t)(RADAR_LIGHT + i), px, y)) {
-                    gfx_pixel(fb, px, y, GFX_BLACK);
+        radar_level_t level = (radar_level_t)(RADAR_LIGHT + i);
+        if (fb->format == GFX_FMT_4BPP) { /* the rain's own gray (T5 spec §6.4) */
+            gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(sw.x + 1), (int16_t)(sw.y + 1), (int16_t)(sw.w - 2), (int16_t)(sw.h - 2) },
+                          radar_level_color(level));
+        } else {
+            for (int y = sw.y + 1; y < sw.y + sw.h - 1; y++) {
+                for (int px = sw.x + 1; px < sw.x + sw.w - 1; px++) {
+                    if (radar_inks(level, px, y)) {
+                        gfx_pixel(fb, px, y, GFX_BLACK);
+                    }
                 }
             }
         }
-        x = gfx_text(fb, f, x + SWATCH_W + 3, base, lang_str(ctx->lang, k_level_words[i]), GFX_BLACK) + 8;
+        x = gfx_text(fb, f, x + SWATCH_W + UI_PX(3), base, lang_str(ctx->lang, k_level_words[i]), GFX_BLACK) + UI_PX(8);
     }
 }
 
@@ -102,11 +122,11 @@ static void loop_dots(gfx_fb_t *fb, gfx_rect_t box, const ui_radar_t *rad)
     gfx_fill_rect(fb, box, GFX_WHITE);
     int cy = box.y + box.h / 2;
     for (int i = 0; i < rad->loop_count; i++) {
-        int cx = box.x + PAD + 4 + i * 9;
+        int cx = box.x + PAD + UI_PX(4) + i * UI_PX(9);
         if (i == rad->loop_at) {
-            gfx_fill_circle(fb, cx, cy, 3, GFX_BLACK);
+            gfx_fill_circle(fb, cx, cy, UI_PX(3), GFX_BLACK);
         } else {
-            gfx_circle(fb, cx, cy, 2, GFX_BLACK);
+            gfx_circle(fb, cx, cy, UI_PX(2), GFX_BLACK);
         }
     }
 }
@@ -119,7 +139,7 @@ static void draw_map(gfx_fb_t *fb, gfx_rect_t r, const ui_radar_t *rad, ui_size_
     gfx_rect_t saved = fb->clip;
     gfx_set_clip(fb, gfx_rect_intersect(saved, r));
     map_view_t v;
-    map_view_init(&v, rad->wx_lat_e4, rad->wx_lon_e4, rad->wx_zoom_q / 4.0, r.w, r.h);
+    ui_radar_view(rad->wx_lat_e4, rad->wx_lon_e4, rad->wx_zoom_q, r, &v);
     if (rad->frame != NULL) {
         radar_render(fb, r, &v, rad->frame);
     }
@@ -127,7 +147,7 @@ static void draw_map(gfx_fb_t *fb, gfx_rect_t r, const ui_radar_t *rad, ui_size_
     ui_map_style(&style);
     style.airports = false;
     style.halo = true;
-    style.max_towns = size == UI_SIZE_XL ? 12 : size == UI_SIZE_L ? 5 : 3;
+    style.max_towns = UI_PX(size == UI_SIZE_XL ? 12 : size == UI_SIZE_L ? 5 : 3); /* the T5's larger map holds more */
     if (rad->map != NULL) {
         map_draw_lines(fb, r, &v, rad->map, &style);
     }
@@ -137,11 +157,11 @@ static void draw_map(gfx_fb_t *fb, gfx_rect_t r, const ui_radar_t *rad, ui_size_
                      *lf = UI_FONT(UI_F_SANS_12);
     gfx_rect_t cap = { 0 }, right = { 0 };
     if (rad->frame != NULL) { /* the bottom row first, so the places keep clear of it */
-        cap = bottom_box(r, gfx_text_width(cf, caption) + 2 * PAD, cf->line_height + 2 * PAD - 2, false);
+        cap = bottom_box(r, gfx_text_width(cf, caption) + 2 * PAD, cf->line_height + 2 * PAD - UI_PX(2), false);
         map_labels_reserve(&labels, cap);
         if (ctx != NULL) {
-            int w = rad->loop_count > 0 ? rad->loop_count * 9 + 2 * PAD : legend_w(ctx, lf);
-            right = bottom_box(r, w, lf->line_height + 2 * PAD - 2, true);
+            int w = rad->loop_count > 0 ? rad->loop_count * UI_PX(9) + 2 * PAD : legend_w(ctx, lf);
+            right = bottom_box(r, w, lf->line_height + 2 * PAD - UI_PX(2), true);
             map_labels_reserve(&labels, right);
         }
     }

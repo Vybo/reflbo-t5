@@ -171,7 +171,7 @@ static esp_err_t fetch_rainviewer(fetch_session_t *s, const radar_fetch_req_t *r
         return ESP_ERR_INVALID_RESPONSE;
     }
     map_view_t v;
-    map_view_init(&v, req->lat_e4, req->lon_e4, req->zoom_q / 4.0, RADAR_VIEW_W, RADAR_VIEW_H);
+    map_view_init(&v, req->lat_e4, req->lon_e4, req->zoom_q / 4.0, (int16_t)req->view_w, (int16_t)req->view_h);
     radar_rv_tiles_t t;
     radar_rv_tiles(&v, &t);
     const radar_rv_frame_t *newest = &idx.frames[idx.count - 1];

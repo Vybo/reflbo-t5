@@ -121,4 +121,5 @@ const ui_profile_t ui_profile_t547 = {
     .sun_s_face = &gfx_font_t5_time_30,
     .sun_s_top = true,
     .moon_fit = true, /* owner, board check 2026-10-10: "New m…" in Sky's 240 px cell */
+    .map_zoom_q = 3,  /* 2^0.75 = 1.68, about the pixel scale */
 };

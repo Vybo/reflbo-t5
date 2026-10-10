@@ -38,6 +38,13 @@ struct ui_radar {
  * on a 1 bpp panel and a gray from the dark half on the T5's; the views add airports, halo and towns. */
 void ui_map_style(map_style_t *s);
 
+/* The view a radar map draws in `r`: centred on (lat_e4, lon_e4), at the setting's zoom (quarters) plus the
+ * profile's step, so the T5's denser pixels show the RLCD's kilometres larger (T3b). */
+void ui_radar_view(int32_t lat_e4, int32_t lon_e4, uint8_t zoom_q, gfx_rect_t r, map_view_t *v);
+/* What the radar's fetch asks for, so its tiles cover the Radar layout's map as drawn: that view's zoom in
+ * quarters and its size (the split area below the status bar). */
+void ui_radar_fetch_size(uint8_t zoom_q, uint8_t *fetch_zoom_q, uint16_t *w, uint16_t *h);
+
 /* The Radar layout's map in `r`: the rain, the frame's time and source at the bottom left, the legend
  * or the loop's progress at the bottom right; "No radar frame yet" before the first. */
 void ui_draw_radar_view(gfx_fb_t *fb, gfx_rect_t r, const ui_context_t *ctx);

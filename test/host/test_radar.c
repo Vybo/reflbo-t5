@@ -220,7 +220,7 @@ static void test_a_rainviewer_tile_decodes_by_its_colour_table(void)
 static void test_a_frame_covers_the_views_it_has_the_rain_for(void)
 {
     map_view_t v, slot, deeper, paris;
-    map_view_init(&v, 525200, 134050, 6.5, RADAR_VIEW_W, RADAR_VIEW_H); /* Berlin: RainViewer */
+    map_view_init(&v, 525200, 134050, 6.5, 400, 279); /* Berlin: RainViewer */
     radar_rv_tiles_t t;
     radar_rv_tiles(&v, &t);
     radar_frame_t f;
@@ -228,9 +228,9 @@ static void test_a_frame_covers_the_views_it_has_the_rain_for(void)
     TEST_ASSERT_TRUE(radar_frame_covers(&f, &v));
     map_view_init(&slot, 525200, 134050, 6.5, 196, 120); /* a slot's map: some of the same tiles */
     TEST_ASSERT_TRUE(radar_frame_covers(&f, &slot));
-    map_view_init(&deeper, 525200, 134050, 7.0, RADAR_VIEW_W, RADAR_VIEW_H); /* zoom 7's tiles */
+    map_view_init(&deeper, 525200, 134050, 7.0, 400, 279); /* zoom 7's tiles */
     TEST_ASSERT_FALSE(radar_frame_covers(&f, &deeper));
-    map_view_init(&paris, 488566, 23522, 6.5, RADAR_VIEW_W, RADAR_VIEW_H);
+    map_view_init(&paris, 488566, 23522, 6.5, 400, 279);
     TEST_ASSERT_FALSE(radar_frame_covers(&f, &paris));
     radar_frame_free(&f, NULL);
     radar_frame_t chmu = { .source = RADAR_SOURCE_CHMU };
@@ -348,6 +348,50 @@ static void test_a_frame_survives_its_file_and_a_damaged_file_is_refused(void)
     radar_frame_free(&f, NULL);
 }
 
+/* T3b: the T5's Radar map is 960×505 at a zoom a step deeper; RainViewer's tiles must reach all of it. */
+static void test_rainviewer_tiles_cover_a_t5_view(void)
+{
+    map_view_t v;
+    map_view_init(&v, 525200, 134050, 7.25, 960, 505); /* Berlin */
+    radar_rv_tiles_t t;
+    radar_rv_tiles(&v, &t);
+    TEST_ASSERT_TRUE(t.nx <= 5 && t.ny <= 3);
+    radar_frame_t f;
+    TEST_ASSERT_TRUE(radar_rv_frame_alloc(&f, &t, 1790889000, NULL));
+    TEST_ASSERT_TRUE(radar_frame_covers(&f, &v));
+    TEST_ASSERT_TRUE(radar_frame_file_size(&f) <= (size_t)5 * 3 * 256 * 256 / 4 + RADAR_FILE_HEADER);
+    radar_frame_free(&f, NULL);
+}
+
+/* On a 4 bpp frame rain is gray, from the panel's dark half (T5 spec §6.4): light 8, moderate 4, heavy black. */
+static void test_rain_is_gray_on_a_4bpp_frame(void)
+{
+    static uint8_t buf[200 * 100 / 2];
+    gfx_fb_t fb;
+    gfx_fb_init_fmt(&fb, buf, 200, 100, GFX_FMT_4BPP);
+    map_view_t v;
+    map_view_init(&v, 491951, 166068, 6.0, 200, 100);
+    radar_rv_tiles_t t;
+    radar_rv_tiles(&v, &t);
+    radar_frame_t f;
+    TEST_ASSERT_TRUE(radar_rv_frame_alloc(&f, &t, 1790889000, NULL));
+    const radar_level_t levels[3] = { RADAR_LIGHT, RADAR_MODERATE, RADAR_HEAVY };
+    const uint8_t want[3] = { 8, 4, 0 };
+    for (int k = 0; k < 3; k++) {
+        for (int y = 0; y < f.h; y++) {
+            for (int x = 0; x < f.w; x++) {
+                radar_frame_set(&f, x, y, levels[k]);
+            }
+        }
+        gfx_clear(&fb, GFX_WHITE);
+        radar_render(&fb, (gfx_rect_t){ 0, 0, 200, 100 }, &v, &f);
+        TEST_ASSERT_EQUAL_UINT8(want[k], gfx_get_level(&fb, 100, 50));
+        TEST_ASSERT_EQUAL_UINT8(want[k], gfx_get_level(&fb, 101, 51)); /* no dither */
+        TEST_ASSERT_EQUAL(GFX_GRAY(want[k]) == GFX_GRAY(0) ? GFX_BLACK : GFX_GRAY(want[k]), radar_level_color(levels[k]));
+    }
+    radar_frame_free(&f, NULL);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -360,6 +404,8 @@ int main(void)
     RUN_TEST(test_rainviewer_tiles_cover_the_view);
     RUN_TEST(test_a_rainviewer_tile_decodes_by_its_colour_table);
     RUN_TEST(test_a_frame_covers_the_views_it_has_the_rain_for);
+    RUN_TEST(test_rainviewer_tiles_cover_a_t5_view);
+    RUN_TEST(test_rain_is_gray_on_a_4bpp_frame);
     RUN_TEST(test_the_store_keeps_frames_in_order_and_frees_the_rest);
     RUN_TEST(test_a_fetch_wants_the_hour_it_lacks);
     RUN_TEST(test_a_frame_survives_its_file_and_a_damaged_file_is_refused);

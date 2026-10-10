@@ -8,6 +8,8 @@
 #include "map_data.h"
 #include "storage.h"
 #include "timekeeping.h"
+#include "ui_radar.h"
+#include "ui_split.h"
 
 /* The weather radar on the device (spec §11.2): the frames kept in PSRAM, the newest also in
  * /fs/state/radar.bin, and what the views draw. It belongs to the app task; the sync task fetches. */
@@ -15,7 +17,7 @@
 static const char *TAG = "app_radar";
 
 #define FRAME_PATH "/fs/state/radar.bin"
-#define FRAME_FILE_MAX (RADAR_FILE_HEADER + 3 * 256 * 3 * 256 / 4) /* RainViewer's 3 x 3 tiles */
+#define FRAME_FILE_MAX (RADAR_FILE_HEADER + RADAR_RV_TILES_MAX * 256 * RADAR_RV_TILES_MAX * 256 / 4) /* RainViewer's */
 #define SAVE_EVERY_S 1800 /* sync mode `always`: the file follows its new frames at most this often */
 #define LOOP_STEP_MS 333 /* the loop: about 3 frames a second (spec §11.2) */
 
@@ -69,7 +71,7 @@ static bool fits(const radar_frame_t *f)
         return false;
     }
     map_view_t v;
-    map_view_init(&v, set->wx_lat_e4, set->wx_lon_e4, set->wx_zoom_q / 4.0, RADAR_VIEW_W, RADAR_VIEW_H);
+    ui_radar_view(set->wx_lat_e4, set->wx_lon_e4, set->wx_zoom_q, ui_split_area(), &v); /* the Radar layout's map */
     return radar_frame_covers(f, &v);
 }
 
@@ -155,7 +157,7 @@ void app_radar_request(radar_fetch_req_t *out)
     memset(out, 0, sizeof(*out));
     out->lat_e4 = set->wx_lat_e4;
     out->lon_e4 = set->wx_lon_e4;
-    out->zoom_q = set->wx_zoom_q;
+    ui_radar_fetch_size(set->wx_zoom_q, &out->zoom_q, &out->view_w, &out->view_h); /* the map as drawn (T3b) */
     out->want = (uint8_t)keep_count();
     for (int i = 0; i < s_store.count; i++) {
         out->have[out->have_count++] = s_store.frames[i].time;

@@ -155,4 +155,5 @@ const ui_profile_t ui_profile_rlcd42 = {
     .sun_s_face = &gfx_font_sans_bold_16,
     .sun_s_top = false,
     .moon_fit = false,
+    .map_zoom_q = 0,
 };

@@ -134,6 +134,20 @@ bool radar_inks(radar_level_t level, int x, int y)
     }
 }
 
+gfx_color_t radar_level_color(radar_level_t level)
+{
+    switch (level) {
+    case RADAR_LIGHT:
+        return GFX_GRAY(8);
+    case RADAR_MODERATE:
+        return GFX_GRAY(4);
+    case RADAR_HEAVY:
+        return GFX_BLACK;
+    default:
+        return GFX_WHITE;
+    }
+}
+
 /* Web Mercator metres per screen pixel, and the metres of the view's pixel (0, 0)'s centre. */
 static void view_metres(const map_view_t *v, double *step, double *mx, double *my)
 {
@@ -174,10 +188,17 @@ void radar_render(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, const rada
     gfx_set_clip(fb, gfx_rect_intersect(saved, area));
     static grid_map_t g; /* 4 KB: off the app task's stack */
     grid_map(v, f, area.w, area.h, &g);
+    bool gray = fb->format == GFX_FMT_4BPP;
     for (int sy = 0; sy < g.h; sy++) {
         for (int sx = 0; g.rows[sy] >= 0 && sx < g.w; sx++) {
             int x = area.x + sx, y = area.y + sy;
-            if (g.cols[sx] >= 0 && radar_inks(radar_frame_level(f, g.cols[sx], g.rows[sy]), x, y)) {
+            if (g.cols[sx] < 0) {
+                continue;
+            }
+            radar_level_t level = radar_frame_level(f, g.cols[sx], g.rows[sy]);
+            if (gray && level != RADAR_NONE) {
+                gfx_pixel(fb, x, y, radar_level_color(level));
+            } else if (!gray && radar_inks(level, x, y)) {
                 gfx_pixel(fb, x, y, GFX_BLACK);
             }
         }

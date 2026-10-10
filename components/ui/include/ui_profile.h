@@ -76,6 +76,7 @@ typedef struct {
     const gfx_font_t *sun_s_face; /* the sun's times in an S cell, before smaller faces */
     bool sun_s_top; /* in a narrow S cell the sun stacks from the top like the other S widgets; else centred */
     bool moon_fit;  /* in M, L and XL the Moon's disc gives way to its name, to half its size, then the short name */
+    uint8_t map_zoom_q; /* quarters added to a map's zoom: a kilometre over about px_num/px_den the pixels (T3b) */
 } ui_profile_t;
 
 extern const ui_profile_t ui_profile_rlcd42;

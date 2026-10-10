@@ -71,9 +71,7 @@ png_err_t radar_chmu_decode(const uint8_t *png, size_t len, const png_mem_t *mem
 #define RADAR_RV_MAX_ZOOM 7
 #define RADAR_RV_STEP_S 600 /* its frames come every 10 min */
 #define RADAR_RV_FRAMES 16
-#define RADAR_RV_TILES_MAX 3 /* a side: at most 3 x 3 tiles a view */
-#define RADAR_VIEW_W 400 /* the Radar layout's map, which holds any slot's: the view a fetch covers */
-#define RADAR_VIEW_H 279
+#define RADAR_RV_TILES_MAX 5 /* a side: the T5's 960 px view takes up to 5 x 3 tiles, the RLCD's 400 px 3 x 3 */
 
 typedef struct {
     uint32_t time;
@@ -121,14 +119,17 @@ bool radar_frame_from_file(const uint8_t *data, size_t len, const png_mem_t *mem
 
 /* ---- drawing ---- */
 
-/* The frame's rain in `area`, whose top-left is the view's (0, 0): light as one pixel in four,
- * moderate as a checkerboard, heavy solid; where the frame has no data, the edge of its data
- * dotted. Draws over what is there, so the map goes on top. */
+/* The frame's rain in `area`, whose top-left is the view's (0, 0): on 1 bpp light as one pixel in four,
+ * moderate as a checkerboard, heavy solid; on 4 bpp in radar_level_color()'s grays; where the frame has no
+ * data, the edge of its data dotted. Draws over what is there, so the map goes on top. */
 void radar_render(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, const radar_frame_t *f);
 /* Any rain inside the view. */
 bool radar_any_rain(const map_view_t *v, const radar_frame_t *f);
-/* The dither: whether screen pixel (x, y) is inked at `level`, as radar_render() draws it. */
+/* The dither: whether screen pixel (x, y) is inked at `level`, as radar_render() draws it on a 1 bpp frame. */
 bool radar_inks(radar_level_t level, int x, int y);
+/* The level's colour on a 4 bpp frame, from the T5's dark half (T5 spec §6.4): light GFX_GRAY(8), moderate
+ * GFX_GRAY(4), heavy black; white for none. radar_render() fills rain with it there instead of the dither. */
+gfx_color_t radar_level_color(radar_level_t level);
 
 /* ---- the frames kept ---- */
 
