@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a (§13)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b (§13)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -265,11 +265,23 @@ Text and icon edges; the radar's rain intensity (in place of `radar_inks()`' dit
 
 On the owner's panel (T2, 2026-10-09) the waveform's levels 0–8 are distinct and 9–15 look nearly alike, so T3 takes its grays from the dark half. Ghosting shows through dark grays after a clean update (partly old burn-in); a clean update with more clear cycles is a T4 question.
 
+As built at T3b, after the owner's photos and checks at the panel (2026-10-10: "nothing 1px wide will be contrasty enough"; the lighter grays read as white):
+
+| Use | Level | Width |
+|---|---|---|
+| Rain: light, moderate, heavy (`radar_level_color()`, per pixel; the legend's swatches too) | 4, 2, 0 | — |
+| The map's borders and coasts (`map_style_t.line`, `line_w`) | 2 | 2 px |
+| The status bar's line | 2 | 2 px |
+| The solar chart's forecast still to come, inside its black outline | 6 | — |
+| The fixed layouts' separators, the split's lines, the flights' rings, home's ⊙ ring | 0 | 2 px |
+
+The map's land stays white. The RLCD keeps its 1 px black lines and its dithered rain. Where T3b's first levels (rain 8/4/0, lines 6, chart 8) were too pale on the panel, these are the owner's.
+
 ### 6.5 Screenshots, previews, goldens
 
 - `screenshot` prints a PGM (P5, 8-bit) between `-----BEGIN RLCD PGM-----` and `-----END RLCD PGM-----` on a 4 bpp board, and the PBM as today on 1 bpp. `tools/screenshot.py` reads both and writes a PNG.
 - `/api/screenshot.bmp` and `/api/preview.bmp` send a 4-bit BMP with a 16-gray palette on the T5.
-- The T5's goldens are gzip-compressed PGMs (`.pgm.gz`, as a plain one is 518 KB) in `test/host/golden/t5/`, read and written through `test/host/golden_io.h`; `render_dashboard` and `render_screen` take `--board t5` (and `render_dashboard [--board t5] --layouts` lists each fixture's layout). `tools/render.py --board t5` renders every fixture as the T5 draws it, and `tools/pbm_png.py` reads compressed images. The T5's golden set is the fixtures on Classic, Grid, Weather and Focus (41) and every screen (24); the fixtures whose slots hold the radar, chart or flow widgets join with T3b. A fixture that asks for the Indoor preset gets the T5's Sky.
+- The T5's goldens are gzip-compressed PGMs (`.pgm.gz`, as a plain one is 518 KB) in `test/host/golden/t5/`, read and written through `test/host/golden_io.h`; `render_dashboard` and `render_screen` take `--board t5` (and `render_dashboard [--board t5] --layouts` lists each fixture's layout). `tools/render.py --board t5` renders every fixture as the T5 draws it, and `tools/pbm_png.py` reads compressed images. The T5's golden set is every dashboard fixture (76: T3a's 41 on Classic, Grid, Weather and Focus; T3b's 35 on Radar, Flights, Solar, Energy and the split, with the radar, chart and flow widgets in slots) and every screen (24) (`k_t5_dashboard_fixtures`, `k_t5_screen_fixtures`). A fixture that asks for the Indoor preset gets the T5's Sky.
 - The T5's UI draws its 960×540 4 bpp frame directly, in epdiy's layout (T3a): `display_fb()` is the frame the panel gets and `display_screenshot_fb()` returns it, with no composition. A T5 screenshot is about 690 KB of base64, about a minute at 115200 baud (66 s measured); `/api/screenshot.bmp`'s reply buffer is 264 KB on the T5.
 
 ## 7. Dense UI at 960×540
@@ -292,13 +304,16 @@ As built at T3a: `ui_profile_rlcd42.c` and `ui_profile_t547.c`, one built into e
 - the icons by name and size class, `ui_icon(UI_ICON_<name>, UI_IC16 | UI_IC24 | UI_IC48)`, with `ui_icon_class()` and `ui_icon_px()` taking the RLCD's pixels; `ui_bitmap_ink()` reads ink from 1 bpp and 4-bit icons alike;
 - the fixed layouts with their separators (`ui_layout_t`: slots and `ui_sep_t` lines);
 - the menu's header, first row, row pitch and rows; the split's least cell, narrow width and inset (`UI_SPLIT_*` read them);
-- the owner's tuning from the T5's render review: the sun's times in an S cell (`sun_s_face`: the RLCD's bold 16; on the T5 a 30 px bold face of a time's characters, beside the 40 px icons) and, in a narrow S cell, the sun stacked from the top like the other S widgets (`sun_s_top`, T5 only); from the board check, the Moon's fit beside its name (`moon_fit`, T5 only).
+- the owner's tuning from the T5's render review: the sun's times in an S cell (`sun_s_face`: the RLCD's bold 16; on the T5 a 30 px bold face of a time's characters, beside the 40 px icons) and, in a narrow S cell, the sun stacked from the top like the other S widgets (`sun_s_top`, T5 only); from the board check, the Moon's fit beside its name (`moon_fit`, T5 only);
+- the maps' zoom step (`map_zoom_q`, T3b): quarters added to every map's zoom, 0 on the RLCD and 3 on the T5 (2^0.75 ≈ 1.68, about the pixel scale), so a radar's centre and zoom from the settings show the same kilometres on both boards.
 
-The UI names no board's font or icon outside the profiles (`tools/tests/test_ui_sources.py` checks it), and `main` refuses to boot when the display's frame doesn't match the profile (`ui_profile_matches()`). A screen laid out on the RLCD's whole screen (critical battery, config's "starting" and "connecting", the menu's date-time editor and question) keeps its positions through `UI_PX()` from a top offset of (height − `UI_PX(300)`) / 2. Under a profile with equal numerator and denominator other than 1/1, every RLCD golden renders unchanged (a test). The radar and flight views' sizes, the Solar and Energy layouts and the chart and flow widgets keep the RLCD's geometry until T3b; the web's numbers are T3c's.
+The map draws in a style the UI hands it (`map_style_t`, from `ui_map_style()`, T3b): the labels' font (`UI_F_SANS_12`), the marks' scale (the profile's `px_num`/`px_den`), and its lines' colour and width (§6.4); `map_draw.c` names no font.
+
+The UI names no board's font or icon outside the profiles (`tools/tests/test_ui_sources.py` checks it), and `main` refuses to boot when the display's frame doesn't match the profile (`ui_profile_matches()`). A screen laid out on the RLCD's whole screen (critical battery, config's "starting" and "connecting", the menu's date-time editor and question) keeps its positions through `UI_PX()` from a top offset of (height − `UI_PX(300)`) / 2. Under a profile with equal numerator and denominator other than 1/1, every RLCD golden renders unchanged (a test). Since T3b the radar and flight views, the Solar and Energy layouts and the chart and flow widgets take their geometry from the profile too (§7.3); the web's numbers are T3c's.
 
 ### 7.2 Sizes on the T5
 
-About 1.7× the RLCD's pixels (DT2): fonts 12 → 20, 16 → 26, 20 → 34, 28 → 46, numbers 48 → 80, 72 → 120, 110 → 180, 130 → 220 (DejaVu, 4-bit); icons 16 → 26, 24 → 40, 48 → 80; the status bar 20 → 34; plus the sun's 30 px time face (digits, ":", space, A, M, P). The owner approved the renders on 2026-10-09; only the T5's image carries its assets (`components/gfx/CMakeLists.txt`), and it holds three of the RLCD's fonts that `map_draw.c` and `gfx_draw_test_pattern()` still name (3.40 MB of the 3.6 MB budget).
+About 1.7× the RLCD's pixels (DT2): fonts 12 → 20, 16 → 26, 20 → 34, 28 → 46, numbers 48 → 80, 72 → 120, 110 → 180, 130 → 220 (DejaVu, 4-bit); icons 16 → 26, 24 → 40, 48 → 80; the status bar 20 → 34; plus the sun's 30 px time face (digits, ":", space, A, M, P). The owner approved the renders on 2026-10-09; only the T5's image carries its assets (`components/gfx/CMakeLists.txt`). It still holds three of the RLCD's fonts, which only the test patterns name since T3b (the map takes its font from the UI, §7.1). The image is 3.40 MB of the 3.6 MB budget at T3b (3 403 536 B; 19 % of the 4 MB slot free).
 
 ### 7.3 Layouts on the T5
 
@@ -310,7 +325,8 @@ As approved (2026-10-09; 16:9, below the status bar at {0, 35, 960, 505}):
 | Weather | now, today, hourly, 2 small | now, today, hourly, 3 small |
 | Grid | 3×2 | 4×2 |
 | Focus | main, 2 small | main, 3 small |
-| Radar, Flights | 400×279 | full width, 16:9 |
+| Radar | 400×279 | 960×505 |
+| Flights | map 400×238 over its panel | map 960×436 over its 68 px panel |
 | Solar, Energy | as built | rescaled, wider chart |
 | Split | cells ≥ 40×20, ≤ 24 | the same ratio trees; cells ≥ 68×34, ≤ 24 |
 
@@ -334,7 +350,16 @@ The T5's built-in presets leave out the `env.*` fields:
 | Weather | Weather, status clock | now, today, hourly, air quality, pollen, sun |
 | Focus clock | Focus | time, date, weather now, Moon |
 
-Rain radar, Flights, Solar and Energy stay out of the T5's cycle until T3b draws them at 960×540. Found at the board (2026-10-10): where the Moon's name would be cut beside its disc in M, L or XL, the disc shrinks, to half its size at most, and a name too wide even then takes its short form ("Crescent" for "Waning crescent"); the RLCD keeps its disc and cuts the name, as before (its `grid_moon` golden).
+Rain radar, Flights, Solar and Energy stayed out of the T5's cycle until T3b drew them at 960×540; since T3b the T5's built-in presets put them in the cycle as the RLCD's do (the cycle visits Flights only in sync mode `always`, as upstream). A `presets.json` saved under T3a keeps them out until the owner puts them back (the page's Presets, or a factory reset).
+
+The views as built at T3b (owner's render approval 2026-10-10, "All looks good"; at the panel the same day):
+
+- **Radar:** the map fills the area below the status bar, `ui_split_area()` (960×505 on the T5); a slot's map is a smaller window at the same centre and zoom. `ui_radar_view()` adds the profile's zoom step (§7.1). The towns drawn scale with `UI_PX()` (XL 12 → 20, L 5 → 9, M 3 → 5), as the larger map holds more.
+- **The radar's fetch** covers the Radar layout's map as drawn, whatever slot shows it: `ui_radar_fetch_size()` gives the zoom with its step and the area's size, which `radar_fetch_req_t` carries (`view_w`, `view_h`) in place of the RLCD's fixed 400×279. RainViewer's tiles grow to 5 a side (`RADAR_RV_TILES_MAX`; a 960×505 view takes up to 5×3), and the frame file's limit follows them.
+- **Flights:** the map is the area less the panel (`ui_flights_map_rect()`, 960×436), and `ui_flights_view()` fits the range's radius to half the map's height, so aircraft reach both side edges; the panel, its arrows and the nearest aircraft's mark scale with `UI_PX()`.
+- **Solar and Energy:** the RLCD's layouts through `UI_PX()`, the chart and the totals across the full width; the time and energy arithmetic stays unscaled.
+
+Found at the board (2026-10-10): where the Moon's name would be cut beside its disc in M, L or XL, the disc shrinks, to half its size at most, and a name too wide even then takes its short form ("Crescent" for "Waning crescent"); the RLCD keeps its disc and cuts the name, as before (its `grid_moon` golden).
 
 ### 7.4 Web UI
 
@@ -437,7 +462,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | T1 | Port and bring-up: the T5 as an ESP32 board (target, pins, console, wake, the ADC's scheme, the system-clock RTC, the tools); epdiy's ESP32 path with its board and patch P5, `epaper`, rails and deep sleep; every update clean; DU, GL16 and GC16, the slow clock's drift and the sleep current measured. Until T3 the app draws the RLCD's 400×300 1 bpp frame, which `epaper` places in the panel's middle | The test pattern and the clock on the panel (owner confirms); the timings, drift and current recorded (done 2026-10-07, the current waits for the owner's meter) |
 | T2 | Grayscale gfx: 4 bpp, anti-aliased fonts and icons, PGM screenshots, gray BMPs | The gray ramp and anti-aliased text on the panel match their screenshots (done 2026-10-09) |
 | T3a | The native frame: the profile holds fonts, icons, `UI_PX()`, layouts, the menu and split limits; the T5's fonts and icons; `UI_PX()` through the UI; the T5's layouts, menu, screens and presets; the display hands the UI its 960×540 4 bpp frame; the T5's goldens | The owner approves the renders; the T5's goldens committed; the presets and the menu on the panel (done 2026-10-10) |
-| T3b | The views and the grays: Radar and Flights at 960×540, the Solar and Energy layouts, the chart and flow widgets, the map's fonts and marks; §6.4's gray uses | Their renders approved and their goldens committed; each view on the panel |
+| T3b | The views and the grays: Radar and Flights at 960×540, the Solar and Energy layouts, the chart and flow widgets, the map's fonts and marks; §6.4's gray uses | Their renders approved and their goldens committed; each view on the panel (done 2026-10-10) |
 | T3c | The web page: the panel's size and aspect from `/api/layouts`, the split editor's grid, the gray preview; the T5's gray BMPs fetched over Wi-Fi | The page edits a T5 preset and its preview matches the panel |
 | T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured |
 
@@ -449,8 +474,10 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 - **A cold boot draws twice:** `display_init()` cleans the panel to its blank frame (1.6 s), then the first screen comes clean too. T4's fast updates make the second one fast.
 - **Ghosting** from fast updates between clean ones; the default may need lowering after the owner sees the panel.
 - **The CH9102's auto-reset:** a tool that opens the port the wrong way resets the board (§2.5).
-- **Image size:** T5 fonts at 4 bits and up to 220 px; at T3a the image is 3.40 MB of the 3.6 MB budget (its 4 MB slot), with T3b's views to come.
-- **Radar frames at 960 px** are about 2.4 times the RLCD's pixels; the frame file and decode buffers grow with them, in 4 MB of mapped PSRAM.
+- **Image size:** T5 fonts at 4 bits and up to 220 px; at T3b the image is 3.40 MB of the 3.6 MB budget (its 4 MB slot), the views having added almost nothing.
+- **Radar frames at 960 px** are about 2.4 times the RLCD's pixels. Measured at T3b's board check (2026-10-10), with a live ČHMÚ frame and the flight radar polling: PSRAM 2.19 MB free of 4 MB mapped at boot, at least 1.67 MB free through a sync; internal RAM at least 29.9 KB free through a sync, so an update that falls in a sync waits for epdiy's RAM budget (§5.1).
+- **Lines 1 px wide vanish on the panel** (owner, 2026-10-10): T5 drawing takes lines `UI_PX(1)` (2 px) wide and grays from level 6 down (§6.4).
+- **The task watchdog at boot:** a boot to the radar ran two clean updates and the map's render back to back on the app task and starved IDLE1 (found at T3b); `clean_update()` yields a tick after each update.
 - **Merge conflicts** with upstream's M7 in `components/ui`, mostly from `UI_PX()`. Merging `upstream/main` into the fork after each upstream milestone keeps them small.
 - **The T5-ePaper-S3** (LilyGo's newer board) would be a third board choice. Its V2.3 needs the S3 output patch from the fork's history (commit `7232440`); its V2.4 runs stock epdiy. Not planned.
 - **Buttons:** the owner's KEY long opened the menu at T3a's board check (2026-10-10); the rest of the buttons' owner check waits.
@@ -467,3 +494,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r4 | 2026-10-08 | T1 as built: bring-up's findings (§2.5), the LUT and epdiy's RAM budget (§5.1), the refresh times (§5.3), the slow clock and its drift (§8.1), the current (§8.5, the owner's meter pending); DT12; the risks (§12) |
 | r5 | 2026-10-09 | T2 as built: the formats and blending (§6.1–6.2), the asset formats (§6.3), the panel frame and screenshots (§6.5), `panel test` (§9), the panel's grays and ghosting (§6.4), the ESP32's minimum revision (§4.1) |
 | r6 | 2026-10-10 | T3a as built: T3 split into T3a, T3b and T3c (§11); the compressed goldens (§6.5); the profile's members (§7.1); the sizes and faces (§7.2); the layouts, menu, split limits and presets as the owner approved them, the Moon's disc (§7.3); the console's lost input during an update (§2.5); the open items (§12) |
+| r7 | 2026-10-10 | T3b as built: the grays and line widths the owner chose at the panel (§6.4); the golden set (§6.5); the maps' zoom step and style (§7.1); the fonts left in the image (§7.2); the views' geometry, the radar's fetch view and the presets' cycle (§7.3); T3b done (§11); PSRAM measured, line widths, the watchdog at boot (§12) |
