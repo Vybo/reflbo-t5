@@ -274,8 +274,9 @@ As built at T3b, after the owner's photos and checks at the panel (2026-10-10: "
 | The status bar's line | 2 | 2 px |
 | The solar chart's forecast still to come, inside its black outline | 6 | — |
 | The fixed layouts' separators, the split's lines, the flights' rings, home's ⊙ ring | 0 | 2 px |
+| Every other line the UI draws: the Solar and Energy layouts' lines, the chart's axis, ticks, now line and gridline dots, the Flights panel's line and the nearest aircraft's ring, the radar's no-frame box and loop dots, the battery symbol's outline (`ui_hline()`, `ui_vline()`, `ui_frame()`, `ui_ring()`; T3b review) | 0 | 2 px |
 
-The map's land stays white. The RLCD keeps its 1 px black lines and its dithered rain. Where T3b's first levels (rain 8/4/0, lines 6, chart 8) were too pale on the panel, these are the owner's.
+The map's land stays white. Only outlines around a gray fill stay 1 px (the legend's swatches, the chart's bars still to come). The RLCD keeps its 1 px black lines and its dithered rain. Where T3b's first levels (rain 8/4/0, lines 6, chart 8) were too pale on the panel, these are the owner's.
 
 ### 6.5 Screenshots, previews, goldens
 
@@ -475,7 +476,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 - **Ghosting** from fast updates between clean ones; the default may need lowering after the owner sees the panel.
 - **The CH9102's auto-reset:** a tool that opens the port the wrong way resets the board (§2.5).
 - **Image size:** T5 fonts at 4 bits and up to 220 px; at T3b the image is 3.40 MB of the 3.6 MB budget (its 4 MB slot), the views having added almost nothing.
-- **Radar frames at 960 px** are about 2.4 times the RLCD's pixels. Measured at T3b's board check (2026-10-10), with a live ČHMÚ frame and the flight radar polling: PSRAM 2.19 MB free of 4 MB mapped at boot, at least 1.67 MB free through a sync; internal RAM at least 29.9 KB free through a sync, so an update that falls in a sync waits for epdiy's RAM budget (§5.1).
+- **Radar frames at 960 px** are about 2.4 times the RLCD's pixels. Measured at T3b's board check (2026-10-10), with a live ČHMÚ frame and the flight radar polling: PSRAM 2.19 MB free of 4 MB mapped at boot, at least 1.67 MB free through a sync; internal RAM at least 29.9 KB free through a sync, so an update that falls in a sync waits for epdiy's RAM budget (§5.1). RainViewer's loop (outside ČHMÚ's coverage, in sync mode `always`) holds up to 7 frames of at most 240 KB at the T5's view, about as much as that floor: not measured yet (T3c, where the page sets the radar's centre). Should PSRAM run short, a frame's fetch fails cleanly, and an update without a block for epdiy's 64 KB LUT in internal RAM or PSRAM is skipped rather than aborted (`epaper_lut_ram_ok()`, T3b review).
 - **Lines 1 px wide vanish on the panel** (owner, 2026-10-10): T5 drawing takes lines `UI_PX(1)` (2 px) wide and grays from level 6 down (§6.4).
 - **The task watchdog at boot:** a boot to the radar ran two clean updates and the map's render back to back on the app task and starved IDLE1 (found at T3b); `clean_update()` yields a tick after each update.
 - **Merge conflicts** with upstream's M7 in `components/ui`, mostly from `UI_PX()`. Merging `upstream/main` into the fork after each upstream milestone keeps them small.
@@ -494,4 +495,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r4 | 2026-10-08 | T1 as built: bring-up's findings (§2.5), the LUT and epdiy's RAM budget (§5.1), the refresh times (§5.3), the slow clock and its drift (§8.1), the current (§8.5, the owner's meter pending); DT12; the risks (§12) |
 | r5 | 2026-10-09 | T2 as built: the formats and blending (§6.1–6.2), the asset formats (§6.3), the panel frame and screenshots (§6.5), `panel test` (§9), the panel's grays and ghosting (§6.4), the ESP32's minimum revision (§4.1) |
 | r6 | 2026-10-10 | T3a as built: T3 split into T3a, T3b and T3c (§11); the compressed goldens (§6.5); the profile's members (§7.1); the sizes and faces (§7.2); the layouts, menu, split limits and presets as the owner approved them, the Moon's disc (§7.3); the console's lost input during an update (§2.5); the open items (§12) |
-| r7 | 2026-10-10 | T3b as built: the grays and line widths the owner chose at the panel (§6.4); the golden set (§6.5); the maps' zoom step and style (§7.1); the fonts left in the image (§7.2); the views' geometry, the radar's fetch view and the presets' cycle (§7.3); T3b done (§11); PSRAM measured, line widths, the watchdog at boot (§12) |
+| r7 | 2026-10-10 | T3b as built: the grays and line widths the owner chose at the panel, every line 2 px after the review (§6.4); the golden set (§6.5); the maps' zoom step and style (§7.1); the fonts left in the image (§7.2); the views' geometry, the radar's fetch view and the presets' cycle (§7.3); T3b done (§11); PSRAM measured, RainViewer's loop and the LUT's block, line widths, the watchdog at boot (§12) |
