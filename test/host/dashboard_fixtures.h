@@ -491,5 +491,11 @@ static const char *const k_t5_dashboard_fixtures[] = {
     "home_temp_main", "home_temp_main_cs", "home_energy", "indoor", "indoor_cold", "indoor_hot_f",
     "indoor_frost", "grid_clock_12h", "indoor_cs", "air_grid", "air_grid_cs", "grid_sun_uv", "grid_rain_cs",
     "weather", "weather_now", "weather_noon_cs", "weather_stale", "weather_rain", "weather_frost_cs",
-    "weather_hot_f", "focus", "focus_seconds", "focus_forecast", "focus_rain_now", NULL
+    "weather_hot_f", "focus", "focus_seconds", "focus_forecast", "focus_rain_now", "radar", "radar_stale",
+    "radar_stale_cs", "radar_loop", "radar_none", "radar_rainviewer", "flights", "flights_100", "flights_cs",
+    "flights_none", "flights_failed", "flights_off", "solar", "solar_actual", "solar_cs", "solar_none",
+    "solar_evening", "energy", "energy_battery", "energy_night_cs", "energy_none", "energy_low",
+    "grid_rain_map", "weather_rain_map", "grid_solar", "weather_solar", "focus_solar", "grid_solar_low",
+    "split_weather", "split_eight", "split_compact", "split_compact_cs", "split_xs_rows", "split_xs_grid",
+    "split_xs_narrow", NULL
 };
