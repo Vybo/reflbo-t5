@@ -4,7 +4,9 @@
 
 #include "context_fixtures.h"
 #include "radar_fixtures.h"
+#include "ui_profile.h"
 #include "ui_radar.h"
+#include "ui_split.h"
 #include "unity.h"
 
 /* The Flights panel's words (spec §11.3) in each state; the goldens show where they go. */
@@ -17,7 +19,10 @@ void setUp(void)
     s_ctx = fixture_context();
 }
 
-void tearDown(void) {}
+void tearDown(void)
+{
+    ui_profile_use(NULL);
+}
 
 static void panel(void)
 {
@@ -100,6 +105,37 @@ static void test_the_messages_when_there_is_nothing_to_show(void)
     TEST_ASSERT_EQUAL_STRING("Lety jen v synchronizaci Stále", s_line1);
 }
 
+/* T3b: the Flights map over its panel, on each board, and the one view the map and the app's filter share. */
+static void test_the_flights_map_sits_over_its_panel(void)
+{
+    gfx_rect_t m = ui_flights_map_rect(ui_split_area());
+    TEST_ASSERT_EQUAL_INT(0, m.x);
+    TEST_ASSERT_EQUAL_INT(21, m.y);
+    TEST_ASSERT_EQUAL_INT(400, m.w);
+    TEST_ASSERT_EQUAL_INT(238, m.h);
+    ui_profile_use(&ui_profile_t547);
+    m = ui_flights_map_rect(ui_split_area());
+    TEST_ASSERT_EQUAL_INT(35, m.y);
+    TEST_ASSERT_EQUAL_INT(960, m.w);
+    TEST_ASSERT_EQUAL_INT(436, m.h);
+}
+
+static void test_the_flights_view_spans_the_map_its_range_up_to_the_top(void)
+{
+    ui_profile_use(&ui_profile_t547);
+    gfx_rect_t m = ui_flights_map_rect(ui_split_area());
+    map_view_t v;
+    ui_flights_view(491951, 166068, 50, m, &v);
+    TEST_ASSERT_EQUAL_INT(960, v.w);
+    TEST_ASSERT_EQUAL_INT(436, v.h);
+    TEST_ASSERT_DOUBLE_WITHIN(1e-9, map_zoom_for_range(491951, 50000.0, 436 / 2), v.zoom);
+    double x, y; /* a point near the map's right edge, east of Brno: inside the wide view */
+    map_bounds_t b;
+    map_view_bounds(&v, &b);
+    map_project(&v, 49.1951, b.lon_max - 0.01, &x, &y);
+    TEST_ASSERT_TRUE(x > 900 && x < 960);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -107,5 +143,7 @@ int main(void)
     RUN_TEST(test_flight_levels_from_ten_thousand_feet);
     RUN_TEST(test_an_aircraft_without_a_callsign_type_or_speed);
     RUN_TEST(test_the_messages_when_there_is_nothing_to_show);
+    RUN_TEST(test_the_flights_map_sits_over_its_panel);
+    RUN_TEST(test_the_flights_view_spans_the_map_its_range_up_to_the_top);
     return UNITY_END();
 }

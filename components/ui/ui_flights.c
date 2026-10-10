@@ -12,10 +12,10 @@
  * aircraft as arrows turned to their track, and a panel for the nearest one. */
 
 #define PI 3.14159265358979323846
-#define PANEL_H 40
+#define PANEL_H UI_PX(40)
 #define KMH_PER_KT 1.852
-#define ARROW_BOX 14 /* a 12 px arrow and its halo */
-#define NEAREST_R 10 /* the ring that marks the panel's aircraft */
+#define ARROW_BOX UI_PX(14) /* a 12 px arrow and its halo */
+#define NEAREST_R UI_PX(10) /* the ring that marks the panel's aircraft */
 
 static const lang_str_t k_dirs[8] = { LS_DIR_N, LS_DIR_NE, LS_DIR_E, LS_DIR_SE,
                                       LS_DIR_S, LS_DIR_SW, LS_DIR_W, LS_DIR_NW };
@@ -131,15 +131,16 @@ void ui_flights_panel_text(const ui_context_t *ctx, char *line1, char *line2, ch
 static void arrow_at(gfx_fb_t *fb, int cx, int cy, int track, gfx_color_t color)
 {
     if (track < 0) {
-        gfx_fill_circle(fb, cx, cy, 3, color);
+        gfx_fill_circle(fb, cx, cy, UI_PX(3), color);
         return;
     }
     int step = (track * 2 + 22) / 45 % 16; /* track / 22.5, rounded */
     double a = step * 22.5 * PI / 180, c = cos(a), s = sin(a);
     int x[4], y[4];
     for (int i = 0; i < 4; i++) { /* clockwise on screen, where y grows downwards */
-        x[i] = cx + (int)lround(k_arrow[i][0] * c - k_arrow[i][1] * s);
-        y[i] = cy + (int)lround(k_arrow[i][0] * s + k_arrow[i][1] * c);
+        int ax = UI_PX(k_arrow[i][0]), ay = UI_PX(k_arrow[i][1]);
+        x[i] = cx + (int)lround(ax * c - ay * s);
+        y[i] = cy + (int)lround(ax * s + ay * c);
     }
     gfx_fill_triangle(fb, x[0], y[0], x[1], y[1], x[2], y[2], color);
     gfx_fill_triangle(fb, x[0], y[0], x[2], y[2], x[3], y[3], color);
@@ -174,7 +175,7 @@ static void draw_aircraft(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, co
         name_of(&list->ac[i], name, sizeof(name));
         ui_flight_altitude(list->ac[i].alt_ft, alt, sizeof(alt));
         snprintf(label, sizeof(label), "%s%s%s", name, alt[0] != '\0' ? " " : "", alt);
-        map_label(fb, area, labels, UI_FONT(UI_F_SANS_12), x[i], y[i], ARROW_BOX / 2 + 2, label);
+        map_label(fb, area, labels, UI_FONT(UI_F_SANS_12), x[i], y[i], ARROW_BOX / 2 + UI_PX(2), label);
     }
     for (int i = list->count - 1; i >= 0; i--) { /* the nearest on top */
         arrow(fb, x[i], y[i], list->ac[i].track);
@@ -185,16 +186,25 @@ static void draw_aircraft(gfx_fb_t *fb, gfx_rect_t area, const map_view_t *v, co
     }
 }
 
+gfx_rect_t ui_flights_map_rect(gfx_rect_t below)
+{
+    return (gfx_rect_t){ below.x, below.y, below.w, (int16_t)(below.h - PANEL_H - 1) };
+}
+
+void ui_flights_view(int32_t lat_e4, int32_t lon_e4, uint8_t range_km, gfx_rect_t map, map_view_t *v)
+{
+    map_view_init(v, lat_e4, lon_e4, map_zoom_for_range(lat_e4, range_km * 1000.0, map.h / 2), map.w, map.h);
+}
+
 void ui_draw_flights_view(gfx_fb_t *fb, gfx_rect_t r, const ui_context_t *ctx)
 {
     ui_radar_t at_home = { .home_lat_e4 = ctx->lat_e4, .home_lon_e4 = ctx->lon_e4, .fl_lat_e4 = ctx->lat_e4,
                            .fl_lon_e4 = ctx->lon_e4, .fl_range_km = 50 };
     const ui_radar_t *rad = ctx->radar != NULL ? ctx->radar : &at_home; /* no radar at all: an empty map */
-    gfx_rect_t area = { r.x, r.y, r.w, UI_FLIGHTS_MAP_H };
+    gfx_rect_t area = ui_flights_map_rect(r);
     map_view_t v;
     double range_m = rad->fl_range_km * 1000.0;
-    map_view_init(&v, rad->fl_lat_e4, rad->fl_lon_e4, map_zoom_for_range(rad->fl_lat_e4, range_m, area.h / 2), area.w,
-                  area.h);
+    ui_flights_view(rad->fl_lat_e4, rad->fl_lon_e4, rad->fl_range_km, area, &v);
     gfx_rect_t saved = fb->clip;
     gfx_set_clip(fb, gfx_rect_intersect(saved, area));
     map_style_t style;
@@ -222,11 +232,11 @@ void ui_draw_flights_view(gfx_fb_t *fb, gfx_rect_t r, const ui_context_t *ctx)
     char line1[96], line2[96], credit[32], fit[96];
     ui_flights_panel_text(ctx, line1, line2, credit, sizeof(line1));
     const gfx_font_t *f1 = UI_FONT(UI_F_BOLD_16), *f2 = UI_FONT(UI_F_SANS_12);
-    gfx_text_ellipsize(f1, line1, panel.w - 12, fit, sizeof(fit));
-    gfx_text(fb, f1, panel.x + 6, panel.y + 2 + f1->ascent, fit, GFX_BLACK);
+    gfx_text_ellipsize(f1, line1, panel.w - UI_PX(12), fit, sizeof(fit));
+    gfx_text(fb, f1, panel.x + UI_PX(6), panel.y + UI_PX(2) + f1->ascent, fit, GFX_BLACK);
     int credit_w = gfx_text_width(f2, credit);
-    int base2 = panel.y + panel.h - 4 - (f2->line_height - f2->ascent);
-    gfx_text(fb, f2, panel.x + panel.w - 6 - credit_w, base2, credit, GFX_BLACK);
-    gfx_text_ellipsize(f2, line2, panel.w - 12 - credit_w - 10, fit, sizeof(fit));
-    gfx_text(fb, f2, panel.x + 6, base2, fit, GFX_BLACK);
+    int base2 = panel.y + panel.h - UI_PX(4) - (f2->line_height - f2->ascent);
+    gfx_text(fb, f2, panel.x + panel.w - UI_PX(6) - credit_w, base2, credit, GFX_BLACK);
+    gfx_text_ellipsize(f2, line2, panel.w - UI_PX(12) - credit_w - UI_PX(10), fit, sizeof(fit));
+    gfx_text(fb, f2, panel.x + UI_PX(6), base2, fit, GFX_BLACK);
 }

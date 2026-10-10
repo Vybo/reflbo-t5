@@ -4,6 +4,8 @@
 #include "adsb_task.h"
 #include "app_internal.h"
 #include "esp_log.h"
+#include "ui_radar.h"
+#include "ui_split.h"
 
 /* The flight radar on the device (spec §11.3): its task polls while sync mode `always` is on the
  * network and the Flights view is on screen, outside quiet hours and nights (D22); the app task keeps
@@ -54,9 +56,8 @@ static void request(adsb_task_req_t *out)
     out->range_km = set->fl_range_km;
     out->filter = (adsb_filter_t){ .lat = set->fl_lat_e4 / 1e4, .lon = set->fl_lon_e4 / 1e4,
                                    .min_alt_ft = set->fl_min_alt_ft, .ground = set->fl_ground, .max = set->fl_max };
-    map_view_init(&out->filter.view, set->fl_lat_e4, set->fl_lon_e4,
-                  map_zoom_for_range(set->fl_lat_e4, set->fl_range_km * 1000.0, UI_FLIGHTS_MAP_H / 2), 400,
-                  UI_FLIGHTS_MAP_H);
+    ui_flights_view(set->fl_lat_e4, set->fl_lon_e4, set->fl_range_km, ui_flights_map_rect(ui_split_area()),
+                    &out->filter.view); /* the map as the view draws it (T3b) */
 }
 
 /* The same poll as the task's: compared field by field, as a struct's padding may differ. */

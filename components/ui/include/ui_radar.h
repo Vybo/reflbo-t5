@@ -15,7 +15,6 @@
  */
 
 #define UI_RADAR_OLD_S (30 * 60) /* an older frame shows its time inverted, with its age (spec §11.2) */
-#define UI_FLIGHTS_MAP_H 238      /* the Flights map, 400 px wide, over its separator and 40 px panel */
 #define UI_FLIGHTS_OLD_S 120      /* aircraft from an older poll are no longer shown (spec §11.3) */
 
 struct ui_radar {
@@ -48,6 +47,13 @@ void ui_radar_fetch_size(uint8_t zoom_q, uint8_t *fetch_zoom_q, uint16_t *w, uin
 /* The Radar layout's map in `r`: the rain, the frame's time and source at the bottom left, the legend
  * or the loop's progress at the bottom right; "No radar frame yet" before the first. */
 void ui_draw_radar_view(gfx_fb_t *fb, gfx_rect_t r, const ui_context_t *ctx);
+
+/* The Flights map's part of the layout's rect `below`: above its panel (UI_PX(40)) and the line over it;
+ * 400×238 on the RLCD, 960×436 on the T5. */
+gfx_rect_t ui_flights_map_rect(gfx_rect_t below);
+/* The view that map draws and the app's filter keeps aircraft for: centred on (lat_e4, lon_e4), `range_km`
+ * from the centre to the map's top edge. */
+void ui_flights_view(int32_t lat_e4, int32_t lon_e4, uint8_t range_km, gfx_rect_t map, map_view_t *v);
 
 /* The Flights layout under the status bar in `r`: the map with its rings, the aircraft, and the
  * panel for the nearest one (spec §11.3). */

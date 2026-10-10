@@ -9,6 +9,7 @@
 #include "map_data.h"
 #include "radar.h"
 #include "ui_radar.h"
+#include "ui_split.h"
 
 /* The radars' inputs for the golden renders (dashboard_fixtures.h): the built-in map, ČHMÚ's rainy
  * frame of 2026-09-24 11:20 UTC and RainViewer's tile of zoom 3 (test_radar.c's fixtures), each
@@ -96,8 +97,7 @@ static inline const adsb_list_t *fixture_aircraft(int range_km)
     uint8_t *json = fixture_bytes(REFLBO_ADSB_FIXTURES "/adsb_fi.json", &len);
     char *text = json != NULL ? realloc(json, len + 1) : NULL;
     adsb_filter_t f = { .lat = 49.1951, .lon = 16.6068, .max = ADSB_MAX };
-    map_view_init(&f.view, 491951, 166068, map_zoom_for_range(491951, range_km * 1000.0, UI_FLIGHTS_MAP_H / 2), 400,
-                  UI_FLIGHTS_MAP_H);
+    ui_flights_view(491951, 166068, (uint8_t)range_km, ui_flights_map_rect(ui_split_area()), &f.view);
     memset(&list, 0, sizeof(list));
     if (text != NULL) {
         text[len] = '\0';
