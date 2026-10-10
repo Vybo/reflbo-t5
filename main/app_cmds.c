@@ -99,7 +99,7 @@ static int field_body(int argc, char **argv)
 
 static int preset_body(int argc, char **argv)
 {
-    static const char *const k_usage = "preset list | preset set <id>";
+    static const char *const k_usage = "preset list | preset set <id> | preset cycle <id> on|off";
     ui_presets_t *p = app_presets();
     if (argc == 2 && strcmp(argv[1], "list") == 0) {
         for (int i = 0; i < p->count; i++) {
@@ -118,6 +118,19 @@ static int preset_body(int argc, char **argv)
         }
         app_ui_select(index, true);
         printf("preset: %s\n", p->presets[index].id);
+        return 0;
+    }
+    if (argc == 4 && strcmp(argv[1], "cycle") == 0 && (strcmp(argv[3], "on") == 0 || strcmp(argv[3], "off") == 0)) {
+        int index = ui_presets_find(p, argv[2]);
+        if (index < 0) {
+            printf("preset: no preset \"%s\" (see `preset list`)\n", argv[2]);
+            return 1;
+        }
+        p->presets[index].in_cycle = strcmp(argv[3], "on") == 0;
+        if (app_ui_save_presets() != ESP_OK) {
+            printf("preset: changed for this session, not saved\n");
+        }
+        printf("preset: %s %s the cycle\n", p->presets[index].id, p->presets[index].in_cycle ? "in" : "out of");
         return 0;
     }
     return usage(k_usage);

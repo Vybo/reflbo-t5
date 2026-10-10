@@ -426,6 +426,7 @@ T1 (2026-10-07/08): a deep-sleep minute wakes for about 2.2 s, the clean update'
   - `panel test`: the T5's pattern (`gfx_draw_test_pattern_t5()`): the RLCD's, a 16-step gray ramp, anti-aliased text and an icon, over the whole panel until the next commit. A deep-idle board needs a reset first: the UART can't wake deep sleep.
   - `panel bench`: the clean, GL16 and DU times (T1).
   - `panel sleep|wake` as upstream.
+  - `preset cycle <id> on|off` puts a preset in the cycle or takes it out, as the Presets page's box does, and saves `presets.json` (owner, 2026-10-10: the T5's T3a-era file kept the four views out). Shared code: it reaches the RLCD with the merge.
   - `rtc get|set` on the system clock.
   - `panel mode|rate|fps|init`, `sensors`' SHTC3 part and the trim lines of `rtc get` are absent.
   - `screenshot`: PBM until T2, then PGM (§6.5).
