@@ -51,6 +51,30 @@ void radar_store_keep(radar_store_t *s, int keep)
     }
 }
 
+static size_t frame_bytes(const radar_frame_t *f)
+{
+    return ((size_t)f->w * f->h + 3) / 4; /* 2 bits a pixel */
+}
+
+void radar_store_fit(radar_store_t *s, size_t budget, size_t incoming)
+{
+    size_t held = 0;
+    for (int i = 0; i < s->count; i++) {
+        held += frame_bytes(&s->frames[i]);
+    }
+    while (s->count > 1 && held + incoming > budget) {
+        held -= frame_bytes(&s->frames[0]);
+        drop(s, 0);
+    }
+}
+
+void radar_store_short(radar_store_t *s)
+{
+    if (s->count > 1) {
+        drop(s, 0);
+    }
+}
+
 const radar_frame_t *radar_store_newest(const radar_store_t *s)
 {
     return s->count > 0 ? &s->frames[s->count - 1] : NULL;

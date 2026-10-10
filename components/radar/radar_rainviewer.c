@@ -92,12 +92,18 @@ void radar_rv_tiles(const map_view_t *v, radar_rv_tiles_t *t)
     t->ny = y1 - y0 + 1 > RADAR_RV_TILES_MAX ? RADAR_RV_TILES_MAX : y1 - y0 + 1;
 }
 
-int radar_rv_keep(const map_view_t *v, size_t budget)
+size_t radar_rv_frame_bytes(const map_view_t *v)
 {
     radar_rv_tiles_t t;
     radar_rv_tiles(v, &t);
-    size_t frame = (size_t)t.nx * MAP_TILE_PX * t.ny * MAP_TILE_PX / 4; /* 2 bits a pixel */
-    size_t n = frame > 0 ? budget / frame : 0;
+    return (size_t)t.nx * MAP_TILE_PX * t.ny * MAP_TILE_PX / 4; /* 2 bits a pixel */
+}
+
+int radar_rv_keep(const map_view_t *v, size_t budget)
+{
+    size_t frame = radar_rv_frame_bytes(v);
+    size_t n = frame > 0 ? budget / frame : 0; /* the frames held and the one coming */
+    n = n > 0 ? n - 1 : 0;
     int hour = 3600 / RADAR_RV_STEP_S;
     return n < 1 ? 1 : n > (size_t)hour ? hour : (int)n;
 }

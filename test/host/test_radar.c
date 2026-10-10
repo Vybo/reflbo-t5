@@ -364,21 +364,81 @@ static void test_rainviewer_tiles_cover_a_t5_view(void)
 }
 
 /* T3c's board check: at the T5's 960 px, RainViewer's hour (6 frames of up to 5 x 3 tiles) ran PSRAM out at the
- * sixth ("png: no memory"). The loop keeps the frames a board's budget holds; the RLCD keeps its hour. */
+ * sixth ("png: no memory"). The loop keeps the frames a board's budget holds with room for the one coming (the
+ * review: a poll holds them and the next at once); the RLCD keeps its hour. */
 static void test_rainviewer_keeps_the_frames_a_budget_holds(void)
 {
-    map_view_t rlcd, t5;
-    map_view_init(&rlcd, 515074, -1278, 6.5, 400, 279); /* London, outside ČHMÚ's coverage */
-    map_view_init(&t5, 515074, -1278, 7.25, 960, 505);
-    TEST_ASSERT_EQUAL_INT(6, radar_rv_keep(&rlcd, (size_t)2048 * 1024));
-    TEST_ASSERT_EQUAL_INT(3, radar_rv_keep(&t5, (size_t)720 * 1024));
-    map_view_init(&t5, 525200, 134050, 7.25, 960, 505); /* Berlin: 4 x 2 tiles, 128 KB a frame */
-    radar_rv_tiles_t t;
-    radar_rv_tiles(&t5, &t);
-    TEST_ASSERT_EQUAL_INT(4, t.nx);
-    TEST_ASSERT_EQUAL_INT(2, t.ny);
-    TEST_ASSERT_EQUAL_INT(5, radar_rv_keep(&t5, (size_t)720 * 1024));
-    TEST_ASSERT_EQUAL_INT(1, radar_rv_keep(&t5, (size_t)100 * 1024)); /* never none */
+    map_view_t v;
+    map_view_init(&v, 515074, -1278, 6.5, 400, 279); /* London, outside ČHMÚ's coverage, on the RLCD */
+    TEST_ASSERT_EQUAL_INT(6, radar_rv_keep(&v, (size_t)2048 * 1024));
+    static const int32_t k_places[][2] = { { 515074, -1278 }, { 525200, 134050 }, { 488566, 23522 } };
+    static const double k_zooms[] = { 7.25, 7.5, 8.0 };
+    const size_t budget = (size_t)768 * 1024;
+    for (size_t p = 0; p < sizeof(k_places) / sizeof(k_places[0]); p++) {
+        for (size_t z = 0; z < sizeof(k_zooms) / sizeof(k_zooms[0]); z++) {
+            map_view_init(&v, k_places[p][0], k_places[p][1], k_zooms[z], 960, 505); /* the T5's map */
+            size_t frame = radar_rv_frame_bytes(&v);
+            int keep = radar_rv_keep(&v, budget);
+            TEST_ASSERT_TRUE(keep >= 1 && keep <= 6);
+            TEST_ASSERT_TRUE((size_t)(keep + 1) * frame <= budget); /* the frames held and the one coming */
+            TEST_ASSERT_TRUE(keep == 6 || (size_t)(keep + 2) * frame > budget); /* and no more */
+        }
+    }
+    map_view_init(&v, 525200, 134050, 7.25, 960, 505); /* Berlin: 4 x 2 tiles, 128 KB a frame */
+    TEST_ASSERT_EQUAL_UINT32((size_t)4 * 256 * 2 * 256 / 4, radar_rv_frame_bytes(&v));
+    TEST_ASSERT_EQUAL_INT(5, radar_rv_keep(&v, budget));
+    TEST_ASSERT_EQUAL_INT(1, radar_rv_keep(&v, (size_t)100 * 1024)); /* never none */
+}
+
+/* T3c review: a zoom change keeps the bigger frames a coarser grid fetched, so the store fits the bytes it holds
+ * and the frame coming into the budget, the newest staying. */
+static void test_the_store_fits_its_frames_and_the_next_in_a_budget(void)
+{
+    const png_mem_t mem = { counted_alloc, counted_free };
+    radar_store_t s;
+    radar_store_init(&s, &mem);
+    s_live = 0;
+    for (int i = 0; i < 3; i++) {
+        radar_frame_t f;
+        TEST_ASSERT_TRUE(radar_frame_alloc(&f, 64, 64, &mem)); /* 1 KB at 2 bits a pixel */
+        f.time = 1790880000 + 600 * (uint32_t)i;
+        radar_store_put(&s, &f, RADAR_LOOP_FRAMES);
+    }
+    radar_store_fit(&s, 4096, 512); /* 3 KB held and 0.5 KB coming fit */
+    TEST_ASSERT_EQUAL_INT(3, s.count);
+    radar_store_fit(&s, 3072, 512); /* a smaller budget: 2 KB held */
+    TEST_ASSERT_EQUAL_INT(2, s.count);
+    TEST_ASSERT_EQUAL_INT(2, s_live);
+    TEST_ASSERT_EQUAL_UINT32(1790880000 + 600, s.frames[0].time); /* the oldest went */
+    radar_store_fit(&s, 100, 512); /* never below the newest */
+    TEST_ASSERT_EQUAL_INT(1, s.count);
+    TEST_ASSERT_EQUAL_UINT32(1790880000 + 1200, radar_store_newest(&s)->time);
+    radar_store_clear(&s);
+}
+
+/* T3c review: a fetch whose newest frame ran short of memory would fail the same way at every poll; the oldest
+ * goes, so the next has room. */
+static void test_a_fetch_short_of_memory_frees_the_oldest(void)
+{
+    const png_mem_t mem = { counted_alloc, counted_free };
+    radar_store_t s;
+    radar_store_init(&s, &mem);
+    s_live = 0;
+    for (int i = 0; i < 3; i++) {
+        radar_frame_t f;
+        TEST_ASSERT_TRUE(radar_frame_alloc(&f, 8, 8, &mem));
+        f.time = 1790880000 + 600 * (uint32_t)i;
+        radar_store_put(&s, &f, RADAR_LOOP_FRAMES);
+    }
+    radar_store_short(&s);
+    TEST_ASSERT_EQUAL_INT(2, s.count);
+    TEST_ASSERT_EQUAL_INT(2, s_live);
+    TEST_ASSERT_EQUAL_UINT32(1790880000 + 600, s.frames[0].time);
+    radar_store_short(&s);
+    radar_store_short(&s);
+    TEST_ASSERT_EQUAL_INT(1, s.count); /* the newest stays */
+    TEST_ASSERT_EQUAL_UINT32(1790880000 + 1200, radar_store_newest(&s)->time);
+    radar_store_clear(&s);
 }
 
 /* On a 4 bpp frame rain is gray, from the panel's dark half (T5 spec §6.4): light 4, moderate 2, heavy black (the
@@ -425,6 +485,8 @@ int main(void)
     RUN_TEST(test_a_frame_covers_the_views_it_has_the_rain_for);
     RUN_TEST(test_rainviewer_tiles_cover_a_t5_view);
     RUN_TEST(test_rainviewer_keeps_the_frames_a_budget_holds);
+    RUN_TEST(test_the_store_fits_its_frames_and_the_next_in_a_budget);
+    RUN_TEST(test_a_fetch_short_of_memory_frees_the_oldest);
     RUN_TEST(test_rain_is_gray_on_a_4bpp_frame);
     RUN_TEST(test_the_store_keeps_frames_in_order_and_frees_the_rest);
     RUN_TEST(test_a_fetch_wants_the_hour_it_lacks);

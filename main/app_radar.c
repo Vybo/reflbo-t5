@@ -50,23 +50,31 @@ static uint8_t source_now(void)
     return radar_chmu_covers(set->wx_lat_e4 / 1e4, set->wx_lon_e4 / 1e4) ? RADAR_SOURCE_CHMU : RADAR_SOURCE_RAINVIEWER;
 }
 
-/* One frame, or in sync mode `always` the loop's hour (D28): 12 of ČHMÚ's, 6 of RainViewer's, or as many of
- * RainViewer's as the board's budget holds at its view (the T5's 960 px: 3 to 5, T3c). */
-static int keep_count(void)
+#define RV_BUDGET ((size_t)BOARD_RADAR_RV_KB * 1024) /* RainViewer's frames held and the one coming (T3c) */
+
+/* The view RainViewer's fetch asks for: the Radar layout's map as drawn. */
+static void rv_view(map_view_t *v)
 {
     const settings_t *set = app_settings();
-    if (set->sync_mode != SETTINGS_SYNC_ALWAYS) {
+    uint8_t zoom_q;
+    uint16_t w, h;
+    ui_radar_fetch_size(set->wx_zoom_q, &zoom_q, &w, &h);
+    map_view_init(v, set->wx_lat_e4, set->wx_lon_e4, zoom_q / 4.0, (int16_t)w, (int16_t)h);
+}
+
+/* One frame, or in sync mode `always` the loop's hour (D28): 12 of ČHMÚ's, 6 of RainViewer's, or as many of
+ * RainViewer's as the board's budget holds at its view with the next one coming (the T5's 960 px: 2 to 5, T3c). */
+static int keep_count(void)
+{
+    if (app_settings()->sync_mode != SETTINGS_SYNC_ALWAYS) {
         return 1;
     }
     if (source_now() == RADAR_SOURCE_CHMU) {
         return RADAR_LOOP_FRAMES;
     }
-    uint8_t zoom_q;
-    uint16_t w, h;
-    ui_radar_fetch_size(set->wx_zoom_q, &zoom_q, &w, &h);
     map_view_t v;
-    map_view_init(&v, set->wx_lat_e4, set->wx_lon_e4, zoom_q / 4.0, (int16_t)w, (int16_t)h);
-    return radar_rv_keep(&v, (size_t)BOARD_RADAR_RV_KB * 1024);
+    rv_view(&v);
+    return radar_rv_keep(&v, RV_BUDGET);
 }
 
 uint32_t app_radar_step_s(void)
@@ -96,6 +104,11 @@ static void tidy(void)
         radar_store_clear(&s_store);
     }
     radar_store_keep(&s_store, keep_count()); /* sync mode `always` ended: the newest stays */
+    if (source_now() != RADAR_SOURCE_CHMU) {
+        map_view_t v;
+        rv_view(&v);
+        radar_store_fit(&s_store, RV_BUDGET, radar_rv_frame_bytes(&v)); /* frames from a bigger grid (a zoom change) */
+    }
 }
 
 /* The newest frame from its file, once a boot or a wake: a deep sleep loses PSRAM. */
@@ -191,6 +204,9 @@ void app_radar_apply(radar_fetch_result_t *res, uint8_t result, const char *deta
         }
     }
     res->count = 0;
+    if (added == 0 && result == SYNC_STEP_FAILED && detail != NULL && strstr(detail, "no memory") != NULL) {
+        radar_store_short(&s_store); /* or every poll fails the same way (T3c review) */
+    }
     if (result != SYNC_STEP_NOT_RUN) { /* a sync that never got to it leaves the last fetch's status */
         s_status.fetched_at = time(NULL);
         s_status.ok = result == SYNC_STEP_OK;

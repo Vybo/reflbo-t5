@@ -94,8 +94,10 @@ typedef struct {
 bool radar_rv_parse_index(const char *json, size_t len, radar_rv_index_t *out);
 /* The tiles that cover the view. */
 void radar_rv_tiles(const map_view_t *v, radar_rv_tiles_t *t);
-/* How many of the view's frames the loop keeps (T3c): the hour's, or as many as `budget` bytes of PSRAM hold (a frame
- * is its tiles' grid at 2 bits a pixel), at least 1. */
+/* A frame's grid for the view, in bytes: its tiles at 2 bits a pixel (T3c). */
+size_t radar_rv_frame_bytes(const map_view_t *v);
+/* How many of the view's frames the loop keeps (T3c): the hour's, or as many as leave room within `budget` bytes of
+ * PSRAM for the next one coming, as a poll holds both; at least 1. */
 int radar_rv_keep(const map_view_t *v, size_t budget);
 /* A tile's URL, in RainViewer's one colour scheme and without smoothing, so its colours are exact. */
 int radar_rv_tile_url(char *out, size_t size, const char *host, const char *path, int z, int x, int y);
@@ -155,6 +157,11 @@ int radar_store_missing(const radar_store_t *s, uint32_t newest, uint32_t step_s
 void radar_store_clear(radar_store_t *s);
 /* Frees the oldest frames beyond `keep` (clamped to 1..RADAR_LOOP_FRAMES). */
 void radar_store_keep(radar_store_t *s, int keep);
+/* Frees the oldest frames until those kept and one of `incoming` bytes fit `budget`; the newest stays (T3c review: a
+ * zoom change keeps frames from a bigger grid). */
+void radar_store_fit(radar_store_t *s, size_t budget, size_t incoming);
+/* A fetch ran short of memory: frees the oldest frame, so the next poll has room; the newest stays (T3c review). */
+void radar_store_short(radar_store_t *s);
 /* The frame times a fetch wants (spec §11.2): `newest` and the `want - 1` steps before it, newest
  * first, less those in `have`; `want` is clamped to 1..RADAR_LOOP_FRAMES. Returns how many. */
 int radar_wanted(uint32_t newest, uint32_t step_s, int want, const uint32_t *have, int have_count, uint32_t *out);
