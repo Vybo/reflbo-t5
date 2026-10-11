@@ -120,6 +120,17 @@ int ui_presets_find(const ui_presets_t *p, const char *id)
     return -1;
 }
 
+int ui_presets_prev(const ui_presets_t *p, bool always)
+{
+    for (int step = 1; step < p->count; step++) {
+        int i = (p->active - step + p->count) % p->count;
+        if (p->presets[i].in_cycle && (always || p->presets[i].layout != UI_LAYOUT_FLIGHTS)) {
+            return i;
+        }
+    }
+    return p->active;
+}
+
 int ui_presets_next(const ui_presets_t *p, bool always)
 {
     for (int step = 1; step < p->count; step++) {

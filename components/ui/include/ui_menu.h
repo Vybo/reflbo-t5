@@ -69,6 +69,9 @@ typedef enum {
     UI_MENU_KEY_SELECT, /* KEY long: open, edit, save, or confirm */
     UI_MENU_KEY_BACK,   /* BOOT short: up a level, or - while editing */
     UI_MENU_KEY_EXIT,   /* BOOT long: close the menu, or cancel an edit */
+    UI_MENU_KEY_UP,     /* the T5's Up: the previous item, or + while editing (T5 spec §8.3) */
+    UI_MENU_KEY_DOWN,   /* the T5's Down: the next item, or - while editing */
+    UI_MENU_KEY_ESCAPE, /* the T5's Back, or Enter held: cancel an edit or a confirmation, up a level, close at the top */
 } ui_menu_key_t;
 
 /* What the app shows and lets the user edit. Values are in each item's own unit (above). */

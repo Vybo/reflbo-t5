@@ -291,8 +291,8 @@ ui_menu_intent_t ui_menu_input(ui_menu_t *m, const ui_menu_model_t *model, ui_me
     ui_menu_item_t item = ui_menu_current(m, model);
     switch (m->mode) {
     case UI_MENU_EDIT:
-        if (key == UI_MENU_KEY_NEXT || key == UI_MENU_KEY_BACK) {
-            step_edit(m, model, item, key == UI_MENU_KEY_NEXT ? 1 : -1);
+        if (key == UI_MENU_KEY_NEXT || key == UI_MENU_KEY_BACK || key == UI_MENU_KEY_UP || key == UI_MENU_KEY_DOWN) {
+            step_edit(m, model, item, key == UI_MENU_KEY_NEXT || key == UI_MENU_KEY_UP ? 1 : -1);
             return k_none;
         }
         m->mode = UI_MENU_BROWSE;
@@ -301,8 +301,8 @@ ui_menu_intent_t ui_menu_input(ui_menu_t *m, const ui_menu_model_t *model, ui_me
         }
         return k_none; /* cancelled */
     case UI_MENU_DATETIME:
-        if (key == UI_MENU_KEY_NEXT || key == UI_MENU_KEY_BACK) {
-            step_datetime(m, key == UI_MENU_KEY_NEXT ? 1 : -1);
+        if (key == UI_MENU_KEY_NEXT || key == UI_MENU_KEY_BACK || key == UI_MENU_KEY_UP || key == UI_MENU_KEY_DOWN) {
+            step_datetime(m, key == UI_MENU_KEY_NEXT || key == UI_MENU_KEY_UP ? 1 : -1);
             return k_none;
         }
         if (key == UI_MENU_KEY_SELECT && m->dt_field < 4) {
@@ -315,8 +315,8 @@ ui_menu_intent_t ui_menu_input(ui_menu_t *m, const ui_menu_model_t *model, ui_me
         }
         return k_none;
     case UI_MENU_CONFIRM:
-        if (key == UI_MENU_KEY_NEXT) {
-            return k_none; /* only a long press confirms */
+        if (key == UI_MENU_KEY_NEXT || key == UI_MENU_KEY_UP || key == UI_MENU_KEY_DOWN) {
+            return k_none; /* only KEY long, or the T5's Enter, confirms */
         }
         m->mode = UI_MENU_BROWSE;
         if (key == UI_MENU_KEY_SELECT) {
@@ -327,15 +327,18 @@ ui_menu_intent_t ui_menu_input(ui_menu_t *m, const ui_menu_model_t *model, ui_me
         break;
     }
     switch (key) {
-    case UI_MENU_KEY_NEXT: {
+    case UI_MENU_KEY_NEXT:
+    case UI_MENU_KEY_DOWN:
+    case UI_MENU_KEY_UP: {
         ui_menu_item_t items[UI_MI_COUNT];
         int n = ui_menu_visible(m, model, items, UI_MI_COUNT);
-        m->cursor = n ? (uint8_t)((m->cursor + 1) % n) : 0;
+        m->cursor = n ? (uint8_t)((m->cursor + (key == UI_MENU_KEY_UP ? n - 1 : 1)) % n) : 0;
         return k_none;
     }
     case UI_MENU_KEY_SELECT:
         return item == UI_MI_ROOT ? k_none : select_item(m, model, item);
     case UI_MENU_KEY_BACK:
+    case UI_MENU_KEY_ESCAPE:
         if (m->section == UI_MI_ROOT) {
             return (ui_menu_intent_t){ .kind = UI_MENU_CLOSE };
         }

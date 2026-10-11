@@ -372,6 +372,56 @@ static void test_the_menu_hides_what_the_board_lacks(void)
     TEST_ASSERT_EQUAL_INT(UI_MI_UNITS, items[0]);
 }
 
+/* T4b (T5 spec §8.3): the T5's Up, Down and Back. */
+static void test_up_and_down_move_and_step(void)
+{
+    press(UI_MENU_KEY_DOWN);
+    TEST_ASSERT_EQUAL_INT(UI_MI_WIFI, ui_menu_current(&s_m, &s_model));
+    press(UI_MENU_KEY_UP);
+    TEST_ASSERT_EQUAL_INT(UI_MI_PRESETS, ui_menu_current(&s_m, &s_model));
+    press(UI_MENU_KEY_UP); /* wraps to the last */
+    TEST_ASSERT_EQUAL_INT(UI_MI_SYSTEM, ui_menu_current(&s_m, &s_model));
+    press(UI_MENU_KEY_DOWN);
+    open_item(UI_MI_DISPLAY);
+    open_item(UI_MI_UPDATE_INTERVAL); /* 1-15 min, at 1 */
+    press(UI_MENU_KEY_UP);
+    press(UI_MENU_KEY_UP);
+    TEST_ASSERT_EQUAL_INT(3, s_m.edit); /* Up is + */
+    press(UI_MENU_KEY_DOWN);
+    TEST_ASSERT_EQUAL_INT(2, s_m.edit); /* Down is - */
+    press(UI_MENU_KEY_DOWN);
+    press(UI_MENU_KEY_DOWN);
+    TEST_ASSERT_EQUAL_INT(1, s_m.edit); /* stops at the minimum */
+    TEST_ASSERT_EQUAL_INT(1, press(UI_MENU_KEY_SELECT).value);
+}
+
+static void test_escape_cancels_goes_up_and_closes(void)
+{
+    open_item(UI_MI_PRESETS);
+    open_item(UI_MI_ACTIVE_PRESET); /* at 1 */
+    press(UI_MENU_KEY_UP);
+    TEST_ASSERT_EQUAL_INT(2, s_m.edit);
+    TEST_ASSERT_EQUAL(UI_MENU_NONE, press(UI_MENU_KEY_ESCAPE).kind); /* the edit is dropped */
+    TEST_ASSERT_EQUAL(UI_MENU_BROWSE, s_m.mode);
+    TEST_ASSERT_EQUAL_INT(UI_MI_PRESETS, s_m.section);
+    TEST_ASSERT_EQUAL(UI_MENU_NONE, press(UI_MENU_KEY_ESCAPE).kind); /* up a level */
+    TEST_ASSERT_EQUAL_INT(UI_MI_ROOT, s_m.section);
+    TEST_ASSERT_EQUAL_INT(UI_MI_PRESETS, ui_menu_current(&s_m, &s_model));
+    TEST_ASSERT_EQUAL(UI_MENU_CLOSE, press(UI_MENU_KEY_ESCAPE).kind); /* at the top: closes */
+}
+
+static void test_up_and_down_never_confirm(void)
+{
+    open_item(UI_MI_SYSTEM);
+    open_item(UI_MI_FACTORY_RESET);
+    TEST_ASSERT_EQUAL(UI_MENU_CONFIRM, s_m.mode);
+    TEST_ASSERT_EQUAL(UI_MENU_NONE, press(UI_MENU_KEY_UP).kind);
+    TEST_ASSERT_EQUAL(UI_MENU_NONE, press(UI_MENU_KEY_DOWN).kind);
+    TEST_ASSERT_EQUAL(UI_MENU_CONFIRM, s_m.mode); /* still asking */
+    TEST_ASSERT_EQUAL(UI_MENU_NONE, press(UI_MENU_KEY_ESCAPE).kind);
+    TEST_ASSERT_EQUAL(UI_MENU_BROWSE, s_m.mode);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -391,5 +441,8 @@ int main(void)
     RUN_TEST(test_info_shows_the_network_addresses);
     RUN_TEST(test_a_long_value_leaves_the_label_alone);
     RUN_TEST(test_the_menu_hides_what_the_board_lacks);
+    RUN_TEST(test_up_and_down_move_and_step);
+    RUN_TEST(test_escape_cancels_goes_up_and_closes);
+    RUN_TEST(test_up_and_down_never_confirm);
     return UNITY_END();
 }

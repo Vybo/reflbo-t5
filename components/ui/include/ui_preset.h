@@ -123,6 +123,8 @@ int ui_presets_find(const ui_presets_t *p, const char *id); /* index, or -1 */
  * preset is in the cycle (spec §5.4, KEY short). Presets on the Flights layout are in it only in
  * sync mode `always` (D28). */
 int ui_presets_next(const ui_presets_t *p, bool always);
+/* The previous preset in cycle order, by ui_presets_next()'s rules, backwards (the T5's Up, T5 spec §8.3). */
+int ui_presets_prev(const ui_presets_t *p, bool always);
 /* Offers the built-ins `offered` doesn't name yet: each joins at the end if its id is free and
  * there is room, and is marked offered either way. True if anything changed: save the file. */
 bool ui_presets_offer_builtins(ui_presets_t *p);

@@ -79,6 +79,23 @@ static void test_the_cycle_visits_flights_only_in_sync_mode_always(void)
     TEST_ASSERT_EQUAL_INT(5, ui_presets_next(&s_p, true));
 }
 
+/* T4b (T5 spec §8.3): Up steps back through what Down (next) steps forward through. */
+static void test_prev_steps_backwards_through_the_cycle(void)
+{
+    s_p.active = 1;
+    TEST_ASSERT_EQUAL_INT(0, ui_presets_prev(&s_p, true)); /* indoor -> home */
+    s_p.active = 0;
+    TEST_ASSERT_EQUAL_INT(5, ui_presets_prev(&s_p, true)); /* wraps past solar and energy, out of it, to flights */
+    TEST_ASSERT_EQUAL_INT(4, ui_presets_prev(&s_p, false)); /* flights only in sync mode always */
+    s_p.presets[4].in_cycle = false;
+    TEST_ASSERT_EQUAL_INT(3, ui_presets_prev(&s_p, false)); /* and past rain */
+    for (int i = 0; i < s_p.count; i++) {
+        s_p.presets[i].in_cycle = i == 3;
+    }
+    s_p.active = 3;
+    TEST_ASSERT_EQUAL_INT(3, ui_presets_prev(&s_p, true)); /* the only one: stays */
+}
+
 /* A presets.json saved by M5: the four presets of its day, no marker. */
 static const char k_m5_file[] =
     "{\"schema\":1,\"active\":\"weather\",\"presets\":["
@@ -705,6 +722,7 @@ int main(void)
     RUN_TEST(test_the_t5_defaults_have_no_env_field);
     RUN_TEST(test_next_follows_cycle_order_and_skips_presets_out_of_it);
     RUN_TEST(test_the_cycle_visits_flights_only_in_sync_mode_always);
+    RUN_TEST(test_prev_steps_backwards_through_the_cycle);
     RUN_TEST(test_a_file_from_before_m6_gains_the_radars_once);
     RUN_TEST(test_a_file_from_m6c_gains_solar_and_energy_once);
     RUN_TEST(test_the_radars_need_room_and_a_free_id);
