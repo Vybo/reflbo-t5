@@ -76,6 +76,9 @@ const T5_CATALOGUE = {
   ] }],
 };
 
+/* The T5 from T4 on: e-paper (its clean refresh, no seconds). */
+const T5_CATALOGUE_EPAPER = { ...T5_CATALOGUE, caps: ['epaper'] };
+
 /* The server's own rule (components/webui/webui.c): a request that changes something, other than a
  * firmware upload, must say it is JSON, which a cross-site form cannot. */
 function device(routes) {
@@ -1109,4 +1112,66 @@ test('the T5\'s Sync page names no clock chip or trim', async () => {
   await ctx.syncPage();
   assert.doesNotMatch(text(main), /clock chip|trim/);
   assert.match(text(main), /The time always runs: the clock needs it\./);
+});
+
+/* ---- e-paper's clean refresh and seconds (T5 spec §5.3) ---- */
+
+test('the clean refresh reads as a sentence', async () => {
+  const { ctx } = await load();
+  assert.equal(ctx.cleanSentence(15, 4), 'The panel updates every 15 minutes without flashing, and flashes clean every 4th ' +
+    'update, about once an hour.');
+  assert.equal(ctx.cleanSentence(1, 60), 'The panel updates every minute without flashing, and flashes clean every 60th ' +
+    'update, about once an hour.');
+  assert.equal(ctx.cleanSentence(15, 1), 'The panel flashes clean at every update, every 15 minutes.');
+  assert.equal(ctx.cleanSentence(1, 1), 'The panel flashes clean at every update, every minute.');
+  assert.match(ctx.cleanSentence(1, 2), /every 2nd update, about every 2 minutes\.$/);
+  assert.match(ctx.cleanSentence(5, 3), /every 3rd update, about every 15 minutes\.$/);
+  assert.match(ctx.cleanSentence(10, 12), /every 12th update, about every 2 hours\.$/);
+  assert.match(ctx.cleanSentence(15, 120), /every 120th update, about once a day\.$/);
+  assert.match(ctx.cleanSentence(1, 21), /every 21st update/);
+  assert.match(ctx.cleanSentence(1, 22), /every 22nd update/);
+  assert.match(ctx.cleanSentence(1, 13), /every 13th update/);
+});
+
+test('the T5\'s Device page sets the clean refresh, with its sentence', async () => {
+  const patches = [];
+  const device = settingsDevice(patches);
+  const { ctx, main } = await load({ ...device, 'GET /api/layouts': () => reply(200, T5_CATALOGUE_EPAPER),
+    'GET /api/settings': () => reply(200, { schema: 1, language: 'en', units: { temp: 'C' }, sensors: { interval_min: 5 },
+                                            display: { update_min: 15, clean_after: 4 }, battery: { level_from: 'curve' } }) });
+  await ctx.devicePage();
+  const clean = control(main, 'Clean refresh');
+  assert.equal(clean.value, '4');
+  assert.match(text(main), /flashes clean every 4th update, about once an hour\./);
+  assert.match(text(main), /Preset switches and leaving the menu flash clean too\./);
+  await change(clean, '10');
+  assert.match(text(main), /every 10th update, about every 3 hours\./); /* 150 minutes */
+  await buttonNamed(main, 'Save').click();
+  await settle();
+  assert.equal(patches.at(-1).display.clean_after, 10);
+  assert.equal(patches.at(-1).display.update_min, 15);
+  assert.equal(patches.at(-1).display.lpm_hz, undefined);
+});
+
+test('the RLCD\'s Device page has no clean refresh and still sends its offsets and rate', async () => {
+  const patches = [];
+  const { ctx, main } = await load(settingsDevice(patches));
+  await ctx.devicePage();
+  assert.doesNotMatch(text(main), /Clean refresh/);
+  await buttonNamed(main, 'Save').click();
+  await settle();
+  const p = patches.at(-1); /* the fake DOM's selects have no value of their own: the keys and the offsets */
+  assert.deepEqual(Object.keys(p.sensors).sort(), ['hum_offset_pct', 'interval_min', 'temp_offset_c']);
+  assert.equal(p.sensors.temp_offset_c, -2);
+  assert.deepEqual(Object.keys(p.display).sort(), ['lpm_hz', 'update_min']);
+});
+
+test('the T5\'s preset editor says its panel shows no seconds', async () => {
+  const saved = [];
+  const t5 = await load({ ...presetDevice(saved), 'GET /api/layouts': () => reply(200, T5_CATALOGUE_EPAPER) });
+  await t5.ctx.presetsPage();
+  assert.match(text(t5.main), /This panel shows hours and minutes: seconds would keep it awake\./);
+  const rlcd = await load(presetDevice(saved));
+  await rlcd.ctx.presetsPage();
+  assert.doesNotMatch(text(rlcd.main), /This panel shows hours and minutes/);
 });

@@ -977,6 +977,20 @@ async function solarPage() {
 const LANGUAGES = [['en', 'English'], ['cs', 'Čeština']];
 const SENSOR_MIN = [1, 2, 5, 10, 15, 30];
 const RATES = [0.25, 0.5, 1, 2, 4, 8];
+const CLEAN_AFTER = [1, 2, 3, 4, 6, 10, 15, 20, 30, 60, 120, 240]; /* the menu's (main/app_menu.c) */
+
+/* "21st", "22nd", "13th". */
+const ordinal = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+
+/* E-paper's clean refresh in words (T5 spec §5.3): every `cleanAfter`th update flashes clean. */
+function cleanSentence(updateMin, cleanAfter) {
+  const every = updateMin === 1 ? 'every minute' : `every ${updateMin} minutes`;
+  if (cleanAfter <= 1) return `The panel flashes clean at every update, ${every}.`;
+  const m = updateMin * cleanAfter;
+  const about = m < 60 ? `about every ${m} minutes` : m < 120 ? 'about once an hour'
+    : m < 1440 ? `about every ${Math.round(m / 60)} hours` : 'about once a day';
+  return `The panel updates ${every} without flashing, and flashes clean every ${ordinal(cleanAfter)} update, ${about}.`;
+}
 
 async function devicePage() {
   await panel();
@@ -990,6 +1004,18 @@ async function devicePage() {
   const hum = h('input', { type: 'number', step: 0.5, min: -20, max: 20, value: sensors.hum_offset_pct ?? 0 });
   const every = select(SENSOR_MIN.map((m) => [String(m), `${m} min`]), String(sensors.interval_min ?? 5));
   const update = select(Array.from({ length: 15 }, (_, i) => [String(i + 1), `${i + 1} min`]), String(display.update_min ?? 1));
+  update.value = String(display.update_min ?? 1);
+  const epaper = has('epaper'); /* the T5: clean refresh in place of the refresh rate (T5 spec §5.3) */
+  const cleanNow = display.clean_after ?? 60;
+  const clean = select([...new Set([...CLEAN_AFTER, cleanNow])].sort((a, b) => a - b).map((n) => [String(n), String(n)]),
+    String(cleanNow));
+  clean.value = String(cleanNow);
+  const cleanNote = h('p', { class: 'muted small' });
+  const showClean = () => cleanNote.replaceChildren(cleanSentence(Number(update.value), Number(clean.value)), h('br'),
+    'Preset switches and leaving the menu flash clean too.');
+  showClean();
+  update.addEventListener('change', showClean);
+  clean.addEventListener('change', showClean);
   const rate = select(RATES.map((r) => [String(r), `${String(r)} Hz`]), String(display.lpm_hz ?? 1));
   const bat = s.battery || {};
   const learned = Array.isArray(bat.learned_mv); /* D21: a full discharge was learned */
@@ -1023,7 +1049,8 @@ async function devicePage() {
     env ? field('Humidity offset, %', hum) : null, field('Measure every', every)),
     card('Screen', field('Update every', update, 'How often the dashboard is redrawn. Each update wakes the device.'),
       lpm ? field('Refresh rate', rate, 'How often the panel repaints its image between updates. At 1 Hz it looked as ' +
-        'good as the faster rates (D12).') : null),
+        'good as the faster rates (D12).') : null,
+      epaper ? field('Clean refresh', clean) : null, epaper ? cleanNote : null),
     batCard,
     note,
     actions(button('Save', () => busy(form, note, async () => {
@@ -1043,7 +1070,8 @@ async function devicePage() {
         units: { temp: unit.value },
         sensors: { ...(env ? { temp_offset_c: Math.round(t * 10) / 10, hum_offset_pct: Math.round(hu * 2) / 2 } : {}),
                    interval_min: Number(every.value) }, /* what the page doesn't show stays as it is (T5 spec §9) */
-        display: { update_min: Number(update.value), ...(lpm ? { lpm_hz: Number(rate.value) } : {}) },
+        display: { update_min: Number(update.value), ...(lpm ? { lpm_hz: Number(rate.value) } : {}),
+                   ...(epaper ? { clean_after: Number(clean.value) } : {}) },
         battery,
       });
       toast('Saved');
@@ -1336,7 +1364,9 @@ function renderPresets(ed) {
     field('Name', name), field('Layout', layout), slots,
     NO_SLOTS[p.layout] ? h('p', { class: 'muted small', text: NO_SLOTS[p.layout] }) : null,
     field('Time format', clock), check('seconds', 'Show seconds'),
-    o.seconds ? h('p', { class: 'bad small', text: 'Seconds wake the device every second: the battery lasts far less.' }) : null,
+    has('epaper') ? h('p', { class: 'muted small', text: 'This panel shows hours and minutes: seconds would keep it awake.' })
+      : o.seconds ? h('p', { class: 'bad small', text: 'Seconds wake the device every second: the battery lasts far less.' })
+        : null,
     check('invert', 'White on black'), field('Old or missing data', stale),
     h('label', {}, 'Status bar'), check('status_clock', 'A small clock'),
     part('percent', 'Battery level'), part('voltage', 'Battery voltage'), part('days', 'Days of battery left'),
