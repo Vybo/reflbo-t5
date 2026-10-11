@@ -128,3 +128,18 @@ bool gesture_busy(const gesture_recogniser_t *g)
      * board may sleep meanwhile, leaving that button out of the wake sources (D16). */
     return g->state == ST_PRESSED || g->state == ST_WAIT_SECOND || g->recheck;
 }
+
+uint32_t gesture_earliest_deadline(const gesture_recogniser_t *g, int count, uint32_t skip)
+{
+    uint32_t best = GESTURE_NO_DEADLINE;
+    for (int i = 0; i < count; i++) {
+        if (skip & (1u << i)) {
+            continue;
+        }
+        uint32_t d = gesture_deadline(&g[i]);
+        if (d != GESTURE_NO_DEADLINE && (best == GESTURE_NO_DEADLINE || (int32_t)(d - best) < 0)) {
+            best = d;
+        }
+    }
+    return best;
+}

@@ -146,6 +146,19 @@ static void test_an_update_refused_before_it_drew_keeps_the_frame(void)
     TEST_ASSERT_EQUAL_INT(EPAPER_DU, epaper_choose(&p, &c));
 }
 
+/* T4b review: Back held through a clean update asked for a repair that the clean update's own bookkeeping wiped. */
+static void test_a_clean_asked_for_during_an_update_survives_it(void)
+{
+    epaper_policy_t p = { .known = true, .clean_next = true, .clean_again = true, .clean_after = 60 };
+    epaper_after(&p, EPAPER_CLEAN, EPAPER_DONE);
+    TEST_ASSERT_TRUE(p.clean_next);
+    TEST_ASSERT_FALSE(p.clean_again);
+    p = (epaper_policy_t){ .known = true, .clean_again = true, .clean_after = 60 };
+    epaper_after(&p, EPAPER_GL16, EPAPER_DONE);
+    TEST_ASSERT_TRUE(p.clean_next);
+    TEST_ASSERT_FALSE(p.clean_again);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -156,5 +169,6 @@ int main(void)
     RUN_TEST(test_the_count_reached_without_a_change_runs_nothing);
     RUN_TEST(test_a_failed_update_forgets_the_frame_and_keeps_the_count);
     RUN_TEST(test_an_update_refused_before_it_drew_keeps_the_frame);
+    RUN_TEST(test_a_clean_asked_for_during_an_update_survives_it);
     return UNITY_END();
 }

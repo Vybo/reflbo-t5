@@ -85,20 +85,16 @@ static void report(board_button_t button, gesture_t gesture)
 
 static TickType_t next_wait(void)
 {
-    TickType_t wait = portMAX_DELAY;
-    uint32_t now = now_ms();
+    uint32_t skip = 0;
     for (int b = 0; b < BOARD_BUTTON_COUNT; b++) {
-        uint32_t deadline = gesture_deadline(&s_rec[b]);
-        if (deadline == GESTURE_NO_DEADLINE) {
-            continue;
-        }
-        int32_t left = (int32_t)(deadline - now);
-        TickType_t ticks = left <= 0 ? 0 : util_ticks_at_least((uint32_t)left, portTICK_PERIOD_MS);
-        if (ticks < wait) {
-            wait = ticks;
-        }
+        skip |= frozen(b) ? 1u << b : 0; /* its deadline passes unattended; the resume's resync settles it (T4b review) */
     }
-    return wait;
+    uint32_t deadline = gesture_earliest_deadline(s_rec, BOARD_BUTTON_COUNT, skip);
+    if (deadline == GESTURE_NO_DEADLINE) {
+        return portMAX_DELAY;
+    }
+    int32_t left = (int32_t)(deadline - now_ms());
+    return left <= 0 ? 0 : util_ticks_at_least((uint32_t)left, portTICK_PERIOD_MS);
 }
 
 static void buttons_task(void *arg)

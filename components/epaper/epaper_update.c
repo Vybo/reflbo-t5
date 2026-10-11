@@ -73,4 +73,8 @@ void epaper_after(epaper_policy_t *p, epaper_mode_t mode, epaper_result_t result
     } else if (!p->fast && p->since_clean < UINT16_MAX) {
         p->since_clean++;
     }
+    if (p->clean_again) { /* asked for while it ran: the next one */
+        p->clean_next = true;
+        p->clean_again = false;
+    }
 }

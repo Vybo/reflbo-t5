@@ -99,6 +99,21 @@ static void test_a_press_shorter_than_the_minimum_gives_nothing(void)
     TEST_ASSERT_EQUAL(GESTURE_SHORT, gesture_update(&s_g, false, 2090)); /* a finger's press */
 }
 
+/* T4b review: the T5's Back, frozen while IO0 strobes the panel, mustn't keep the buttons task's wait at zero. */
+static void test_the_earliest_deadline_leaves_out_skipped_buttons(void)
+{
+    gesture_recogniser_t g[2];
+    gesture_init(&g[0], k_plain);
+    gesture_init(&g[1], k_plain);
+    TEST_ASSERT_EQUAL_UINT32(GESTURE_NO_DEADLINE, gesture_earliest_deadline(g, 2, 0));
+    gesture_update(&g[1], true, 1000); /* pressed: its long press is due at 2000 */
+    TEST_ASSERT_EQUAL_UINT32(2000, gesture_earliest_deadline(g, 2, 0));
+    TEST_ASSERT_EQUAL_UINT32(GESTURE_NO_DEADLINE, gesture_earliest_deadline(g, 2, 1u << 1));
+    gesture_update(&g[0], true, 1500);
+    TEST_ASSERT_EQUAL_UINT32(2500, gesture_earliest_deadline(g, 2, 1u << 1));
+    TEST_ASSERT_EQUAL_UINT32(2000, gesture_earliest_deadline(g, 2, 0));
+}
+
 static void test_times_wrap_around(void)
 {
     gesture_update(&s_g, true, UINT32_MAX - 500);
@@ -175,5 +190,6 @@ int main(void)
     RUN_TEST(test_an_ignored_press_gives_nothing_and_its_release_is_debounced);
     RUN_TEST(test_ignoring_a_press_being_timed_drops_it);
     RUN_TEST(test_a_press_shorter_than_the_minimum_gives_nothing);
+    RUN_TEST(test_the_earliest_deadline_leaves_out_skipped_buttons);
     return UNITY_END();
 }

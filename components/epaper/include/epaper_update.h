@@ -20,6 +20,7 @@ typedef enum { EPAPER_NONE, EPAPER_CLEAN, EPAPER_DU, EPAPER_GL16 } epaper_mode_t
 typedef struct {
     bool known;           /* the panel's frame is known (epdiy's back buffer) */
     bool clean_next;      /* a preset switch, leaving the menu, the end of a night, `panel clean` */
+    bool clean_again;     /* asked for while an update ran (the T5's Back held through it): clean_next after it */
     bool fast;            /* display_set_fast(true): fast and not counted */
     uint16_t since_clean; /* counted updates since the last clean one */
     uint8_t clean_after;  /* every Nth update is clean, 1..240 */

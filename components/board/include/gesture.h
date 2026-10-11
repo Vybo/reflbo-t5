@@ -47,5 +47,8 @@ void gesture_ignore_press(gesture_recogniser_t *g, uint32_t now_ms);
 /* A press that ended before it could be timed, e.g. the one that woke the chip (spec §3.3). */
 gesture_t gesture_tap(gesture_recogniser_t *g, uint32_t now_ms);
 uint32_t gesture_deadline(const gesture_recogniser_t *g); /* absolute ms, or GESTURE_NO_DEADLINE */
+/* The earliest deadline of `count` recognisers, leaving out those set in `skip` (bit i: g[i]), such as the T5's Back
+ * while frozen (T4b review); GESTURE_NO_DEADLINE for none. */
+uint32_t gesture_earliest_deadline(const gesture_recogniser_t *g, int count, uint32_t skip);
 /* A gesture is still being timed. A held press whose gesture has fired, or an ignored one, is not. */
 bool gesture_busy(const gesture_recogniser_t *g);

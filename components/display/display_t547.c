@@ -111,7 +111,7 @@ static void panel_down(void)
     epaper_board_idle();
     board_buttons_back_pause(false);
     if (board_buttons_pressed(BOARD_BUTTON_BACK)) {
-        s_policy.clean_next = true; /* Back held through the update: the latch may have missed a word (gotcha 2) */
+        s_policy.clean_again = true; /* Back held through the update: the latch may have missed a word (gotcha 2) */
     }
 }
 
