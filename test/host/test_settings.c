@@ -19,6 +19,7 @@ void setUp(void)
                                .ntp = { "cz.pool.ntp.org", "pool.ntp.org" } };
     settings_radar_defaults(&s_defaults);
     settings_solar_defaults(&s_defaults);
+    settings_display_defaults(&s_defaults);
     memset(&s_out, 0xAA, sizeof(s_out));
     s_err[0] = '\0';
 }
@@ -84,6 +85,33 @@ static void test_bad_values_are_clamped_or_ignored_one_by_one(void)
     TEST_ASSERT_EQUAL_UINT8(1, s_out.display_every_min);
     TEST_ASSERT_EQUAL_UINT8(4, s_out.lpm_quarter_hz);       /* 3 Hz is not a panel rate */
     TEST_ASSERT_EQUAL_STRING("en", s_out.language);
+}
+
+/* T4: the T5's clean refresh, every Nth update (T5 spec §5.3, §9). */
+static void test_clean_after_defaults_to_60_and_reads_1_to_240(void)
+{
+    settings_t d;
+    memset(&d, 0, sizeof(d));
+    settings_display_defaults(&d);
+    TEST_ASSERT_EQUAL_UINT8(60, d.clean_after);
+    TEST_ASSERT_TRUE(settings_from_json("{\"schema\": 1, \"display\": {\"clean_after\": 4}}", &s_defaults, &s_out,
+                                        s_err, sizeof(s_err)));
+    TEST_ASSERT_EQUAL_UINT8(4, s_out.clean_after);
+    TEST_ASSERT_TRUE(settings_from_json("{\"schema\": 1, \"display\": {\"clean_after\": 0}}", &s_defaults, &s_out,
+                                        s_err, sizeof(s_err)));
+    TEST_ASSERT_EQUAL_UINT8(1, s_out.clean_after);
+    TEST_ASSERT_TRUE(settings_from_json("{\"schema\": 1, \"display\": {\"clean_after\": 999}}", &s_defaults,
+                                        &s_out, s_err, sizeof(s_err)));
+    TEST_ASSERT_EQUAL_UINT8(240, s_out.clean_after);
+}
+
+static void test_clean_after_survives_its_file(void)
+{
+    settings_t s = s_defaults;
+    s.clean_after = 12;
+    TEST_ASSERT_TRUE(settings_to_json(&s, NULL, s_json, sizeof(s_json)) > 0);
+    TEST_ASSERT_TRUE_MESSAGE(settings_from_json(s_json, &s_defaults, &s_out, s_err, sizeof(s_err)), s_err);
+    TEST_ASSERT_EQUAL_UINT8(12, s_out.clean_after);
 }
 
 static void test_not_json_or_another_schema_fails(void)
@@ -780,6 +808,8 @@ int main(void)
     RUN_TEST(test_the_spec_sketch_parses);
     RUN_TEST(test_missing_keys_take_the_defaults);
     RUN_TEST(test_bad_values_are_clamped_or_ignored_one_by_one);
+    RUN_TEST(test_clean_after_defaults_to_60_and_reads_1_to_240);
+    RUN_TEST(test_clean_after_survives_its_file);
     RUN_TEST(test_not_json_or_another_schema_fails);
     RUN_TEST(test_deep_nesting_is_rejected_before_parsing);
     RUN_TEST(test_saving_keeps_keys_this_firmware_does_not_know);

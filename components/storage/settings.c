@@ -407,6 +407,7 @@ bool settings_from_json(const char *json, const settings_t *defaults, settings_t
     const cJSON *display = child(root, "display");
     out->display_every_min = (uint8_t)read_scaled(display, "update_min", out->display_every_min, 1, 1, 15);
     out->lpm_quarter_hz = lpm_from_hz(display, out->lpm_quarter_hz);
+    out->clean_after = (uint8_t)read_scaled(display, "clean_after", out->clean_after, 1, 1, 240);
     const cJSON *location = child(root, "location");
     read_string(location, "name", out->place, sizeof(out->place));
     out->lat_e4 = (int32_t)read_scaled(location, "lat", out->lat_e4, 1e4, -900000, 900000);
@@ -496,6 +497,7 @@ size_t settings_to_json(const settings_t *s, const char *base_json, char *out, s
     cJSON *display = object_at(root, "display");
     put(display, "update_min", cJSON_CreateNumber(s->display_every_min));
     put(display, "lpm_hz", cJSON_CreateNumber(s->lpm_quarter_hz / 4.0));
+    put(display, "clean_after", cJSON_CreateNumber(s->clean_after));
     cJSON *location = object_at(root, "location");
     put(location, "name", cJSON_CreateString(s->place));
     put(location, "lat", cJSON_CreateNumber(s->lat_e4 / 1e4));
@@ -762,4 +764,9 @@ size_t settings_take_secrets(const char *patch, char *out, size_t size, settings
         fail(err, err_size, "too large");
     }
     return printed ? strlen(out) : 0;
+}
+
+void settings_display_defaults(settings_t *out)
+{
+    out->clean_after = 60; /* hourly at the 1-minute update (T5 spec §5.3) */
 }

@@ -84,6 +84,7 @@ typedef struct {
     int16_t temp_offset_c100;  /* -1000..1000 */
     int16_t hum_offset_pct100; /* -2000..2000 */
     uint8_t display_every_min; /* 1..15 */
+    uint8_t clean_after;       /* display.clean_after: every Nth update is clean, 1..240 (T5 spec §5.3) */
     uint8_t lpm_quarter_hz;    /* panel refresh in LPM, 0.25 Hz steps: 1, 2, 4, 8, 16 or 32 */
     char place[SETTINGS_PLACE_LEN]; /* location.name: "Brno" */
     int32_t lat_e4, lon_e4;         /* location in 1e-4 degrees, north and east positive: 491951, 166068 */
@@ -123,6 +124,8 @@ typedef struct {
  * quiet hours 23:00-06:00 but off, cz.pool.ntp.org and pool.ntp.org; times again after `always`.
  * The app's defaults include them, so a settings.json from before M5 syncs. */
 void settings_sync_defaults(settings_t *out);
+/* The display's defaults: display.clean_after 60 (T5 spec §5.3); the rest are the app's (main/app_ui.c). */
+void settings_display_defaults(settings_t *out);
 
 /* sync.mode just changed from `prev_mode` (the menu, a page): entering `always` from another mode
  * remembers that one in sync_mode_before_always (D31). */

@@ -57,6 +57,7 @@ static void default_settings(settings_t *out)
         .bat_full_mv = BATTERY_FULL_MV,
     };
     settings_sync_defaults(out);
+    settings_display_defaults(out);
     settings_radar_defaults(out);
     settings_solar_defaults(out);
     snprintf(out->place, sizeof(out->place), "%s", CONFIG_REFLBO_LOCATION_NAME);
