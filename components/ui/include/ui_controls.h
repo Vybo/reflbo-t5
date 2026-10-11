@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lang.h"
 #include "ui_menu.h"
 
 /* What a button's gesture does on a screen (upstream §5.6, T5 spec §8.3): one table per board, by the profile's
@@ -45,3 +46,6 @@ typedef struct {
 } ui_control_t;
 
 ui_control_t ui_controls(ui_screen_t screen, ui_button_t button, ui_gesture_t gesture);
+/* A button hint (LS_HINT_* and the first run's LS_F_WIFI to LS_F_CONTINUE) for the board's buttons: the T5's
+ * four-button wording, else the string as given. */
+lang_str_t ui_hint(lang_str_t two_button);

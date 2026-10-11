@@ -101,3 +101,34 @@ ui_control_t ui_controls(ui_screen_t screen, ui_button_t button, ui_gesture_t ge
 {
     return ui_profile()->buttons >= 4 ? four_buttons(screen, button, gesture) : two_buttons(screen, button, gesture);
 }
+
+lang_str_t ui_hint(lang_str_t two_button)
+{
+    if (ui_profile()->buttons < 4) {
+        return two_button;
+    }
+    switch (two_button) {
+    case LS_HINT_BROWSE:
+        return LS_HINT4_BROWSE;
+    case LS_HINT_EDIT:
+        return LS_HINT4_EDIT;
+    case LS_HINT_DATETIME:
+        return LS_HINT4_DATETIME;
+    case LS_HINT_CONFIRM:
+        return LS_HINT4_CONFIRM;
+    case LS_HINT_CONFIG:
+        return LS_HINT4_CONFIG;
+    case LS_HINT_CONFIG_SWITCH:
+        return LS_HINT4_CONFIG_SWITCH;
+    case LS_HINT_CONFIG_BACK:
+        return LS_HINT4_CONFIG_BACK;
+    case LS_F_WIFI:
+        return LS_F4_WIFI;
+    case LS_F_MENU:
+        return LS_F4_MENU;
+    case LS_F_CONTINUE:
+        return LS_F4_CONTINUE;
+    default:
+        return two_button;
+    }
+}

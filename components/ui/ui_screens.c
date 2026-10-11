@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "gfx_fonts.h"
+#include "ui_controls.h"
 #include "ui_internal.h"
 #include "ui_profile.h"
 
@@ -73,7 +74,7 @@ void ui_draw_first_run(gfx_fb_t *fb, const ui_context_t *ctx)
     for (int i = 0; i < 3; i++) {
         const gfx_font_t *f = i == 2 ? UI_FONT(UI_F_SANS_20) : UI_FONT(UI_F_BOLD_20);
         char line1[96], line2[96];
-        ui_split_two_lines(f, lang_str(ctx->lang, hints[i]), fb->width - 2 * margin, line1, line2, sizeof(line1));
+        ui_split_two_lines(f, lang_str(ctx->lang, ui_hint(hints[i])), fb->width - 2 * margin, line1, line2, sizeof(line1));
         gfx_text_in_rect(fb, f, (gfx_rect_t){ 0, (int16_t)y, fb->width, (int16_t)UI_PX(28) }, GFX_ALIGN_CENTER, line1,
                          GFX_BLACK);
         y += UI_PX(26);

@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "gfx_fonts.h"
+#include "ui_controls.h"
 #include "ui_internal.h"
 #include "ui_menu.h"
 #include "ui_profile.h"
@@ -87,7 +88,7 @@ static void draw_list(gfx_fb_t *fb, const ui_menu_t *m, const ui_menu_model_t *m
             gfx_text_in_rect(fb, f, vr, GFX_ALIGN_LEFT, value, ink);
         }
     }
-    draw_hints(fb, lang_str(lang, m->mode == UI_MENU_EDIT ? LS_HINT_EDIT : LS_HINT_BROWSE));
+    draw_hints(fb, lang_str(lang, ui_hint(m->mode == UI_MENU_EDIT ? LS_HINT_EDIT : LS_HINT_BROWSE)));
 }
 
 /* One field of the date-time editor, inverted when it is the one being edited. */
@@ -128,7 +129,7 @@ static void draw_datetime(gfx_fb_t *fb, const ui_menu_t *m, const lang_t *lang)
     x += draw_field(fb, f, x, baseline, hour, m->dt_field == 3) + gap;
     x = gfx_text(fb, f, x, baseline, ":", GFX_BLACK) + gap;
     draw_field(fb, f, x, baseline, minute, m->dt_field == 4);
-    draw_hints(fb, lang_str(lang, LS_HINT_DATETIME));
+    draw_hints(fb, lang_str(lang, ui_hint(LS_HINT_DATETIME)));
 }
 
 /* The question on up to two centred lines, split at a space. */
@@ -172,7 +173,7 @@ void ui_draw_menu(gfx_fb_t *fb, const ui_menu_t *m, const ui_menu_model_t *model
     case UI_MENU_CONFIRM:
         draw_header(fb, ui_menu_label(item, lang));
         draw_question(fb, ui_menu_question(item, lang), MID + UI_PX(110));
-        draw_hints(fb, lang_str(lang, LS_HINT_CONFIRM));
+        draw_hints(fb, lang_str(lang, ui_hint(LS_HINT_CONFIRM)));
         break;
     default:
         draw_header(fb, ui_menu_label((ui_menu_item_t)m->section, lang));

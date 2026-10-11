@@ -1,6 +1,8 @@
 #include <stdio.h>
 
+#include "gfx.h"
 #include "ui_controls.h"
+#include "ui_internal.h"
 #include "ui_profile.h"
 #include "unity.h"
 
@@ -127,10 +129,37 @@ static void test_the_t5_controls_follow_dt13(void)
     check(rows, (int)(sizeof(rows) / sizeof(rows[0])), 4);
 }
 
+/* The hint lines name the board's own buttons, and the T5's fit its hint line. */
+static void test_the_t5_hints_name_its_four_buttons(void)
+{
+    static const lang_str_t two[] = { LS_HINT_BROWSE, LS_HINT_EDIT, LS_HINT_DATETIME, LS_HINT_CONFIRM, LS_HINT_CONFIG,
+                                      LS_HINT_CONFIG_SWITCH, LS_HINT_CONFIG_BACK, LS_F_WIFI, LS_F_MENU, LS_F_CONTINUE };
+    static const lang_str_t four[] = { LS_HINT4_BROWSE, LS_HINT4_EDIT, LS_HINT4_DATETIME, LS_HINT4_CONFIRM,
+                                       LS_HINT4_CONFIG, LS_HINT4_CONFIG_SWITCH, LS_HINT4_CONFIG_BACK, LS_F4_WIFI,
+                                       LS_F4_MENU, LS_F4_CONTINUE };
+    for (int i = 0; i < 10; i++) {
+        TEST_ASSERT_EQUAL_INT(two[i], ui_hint(two[i])); /* the RLCD */
+    }
+    ui_profile_use(&ui_profile_t547);
+    for (int i = 0; i < 10; i++) {
+        TEST_ASSERT_EQUAL_INT(four[i], ui_hint(two[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(LS_MENU, ui_hint(LS_MENU)); /* not a hint: as it is */
+    const char *packs[] = { "en", "cs" };
+    for (int l = 0; l < 2; l++) {
+        for (int i = 0; i < 7; i++) { /* the menu's and config mode's hint lines: one line on the T5 */
+            const char *t = lang_str(lang_get(packs[l]), four[i]);
+            TEST_ASSERT_NOT_NULL(t);
+            TEST_ASSERT_TRUE_MESSAGE(gfx_text_width(UI_FONT(UI_F_SANS_12), t) <= 960 - UI_PX(12), t);
+        }
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_the_rlcd_controls_are_upstreams);
     RUN_TEST(test_the_t5_controls_follow_dt13);
+    RUN_TEST(test_the_t5_hints_name_its_four_buttons);
     return UNITY_END();
 }
