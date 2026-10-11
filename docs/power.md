@@ -63,6 +63,8 @@ The LilyGo T5-4.7 (ESP32, T5 spec) has no forced-PWM converter: its 3V3 rail is 
 
 A routine deep-sleep minute keeps the chip awake about 2.2 s, nearly all of it the clean update (`sleep stats` over 30 cycles: mean awake 2.25 s, mean asleep 56.6 s).
 
+**Fast updates** (T4, 2026-10-11, the board on USB, `panel status` and the logs): a minute's update of the status clock's digit, GL16 16×19, about 0.38 s; a full-screen GL16 0.93–1.12 s; the radar loop's frames 0.76–0.86 s; a clean update 2.0–2.46 s. A routine deep-sleep minute on the Rain radar preset keeps the chip awake about 1.49 s (`sleep stats` over 4 cycles: mean awake 1494 ms, asleep 58.2 s), the frame drawn again for the wake included. At the battery figures below (0.3 mA asleep, about 150 mA through an update, about 107 mA otherwise awake) that would be roughly 3 mA on average at the 1-minute update: an estimate, until the owner's meter.
+
 **The clock's drift** (2026-10-07, the board on USB at room temperature): 30 one-minute deep-sleep cycles (`sleep test deep 30`), the board's clock against the Mac's at the start and the end, timed at the board's second edge to about 0.1 s:
 
 | Slow clock | Build | Window | Drift | Rate |

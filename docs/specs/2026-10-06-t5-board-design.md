@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c (§13)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4 (§13)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -218,6 +218,13 @@ Our code, Apache-2.0, built only for the T5:
 
 Until T4 every update is a clean one. DU, GL16 and GC16's times and currents on this panel are measured at T1 (`docs/power.md`): for the whole panel, a clean update 2.22 s (the clear 1.37 s), GL16 1.10 s, DU 0.55 s. If GL16 is too slow for the menu, the menu draws black and white only on the T5.
 
+As built (T4, 2026-10-11):
+- **The policy** is `components/epaper/epaper_update.c`, pure and host-tested: `epaper_change()` finds what differs between epdiy's back buffer (what the panel shows) and the new frame, its box and whether every changed pixel is black or white before and after; `epaper_choose()` picks the mode; `epaper_after()` keeps the count. An unknown frame or a clean request (`display_clean_next()`, `display_set_fast(false)`, `display_wake()`, `panel clean`) is clean even unchanged; no change runs nothing, even when the count is due; every `clean_after`th counted update is clean ("every Nth": 1 makes every update clean); a failed update leaves the frame unknown, so the next is clean, and doesn't count.
+- `display_t547.c` makes epdiy's high-level state once a boot, before Wi-Fi, and drives fast updates with `epd_hl_update_area()` over the change's box (epdiy drives only its lines). Its counters (fast, clean, failed, and the wakes whose frame matched) ride the snapshot since the cold boot; `panel status` prints them with the last update's mode and area.
+- **`display.clean_after`:** 1–240, default 60 (`settings_display_defaults()`); the menu's and the web page's values are 1, 2, 3, 4, 6, 10, 15, 20, 30, 60, 120 and 240. The web page's Device page shows the setting and its sentence on an e-paper board (the catalogue's `epaper` capability, `UI_CAP_EPAPER`).
+- **Measured on the owner's board** (2026-10-11, on USB): a minute's fast update of the status clock's digit, GL16 16×19, about 0.38 s; a full-screen GL16 (the first screen after a cold boot, the menu opening) 0.93–1.12 s; the radar loop's frames, GL16 over the map, 0.76–0.86 s each; a clean update 2.0–2.46 s; a cold boot's clean to white 1.52 s. A preset switch (KEY), leaving the menu, `panel clean`, the end of a night and the end of the radar's loop were each one clean update; the menu's steps and the loop's frames were fast and uncounted.
+- **Seconds:** a preset that asks for them draws hours and minutes on e-paper, and the app doesn't redraw every second there; the web page's preset editor says so.
+
 ### 5.4 Panel power and deep sleep
 
 - The rails are on only during an update: epdiy powers them up, updates and powers them down, then the fork de-initialises it.
@@ -233,9 +240,13 @@ PSRAM loses its contents in deep sleep, but a fast update needs to know what the
 - On a wake that redraws, the app first renders the shown frame from the snapshot's data at that time. If its CRC matches, that frame is the panel's state, and the new frame updates only what differs. If it doesn't match, or there is no snapshot (a cold boot), the update is a clean one.
 - This costs one more render a wake and writes nothing to flash. The render's time on the T5 is measured at T4.
 
+As built (T4): the app's snapshot keeps `shown_at`, the time of the last committed render (`SNAP_VERSION` 12); after a warm wake on e-paper `app_ui_restore_shown()` draws the UI as it stood at that time into the frame (`app_ui_context_at()`, `app_ui_draw()`), and `display_adopt_shown()` copies it into epdiy's back buffer when its CRC matches the snapshot's. Over four deep-sleep minutes and a night on the Rain radar preset every rebuilt frame matched, and each minute's update was fast; a routine minute kept the chip awake about 1.49 s (2.25 s at T1, every update clean), the rebuild, the new render and the update included.
+
 ### 5.6 Night sleep
 
 The panel keeps showing the dashboard. At the start of a night the status bar gets a moon and the end time in one fast update; nothing updates until the end time or a button, then a clean update (upstream §9.1 otherwise unchanged).
+
+As built (T4): `ui_context_t.night_until` on an e-paper board draws, after the status bar's other marks on the left, a crescent and the end time; the app draws it before the night's sleep (`BOARD_IS_EPAPER`). The end, and a peek, are clean (`display_wake()`).
 
 ## 6. Grayscale gfx
 
@@ -418,10 +429,12 @@ Upstream's N2 goal (below 2 mA on average) is the yardstick.
 
 T1 (2026-10-07/08): a deep-sleep minute wakes for about 2.2 s, the clean update's length. On USB the owner's meter reads the hardware's floor, not the sleep current (§2.5 gotcha 20): about 107 mA awake at 240 MHz, 67 mA in light sleep, 65 mA in deep sleep. On battery (owner's multimeter in series with the LiPo, 2026-10-09): 0.3 mA in deep sleep and about 150 mA for the 2 s clean redraw each minute, about 6 mA on average at a 1-minute update; N2 (below 2 mA) needs T4's fast updates at that interval, and holds at 5 minutes and more with clean redraws (`docs/power.md`).
 
+T4 (2026-10-11): with fast updates a routine deep-sleep minute is awake about 1.49 s (`sleep stats`), the update itself about 0.38 s for a minute's digit. The owner's meter on battery is still to come; at T1's figures (0.3 mA asleep, about 150 mA during an update, about 107 mA awake otherwise) that is roughly 3 mA on average at a 1-minute update, an estimate until measured (`docs/power.md`).
+
 ## 9. Settings, menu, web and console
 
 - **Settings:** `display.clean_after` (1–240, default 60) joins `display.*`, default in `components/storage` (AGENTS.md §8). On the T5, `display.lpm_hz`, `display.contrast`, `sensors.temp_offset_c` and `sensors.hum_offset_pct` stay in the file but nothing reads or shows them.
-- **Menu:** Display ▸ Clean refresh on the T5, in place of Display ▸ Refresh rate. Items for missing hardware are hidden.
+- **Menu:** Display ▸ Clean refresh on the T5, in place of Display ▸ Refresh rate. Items for missing hardware are hidden. As built (T4): `ui_menu_hide_for_board()` hides Refresh rate without `UI_CAP_LPM_RATE`, Clean refresh without `UI_CAP_EPAPER`, and the temperature and humidity offsets without `UI_CAP_ENV_SENSOR`.
 - **Web:** the Display page's clean refresh and sentence (§5.3, T4); the capabilities hide the rest (§4.3; as built at T3c, §7.4).
 - **Console on the T5** (DT11):
   - UART0 at 115200 through the CH9102, line mode as upstream.
@@ -472,15 +485,16 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | T3a | The native frame: the profile holds fonts, icons, `UI_PX()`, layouts, the menu and split limits; the T5's fonts and icons; `UI_PX()` through the UI; the T5's layouts, menu, screens and presets; the display hands the UI its 960×540 4 bpp frame; the T5's goldens | The owner approves the renders; the T5's goldens committed; the presets and the menu on the panel (done 2026-10-10) |
 | T3b | The views and the grays: Radar and Flights at 960×540, the Solar and Energy layouts, the chart and flow widgets, the map's fonts and marks; §6.4's gray uses | Their renders approved and their goldens committed; each view on the panel (done 2026-10-10) |
 | T3c | The web page: the panel's size and aspect from `/api/layouts`, the split editor's grid, the gray preview; the T5's gray BMPs fetched over Wi-Fi | The page edits a T5 preset and its preview matches the panel (done 2026-10-10) |
-| T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured |
+| T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured (built 2026-10-11; the owner's checks on battery and the current open) |
 
 ## 12. Risks and open items
 
 - **The ESP32's internal RAM** with Wi-Fi, TLS, the web server and epdiy's update all at once. T1 measures it; the LUT falls back to PSRAM, and epdiy is up only for updates.
 - **The slow clock's drift** without an RTC: T1 measured about −1000 ppm on 8MD256 (§8.1), up to about 1.5 minutes before a daily sync. The owner accepts a daily sync (DT12); the trim from sync to sync waits for the owner's decision.
 - **Refresh currents are unknown** until the owner's meter (T1 measured the times, §5.3). They set `clean_after`'s default, the menu's mode and the radar loop's frame time.
-- **A cold boot draws twice:** `display_init()` cleans the panel to its blank frame (1.6 s), then the first screen comes clean too. T4's fast updates make the second one fast.
-- **Ghosting** from fast updates between clean ones; the default may need lowering after the owner sees the panel.
+- **On USB the whole image fades to gray at times** (owner, 2026-10-11): within a second or so after an update, fast or clean, at random; the clean-only firmware before T4 did it at times too. Likely, not yet confirmed: with USB in the panel's switched 3V3, and with it the VCOM amplifier, stays on (§2.5 gotcha 20), so VCOM biases the panel while its drivers are off; epdiy's tips name a mis-set VCOM for an image that fades after updates. The deciding check is the owner's panel on battery, where POWER_EN cuts that rail. Firmware can't switch the rail off on USB.
+- **A cold boot draws twice:** `display_init()` cleans the panel to its blank frame (1.52 s), then the first screen comes as a fast GL16 (1.12 s, T4).
+- **Ghosting** from fast updates between clean ones; the default may need lowering after the owner sees the panel. T4: the default stays 60 until the owner has watched the panel on battery.
 - **The CH9102's auto-reset:** a tool that opens the port the wrong way resets the board (§2.5).
 - **Image size:** T5 fonts at 4 bits and up to 220 px; at T3b the image is 3.40 MB of the 3.6 MB budget (its 4 MB slot), the views having added almost nothing.
 - **Radar frames at 960 px** are about 2.4 times the RLCD's pixels. Measured at T3b's board check (2026-10-10), with a live ČHMÚ frame and the flight radar polling: PSRAM 2.19 MB free of 4 MB mapped at boot, at least 1.67 MB free through a sync; internal RAM at least 29.9 KB free through a sync, so an update that falls in a sync waits for epdiy's RAM budget (§5.1). Measured at T3c's board check in sync mode `always` (2026-10-10; 1.54 MB of PSRAM free before): ČHMÚ's 12 frames (its 598×378 grid, 56.5 KB each on both boards) leave 906 KB free; RainViewer's hour at London (960×505 at zoom 7.25) ran out at the sixth frame ("png: no memory", the sync's radar step failed; 611 KB free with five, 272 KB at the least). So RainViewer's loop keeps the frames a board's budget holds at its view with room for the one coming, as a poll holds both (`radar_rv_keep()`, `BOARD_RADAR_RV_KB`: 768 KB on the T5, 2 to 5 frames, 20 to 50 minutes of D28's hour; 2 MB on the RLCD, its hour). The store also fits the bytes it holds into that budget, as a zoom change keeps frames from a bigger grid (`radar_store_fit()`), and a fetch that ran short of memory frees the oldest frame, so the next poll has room (`radar_store_short()`; T3c review). Re-measured at T4's radar-loop check. Should PSRAM run short, a frame's fetch fails cleanly, and an update without a block for epdiy's 64 KB LUT in internal RAM or PSRAM is skipped rather than aborted (`epaper_lut_ram_ok()`, T3b review).
@@ -490,7 +504,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 - **Merge conflicts** with upstream's M7 in `components/ui`, mostly from `UI_PX()`. Merging `upstream/main` into the fork after each upstream milestone keeps them small.
 - **The T5-ePaper-S3** (LilyGo's newer board) would be a third board choice. Its V2.3 needs the S3 output patch from the fork's history (commit `7232440`); its V2.4 runs stock epdiy. Not planned.
 - **Buttons:** the owner's KEY long opened the menu at T3a's board check (2026-10-10); the rest of the buttons' owner check waits.
-- **The menu shows items for missing hardware** on the T5 (Sensors ▸ the temperature and humidity offsets); §9 hides them, in a later milestone.
+- **The menu's items for missing hardware** are hidden since T4 (§9).
 - **The console over UART drops input during a clean update** (~2.2 s, every menu step on the T5): scripts send button commands paced, and wake a deep-sleeping board only by resetting it (§9).
 
 ## 13. Revision history
@@ -505,3 +519,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r6 | 2026-10-10 | T3a as built: T3 split into T3a, T3b and T3c (§11); the compressed goldens (§6.5); the profile's members (§7.1); the sizes and faces (§7.2); the layouts, menu, split limits and presets as the owner approved them, the Moon's disc (§7.3); the console's lost input during an update (§2.5); the open items (§12) |
 | r7 | 2026-10-10 | T3b as built: the grays and line widths the owner chose at the panel, every line 2 px after the review (§6.4); the golden set (§6.5); the maps' zoom step and style (§7.1); the fonts left in the image (§7.2); the views' geometry, the radar's fetch view and the presets' cycle (§7.3); T3b done (§11); PSRAM measured, RainViewer's loop and the LUT's block, line widths, the watchdog at boot (§12) |
 | r8 | 2026-10-10 | T3c as built: the catalogue's `bpp` and `radar`, the page's images, kilometres and hidden rows (§7.4, §9); the fields a board can't fill left out (§4.3); the gray preview and the BMPs checked over Wi-Fi (§6.5); T3c done (§11); RainViewer's loop measured and bounded by PSRAM with room for the next frame and a way out of a failed one (review), ČHMÚ's measured (§12); §6.4's dark half made to agree with AGENTS.md (T3b review) |
+| r9 | 2026-10-11 | T4 as built: the update policy, fast updates, `display.clean_after` and its sentence, the counters (§5.3); the frame drawn again after a wake (§5.5); the night's mark (§5.6); the minute's awake time (§8.5); the menu's hidden items (§9); T4 built (§11); the cold boot, ghosting, the fade on USB, the menu (§12) |

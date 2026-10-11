@@ -534,7 +534,7 @@ void app_register_commands(void)
 {
     const esp_console_cmd_t cmds[] = {
         { .command = "field", .help = "field list | get <id> | set <id> <value> | clear <id>", .func = &cmd_field },
-        { .command = "preset", .help = "preset list | set <id>", .func = &cmd_preset },
+        { .command = "preset", .help = "preset list | set <id> | cycle <id> on|off", .func = &cmd_preset },
         { .command = "night", .help = "night <minutes>: night sleep now (spec §9.1)", .func = &cmd_night },
         { .command = "schedule", .help = "schedule list | on | off | clear | add <HH:MM> preset <id> [days] | "
                                          "add <HH:MM> night <HH:MM> [days]", .func = &cmd_schedule },
