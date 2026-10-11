@@ -83,6 +83,7 @@ _Static_assert(((UI_CAPS_BOARD & UI_CAP_AUDIO) != 0) == BOARD_HAS_AUDIO, "UI cap
 _Static_assert(((UI_CAPS_BOARD & UI_CAP_RTC_TRIM) != 0) == BOARD_HAS_RTC_TRIM, "UI caps: RTC trim");
 _Static_assert(((UI_CAPS_BOARD & UI_CAP_RTC_ALARM_WAKE) != 0) == BOARD_HAS_RTC_ALARM_WAKE, "UI caps: RTC alarm");
 _Static_assert(((UI_CAPS_BOARD & UI_CAP_LPM_RATE) != 0) == BOARD_HAS_LPM_RATE, "UI caps: LPM rate");
+_Static_assert(((UI_CAPS_BOARD & UI_CAP_EPAPER) != 0) == BOARD_IS_EPAPER, "UI caps: e-paper");
 
 typedef enum {
     EV_RTC_ALARM,

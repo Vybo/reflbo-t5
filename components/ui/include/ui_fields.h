@@ -146,6 +146,7 @@ typedef struct {
     ui_wifi_mark_t wifi;
     const ui_radar_t *radar; /* M6: the radars' map, frames and settings; NULL for none */
     const ui_solar_t *solar; /* M6d: the PV forecast and the house's energy; NULL for none */
+    time_t night_until;      /* night sleep ends here (UTC); 0 outside a night (T5 spec §5.6) */
 } ui_context_t;
 
 typedef enum {

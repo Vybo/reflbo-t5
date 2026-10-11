@@ -128,6 +128,9 @@ static inline bool fixture_dashboard(const char *name, ui_context_t *ctx, ui_pre
         *preset = fixture_preset("focus");
         preset->seconds = true;
         ctx->local = fixture_local(20, 48, 37);
+    } else if (strcmp(name, "night") == 0) { /* T4: e-paper keeps the dashboard through a night, with a moon */
+        *preset = fixture_preset("home");
+        ctx->night_until = FIX_NOW + 9 * 3600 + 12 * 60; /* 06:00 */
     } else if (strcmp(name, "home_battery_details") == 0) { /* level, voltage and days in the status bar */
         *preset = fixture_preset("home");
         preset->status_clock = true;

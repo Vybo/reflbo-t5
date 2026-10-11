@@ -47,7 +47,7 @@ static void test_the_t5_has_its_own_geometry_and_none_of_the_rlcds_capabilities(
     TEST_ASSERT_EQUAL_INT(540, ui_profile_t547.height);
     TEST_ASSERT_EQUAL_INT(34, ui_profile_t547.status_h);
     TEST_ASSERT_EQUAL_INT(GFX_FMT_4BPP, ui_profile_t547.format);
-    TEST_ASSERT_EQUAL_HEX32(0, ui_profile_t547.caps);
+    TEST_ASSERT_EQUAL_HEX32(UI_CAP_EPAPER, ui_profile_t547.caps); /* none of the RLCD's; e-paper's own (T4) */
     TEST_ASSERT_EQUAL_HEX32(UI_CAP_ENV_SENSOR | UI_CAP_AUDIO | UI_CAP_RTC_TRIM | UI_CAP_RTC_ALARM_WAKE |
                                 UI_CAP_LPM_RATE,
                             ui_profile_rlcd42.caps);

@@ -19,9 +19,10 @@
 #define UI_CAP_RTC_TRIM       (1u << 2)
 #define UI_CAP_RTC_ALARM_WAKE (1u << 3)
 #define UI_CAP_LPM_RATE       (1u << 4) /* the panel's refresh rate setting */
+#define UI_CAP_EPAPER         (1u << 5) /* e-paper: clean refresh, no seconds, the night keeps the image (T4) */
 
 #define UI_CAPS_RLCD42 (UI_CAP_ENV_SENSOR | UI_CAP_AUDIO | UI_CAP_RTC_TRIM | UI_CAP_RTC_ALARM_WAKE | UI_CAP_LPM_RATE)
-#define UI_CAPS_T547   0u
+#define UI_CAPS_T547   UI_CAP_EPAPER
 
 /* The fonts the UI draws with, by role: named after the RLCD's (T5 spec §7.2); the T5 maps each role to its own
  * 4-bit font at about 1.7× the size. */

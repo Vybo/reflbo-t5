@@ -33,6 +33,8 @@ const char *ui_cap_name(uint32_t cap)
         return "rtc_alarm_wake";
     case UI_CAP_LPM_RATE:
         return "lpm_rate";
+    case UI_CAP_EPAPER:
+        return "epaper";
     default:
         return NULL;
     }

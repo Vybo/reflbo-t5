@@ -237,7 +237,9 @@ static void test_layouts_name_the_board_and_its_capabilities(void)
     TEST_ASSERT_EQUAL_INT(960, num(s_root, "width"));
     TEST_ASSERT_EQUAL_INT(540, num(s_root, "height"));
     TEST_ASSERT_EQUAL_INT(34, num(s_root, "status_h"));
-    TEST_ASSERT_EQUAL_INT(0, cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(s_root, "caps")));
+    const cJSON *t5_caps = cJSON_GetObjectItemCaseSensitive(s_root, "caps");
+    TEST_ASSERT_EQUAL_INT(1, cJSON_GetArraySize(t5_caps)); /* T4: e-paper's own */
+    TEST_ASSERT_TRUE(has_string(t5_caps, "epaper"));
 }
 
 /* T3c: the page sizes its images by the panel's format and gives a radar's zoom in the board's kilometres. */

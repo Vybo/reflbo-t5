@@ -353,6 +353,15 @@ static int symbol_px(int size)
     return size == 16 || size == 24 || size == 48 ? ui_icon_px(size) : UI_PX(size);
 }
 
+/* The Moon's outline: UI_PX(1) wide, inwards from r so the disc keeps its size (1 px on the RLCD, 2 on the T5,
+ * where nothing 1 px wide reads: T5 spec §6.4). */
+static void moon_ring(gfx_fb_t *fb, int cx, int cy, int r)
+{
+    for (int k = 0; k < UI_PX(1) && k < r; k++) {
+        gfx_circle(fb, cx, cy, r - k, GFX_BLACK);
+    }
+}
+
 /* The small visual that stands for the field, `size` px nominal (symbol_px()): an icon, a battery (its bolt while
  * it charges, with `bolt`), or the Moon. Returns its width. */
 static int draw_symbol(gfx_fb_t *fb, const ui_value_t *v, int x, int y, int size, bool bolt)
@@ -371,7 +380,7 @@ static int draw_symbol(gfx_fb_t *fb, const ui_value_t *v, int x, int y, int size
     if (v->kind == UI_FK_MOON) {
         int r = px / 2 - 1;
         if (v->state == UI_VALUE_MISSING) {
-            gfx_circle(fb, x + px / 2, y + px / 2, r, GFX_BLACK);
+            moon_ring(fb, x + px / 2, y + px / 2, r);
         } else {
             ui_draw_moon(fb, x + px / 2, y + px / 2, r, v->moon.age);
         }
@@ -714,7 +723,7 @@ static void draw_tiny_symbol(gfx_fb_t *fb, const ui_value_t *v, int x, int y, in
         }
     } else if (v->kind == UI_FK_MOON) {
         if (v->state == UI_VALUE_MISSING) {
-            gfx_circle(fb, x + px / 2, cy, px / 2 - 1, GFX_BLACK);
+            moon_ring(fb, x + px / 2, cy, px / 2 - 1);
         } else {
             ui_draw_moon(fb, x + px / 2, cy, px / 2 - 1, v->moon.age);
         }
@@ -1074,5 +1083,5 @@ void ui_draw_moon(gfx_fb_t *fb, int cx, int cy, int r, double age)
             gfx_hline(fb, x0, cy + dy, x1 - x0 + 1, GFX_BLACK);
         }
     }
-    gfx_circle(fb, cx, cy, r, GFX_BLACK);
+    moon_ring(fb, cx, cy, r);
 }

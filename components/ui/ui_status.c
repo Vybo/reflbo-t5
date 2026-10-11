@@ -46,6 +46,17 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
         gfx_bitmap(fb, left, mark_y,
                    ctx->wifi == UI_WIFI_ON ? ui_icon(UI_ICON_wifi, UI_IC16) : ui_icon(UI_ICON_wifi_off, UI_IC16),
                    GFX_BLACK);
+        left += step;
+    }
+    if (ctx->night_until != 0 && (ui_profile()->caps & UI_CAP_EPAPER)) { /* the panel keeps the night's image */
+        int d = ui_icon_px(16), r = d / 2, cx = left + r, cy = UI_STATUS_H / 2; /* a crescent, then the end time */
+        gfx_fill_circle(fb, cx, cy, r, GFX_BLACK);
+        gfx_fill_circle(fb, cx + d / 3, cy - d / 6, r, GFX_WHITE);
+        char until[16];
+        ui_clock_text(ctx, ctx->night_until, until, sizeof(until));
+        gfx_text_in_rect(fb, UI_FONT(UI_F_BOLD_16),
+                         (gfx_rect_t){ (int16_t)(left + d + UI_PX(4)), 0, (int16_t)UI_PX(120), UI_STATUS_H },
+                         GFX_ALIGN_LEFT, until, GFX_BLACK);
     }
 
     if (preset->status_clock && ctx->time_valid) {

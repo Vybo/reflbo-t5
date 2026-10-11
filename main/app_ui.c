@@ -235,6 +235,7 @@ void app_ui_context_at(ui_context_t *ctx, time_t now)
     ctx->local_day = local_day(&ctx->local);
     ctx->radar = app_radar_ui(); /* M6 */
     ctx->solar = app_solar_ui(); /* M6d */
+    ctx->night_until = BOARD_IS_EPAPER && app_ui_night() ? s.night_until : 0; /* the moon in the status bar */
 }
 
 void app_ui_render(void)
@@ -635,7 +636,7 @@ void app_ui_tick(bool force)
     }
     time_t slot = now - now % 60;
     bool new_slot = slot != s.done_slot;
-    bool render = force || s.presets.presets[s.presets.active].seconds;
+    bool render = force || (!BOARD_IS_EPAPER && s.presets.presets[s.presets.active].seconds); /* T5 spec §5.3 */
     if (force || (new_slot && scheduler_is_slot(slot, s.settings.sensors_every_min))) {
         app_ui_sample(now);
         render = true;
