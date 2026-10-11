@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "display_board.h"
 #include "esp_err.h"
@@ -39,3 +40,13 @@ esp_err_t display_commit(bool force);
 esp_err_t display_set_fast(bool fast);
 /* A clean refresh (T5 spec §5.3): nothing to do on the RLCD. */
 esp_err_t display_clean(void);
+/* T5 spec §5.3: the next commit is clean (a preset switch, the end of night, a night peek). No-op on the RLCD. */
+void display_clean_next(void);
+/* Every Nth update clean, from display.clean_after (T5 spec §5.3). No-op on the RLCD. */
+void display_set_clean_after(uint8_t n);
+/* After a warm wake (T5 spec §5.5): true while the panel's frame isn't known but the snapshot says what it showed;
+ * always false on the RLCD. */
+bool display_wants_shown(void);
+/* The frame in display_fb() is the one the panel shows if its CRC matches the snapshot's: true then, and fast
+ * updates go on from it; false, and the next update is clean. True on the RLCD. */
+bool display_adopt_shown(void);

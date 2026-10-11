@@ -4,6 +4,7 @@
 
 #include "epaper_board.h"
 #include "epaper_budget.h"
+#include "epaper_update.h"
 #include "epd_board.h"
 #include "epd_highlevel.h"
 #include "epdiy.h"
@@ -16,9 +17,11 @@
 #include "gfx_test_pattern.h"
 #include "util_crc32.h"
 
-/* LilyGo T5-4.7 (T5 spec §5): every update is a clean one (clear, then GC16; T5 spec §11) until T4, through
- * epdiy's own board definition for this board. The UI draws the panel's own 960×540 frame at 4 bpp in epdiy's
- * layout (T3a, T5 spec §6), which goes to epdiy as it is. */
+/* LilyGo T5-4.7 (T5 spec §5), through epdiy's own board definition for this board. The UI draws the panel's own
+ * 960×540 frame at 4 bpp in epdiy's layout (T3a, T5 spec §6), which goes to epdiy as it is. Updates follow the
+ * policy in epaper_update.h (T4, T5 spec §5.3): fast ones (DU or GL16) over what changed, against epdiy's back
+ * buffer, which holds what the panel shows; a clean one (clear, then GC16) every clean_after-th update and when
+ * the app asks or the panel's frame isn't known. */
 
 #define PANEL_W       960
 #define PANEL_H       540
@@ -31,9 +34,15 @@ static const char *TAG = "display";
 static gfx_fb_t s_fb; /* the UI's frame and the panel's, 4 bpp; s_fb.buf stays NULL until display_init */
 static uint32_t s_last_crc;
 static bool s_pushed;
-static EpdiyHighlevelState s_hl;
+static EpdiyHighlevelState s_hl; /* its back buffer: what the panel shows, when s_policy.known */
 static bool s_hl_ready;
 static display_t5_stats_t s_stats;
+static epaper_policy_t s_policy = { .clean_after = 60 };
+
+static const char *mode_name(epaper_mode_t m)
+{
+    return m == EPAPER_CLEAN ? "clean" : m == EPAPER_DU ? "DU" : m == EPAPER_GL16 ? "GL16" : "none";
+}
 
 static int64_t now_ms(void)
 {
@@ -48,6 +57,21 @@ static esp_err_t alloc_fb(void)
     gfx_fb_init_fmt(&s_fb, buf, PANEL_W, PANEL_H, GFX_FMT_4BPP);
     gfx_clear(&s_fb, GFX_WHITE); /* after a deep-sleep wake too, until the app renders (T4: the frame kept) */
     return ESP_OK;
+}
+
+/* epdiy's high-level state, once a boot, before Wi-Fi takes internal RAM: its buffers (in PSRAM) hold the frame
+ * the panel shows from the first update on, and display_adopt_shown() fills its back buffer after a wake. */
+static void hl_init_once(void)
+{
+    if (s_hl_ready) {
+        return;
+    }
+    esp_log_level_set("epdiy", ESP_LOG_ERROR); /* epd_init() warns from its second call on */
+    epd_init(&epd_board_lilygo_t5_47, &ED047TC1, EPD_OPTIONS);
+    s_hl = epd_hl_init(NULL); /* the display's own waveform: epdiy_ED047TC1 */
+    epd_deinit();
+    epaper_board_idle();
+    s_hl_ready = true;
 }
 
 /* epdiy is up only while the panel updates: its LUT and line queues want ~80 KB of internal RAM, which
@@ -68,10 +92,6 @@ static esp_err_t panel_up(void)
      * LUT fallback logs as "epd" and stays. */
     esp_log_level_set("epdiy", ESP_LOG_ERROR);
     epd_init(&epd_board_lilygo_t5_47, &ED047TC1, EPD_OPTIONS);
-    if (!s_hl_ready) {
-        s_hl = epd_hl_init(NULL); /* the display's own waveform: epdiy_ED047TC1 */
-        s_hl_ready = true;
-    }
     uint32_t internal = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
     if (s_stats.min_internal == 0 || internal < s_stats.min_internal) {
         s_stats.min_internal = internal;
@@ -107,13 +127,29 @@ static esp_err_t clean_update(void)
     enum EpdDrawError err = epd_hl_update_screen(&s_hl, MODE_GC16, TEMPERATURE_C);
     int64_t drawn = now_ms();
     panel_down();
+    s_stats.last_ms = (uint32_t)(now_ms() - start);
     vTaskDelay(1); /* CPU 1's idle task runs: two updates and a render back to back at boot held it past the task
                     * watchdog's 5 s (T3b board check) */
-    s_stats.updates++;
-    s_stats.last_ms = (uint32_t)(now_ms() - start);
     ESP_LOGI(TAG, "clean update: up %lld ms, clear %lld ms, GC16 %lld ms, %lu ms in all; internal RAM %lu free",
              (long long)(up - start), (long long)(cleared - up), (long long)(drawn - cleared),
              (unsigned long)s_stats.last_ms, (unsigned long)s_stats.min_internal);
+    ESP_RETURN_ON_FALSE(err == EPD_DRAW_SUCCESS, ESP_FAIL, TAG, "epdiy draw error 0x%x", (unsigned)err);
+    return ESP_OK;
+}
+
+/* What changed, to the panel without flashing: DU or GL16 over the change's lines (epdiy drives only those). */
+static esp_err_t fast_update(epaper_mode_t mode, const epaper_change_t *c)
+{
+    int64_t start = now_ms();
+    ESP_RETURN_ON_ERROR(panel_up(), TAG, "panel up");
+    memcpy(epd_hl_get_framebuffer(&s_hl), s_fb.buf, FRAME_SIZE);
+    EpdRect area = { .x = c->x, .y = c->y, .width = c->w, .height = c->h };
+    enum EpdDrawError err = epd_hl_update_area(&s_hl, mode == EPAPER_DU ? MODE_DU : MODE_GL16, TEMPERATURE_C, area);
+    panel_down();
+    s_stats.last_ms = (uint32_t)(now_ms() - start);
+    vTaskDelay(1); /* as after a clean update */
+    ESP_LOGI(TAG, "fast update: %s %d,%d %dx%d, %lu ms", mode_name(mode), c->x, c->y, c->w, c->h,
+             (unsigned long)s_stats.last_ms);
     ESP_RETURN_ON_FALSE(err == EPD_DRAW_SUCCESS, ESP_FAIL, TAG, "epdiy draw error 0x%x", (unsigned)err);
     return ESP_OK;
 }
@@ -122,16 +158,22 @@ esp_err_t display_init(void)
 {
     ESP_RETURN_ON_ERROR(alloc_fb(), TAG, "framebuffer");
     epaper_board_idle(); /* the shift register powers up random: all off before anything else */
+    hl_init_once();
     return display_commit(true); /* a cold boot starts clean (T5 spec §5.3) */
 }
 
+/* The panel shows what it showed before the sleep, but PSRAM lost epdiy's copy: unknown until the app draws it
+ * again and display_adopt_shown() finds its CRC (T5 spec §5.5). */
 esp_err_t display_init_warm(const display_state_t *state)
 {
     ESP_RETURN_ON_ERROR(alloc_fb(), TAG, "framebuffer");
     epaper_board_release_hold();
     epaper_board_idle();
+    hl_init_once();
     s_last_crc = state->last_crc;
     s_pushed = state->pushed;
+    s_policy.known = false;
+    s_policy.since_clean = state->since_clean;
     return ESP_OK;
 }
 
@@ -143,7 +185,37 @@ esp_err_t display_init_lost(void)
 
 void display_export(display_state_t *out)
 {
-    *out = (display_state_t){ .last_crc = s_last_crc, .pushed = s_pushed };
+    *out = (display_state_t){ .last_crc = s_last_crc, .pushed = s_pushed, .since_clean = s_policy.since_clean };
+}
+
+bool display_wants_shown(void)
+{
+    return s_fb.buf != NULL && !s_policy.known && s_pushed;
+}
+
+bool display_adopt_shown(void)
+{
+    if (!display_wants_shown()) {
+        return s_policy.known;
+    }
+    if (util_crc32(0, s_fb.buf, FRAME_SIZE) != s_last_crc) {
+        ESP_LOGI(TAG, "shown frame: unknown, the next update is clean");
+        return false;
+    }
+    memcpy(s_hl.back_fb, s_fb.buf, FRAME_SIZE);
+    s_policy.known = true;
+    ESP_LOGI(TAG, "shown frame: matched");
+    return true;
+}
+
+void display_clean_next(void)
+{
+    s_policy.clean_next = true;
+}
+
+void display_set_clean_after(uint8_t n)
+{
+    s_policy.clean_after = n < 1 ? 1 : n;
 }
 
 /* Rests the shift register first, as a failed boot's retry sleep may come before display_init (final review
@@ -174,10 +246,17 @@ esp_err_t display_t5_test_pattern(void)
     ESP_RETURN_ON_FALSE(s_fb.buf != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
     gfx_draw_test_pattern_t5(&s_fb);
     s_pushed = false; /* the app's next render draws the dashboard over it, and the next commit pushes that */
-    return clean_update();
+    s_policy.known = false;
+    esp_err_t err = clean_update();
+    if (err == ESP_OK) {
+        memcpy(s_hl.back_fb, s_fb.buf, FRAME_SIZE); /* the pattern is on the panel: the next update can be fast */
+        s_policy.known = true;
+    }
+    return err;
 }
 
-/* Night sleep keeps the dashboard on the panel as it is; T4 adds the moon (T5 spec §5.6). */
+/* Night sleep keeps the dashboard on the panel as it is, the app having drawn the moon and the end time first
+ * (T5 spec §5.6); its end, or a peek, flashes clean. */
 esp_err_t display_sleep(void)
 {
     return ESP_OK;
@@ -185,6 +264,7 @@ esp_err_t display_sleep(void)
 
 esp_err_t display_wake(void)
 {
+    s_policy.clean_next = true;
     return ESP_OK;
 }
 
@@ -196,19 +276,52 @@ bool display_asleep(void)
 esp_err_t display_commit(bool force)
 {
     ESP_RETURN_ON_FALSE(s_fb.buf != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    if (force) {
+        s_policy.clean_next = true;
+    }
     uint32_t crc = util_crc32(0, s_fb.buf, FRAME_SIZE);
-    if (!force && s_pushed && crc == s_last_crc) {
+    if (!s_policy.clean_next && s_policy.known && s_pushed && crc == s_last_crc) {
         return ESP_OK;
     }
-    ESP_RETURN_ON_ERROR(clean_update(), TAG, "update"); /* a failed update leaves s_pushed and the CRC as they were */
+    epaper_change_t change;
+    epaper_change(s_hl.back_fb, s_fb.buf, PANEL_W, PANEL_H, &change);
+    epaper_mode_t mode = epaper_choose(&s_policy, &change);
+    if (mode == EPAPER_NONE) {
+        s_last_crc = crc;
+        s_pushed = true;
+        return ESP_OK;
+    }
+    esp_err_t err = mode == EPAPER_CLEAN ? clean_update() : fast_update(mode, &change);
+    epaper_after(&s_policy, mode, err == ESP_OK);
+    if (err != ESP_OK) {
+        s_pushed = false; /* the panel may show part of it: the next commit draws, clean (T3a review) */
+        s_stats.failed++;
+        return err;
+    }
+    if (mode == EPAPER_CLEAN) {
+        memcpy(s_hl.back_fb, s_fb.buf, FRAME_SIZE); /* epdiy copies only the lines it drew */
+        s_stats.clean++;
+    } else {
+        s_stats.fast++;
+    }
+    s_stats.updates++;
+    s_stats.last_mode = (uint8_t)mode;
+    s_stats.last_x = change.x;
+    s_stats.last_y = change.y;
+    s_stats.last_w = mode == EPAPER_CLEAN ? PANEL_W : change.w;
+    s_stats.last_h = mode == EPAPER_CLEAN ? PANEL_H : change.h;
     s_last_crc = crc;
     s_pushed = true;
     return ESP_OK;
 }
 
+/* The menu, the config screen, the radar's loop: fast and not counted; their end flashes clean (T5 spec §5.3). */
 esp_err_t display_set_fast(bool fast)
 {
-    (void)fast; /* T4: fast updates (T5 spec §5.3); every update is clean until then */
+    if (s_policy.fast && !fast) {
+        s_policy.clean_next = true;
+    }
+    s_policy.fast = fast;
     return ESP_OK;
 }
 
@@ -220,6 +333,8 @@ esp_err_t display_clean(void)
 void display_t5_stats(display_t5_stats_t *out)
 {
     *out = s_stats;
+    out->since_clean = s_policy.since_clean;
+    out->clean_after = s_policy.clean_after;
 }
 
 esp_err_t display_t5_bench(display_t5_bench_t *out)
@@ -228,7 +343,8 @@ esp_err_t display_t5_bench(display_t5_bench_t *out)
     gfx_draw_test_pattern(&s_fb); /* black and white only, so DU draws it as it is */
     const size_t size = FRAME_SIZE;
 
-    s_pushed = false; /* the panel shows the pattern, or a failed update's remains: the next commit pushes */
+    s_pushed = false; /* the panel shows the pattern, or a failed update's remains: the next commit pushes, */
+    s_policy.known = false; /* clean (T2 review) */
     ESP_RETURN_ON_ERROR(panel_up(), TAG, "panel up");
     uint8_t *front = epd_hl_get_framebuffer(&s_hl);
     int64_t t0 = now_ms();

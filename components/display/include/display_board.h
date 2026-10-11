@@ -12,15 +12,22 @@
 #if CONFIG_REFLBO_BOARD_T547
 
 typedef struct {
-    uint32_t last_crc; /* CRC of the frame last committed */
+    uint32_t last_crc;    /* CRC of the frame last committed */
     bool pushed;
+    uint16_t since_clean; /* counted updates since the last clean one (T4) */
 } display_state_t;
 
 /* `panel status` (T5 spec §9). */
 typedef struct {
-    uint32_t updates;      /* since boot */
-    uint32_t last_ms;      /* the last update, from epdiy's start to its end */
-    uint32_t min_internal; /* the least free internal RAM seen with epdiy up, bytes; 0 before the first */
+    uint32_t updates;        /* since boot, that ran */
+    uint32_t fast, clean;    /* of them (T4) */
+    uint32_t failed;         /* refused by epdiy's RAM budget or a draw error */
+    uint32_t last_ms;        /* the last update, from epdiy's start to its end */
+    uint32_t min_internal;   /* the least free internal RAM seen with epdiy up, bytes; 0 before the first */
+    uint16_t since_clean;    /* counted updates since the last clean one */
+    uint8_t clean_after;     /* every Nth update is clean */
+    uint8_t last_mode;       /* epaper_mode_t of the last update */
+    int16_t last_x, last_y, last_w, last_h; /* its area */
 } display_t5_stats_t;
 void display_t5_stats(display_t5_stats_t *out);
 
