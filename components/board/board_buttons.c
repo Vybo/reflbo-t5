@@ -174,8 +174,13 @@ esp_err_t board_buttons_start(board_button_cb_t cb, const gesture_config_t confi
         gpio_config_t io = {
             .pin_bit_mask = 1ULL << k_pins[b],
             .mode = GPIO_MODE_INPUT,
-            .intr_type = GPIO_INTR_ANYEDGE, /* every button has an external pull-up */
+            .intr_type = GPIO_INTR_ANYEDGE, /* every button has an external pull-up, but the T5's Back */
         };
+#if CONFIG_REFLBO_BOARD_T547
+        if (k_pins[b] == BOARD_PIN_BACK) {
+            io.pull_up_en = GPIO_PULLUP_ENABLE; /* IO0 has only the chip's own (T5 spec §2.5 gotcha 23) */
+        }
+#endif
         ESP_RETURN_ON_ERROR(gpio_config(&io), TAG, "button pin");
         ESP_RETURN_ON_ERROR(gpio_isr_handler_add(k_pins[b], on_edge, (void *)(uintptr_t)b), TAG, "button ISR");
     }

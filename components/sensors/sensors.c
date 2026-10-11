@@ -36,6 +36,7 @@ static i2c_master_dev_handle_t s_shtc3;
 static adc_oneshot_unit_handle_t s_adc;
 static adc_cali_handle_t s_cali;
 static sensors_state_t s_state;
+static sensors_battery_switch_t s_battery_switch; /* the T5's PWR_EN, from the app */
 static int s_temp_offset_c100 = CONFIG_REFLBO_TEMP_OFFSET_C10 * 10;
 static int s_hum_offset_pct100 = CONFIG_REFLBO_HUM_OFFSET_PCT10 * 10;
 
@@ -164,8 +165,16 @@ esp_err_t sensors_sample_env(time_t now)
 #endif
 }
 
+void sensors_set_battery_switch(sensors_battery_switch_t fn)
+{
+    s_battery_switch = fn;
+}
+
 esp_err_t sensors_sample_battery(time_t now)
 {
+    if (s_battery_switch != NULL) {
+        ESP_RETURN_ON_ERROR(s_battery_switch(true), TAG, "battery divider");
+    }
     int raw, sum = 0, count = 0;
     adc_oneshot_read(s_adc, BOARD_BAT_ADC_CHANNEL, &raw); /* the first sample after a pause reads low */
     for (int i = 0; i < BAT_SAMPLES; i++) {
@@ -178,6 +187,9 @@ esp_err_t sensors_sample_battery(time_t now)
         }
         sum += mv;
         count++;
+    }
+    if (s_battery_switch != NULL) {
+        s_battery_switch(false);
     }
     ESP_RETURN_ON_FALSE(count > 0, ESP_FAIL, TAG, "ADC read");
     int mv = sum / count * BOARD_BAT_DIVIDER * CONFIG_REFLBO_BATTERY_FACTOR_PERMILLE / 1000;

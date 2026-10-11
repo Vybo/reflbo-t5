@@ -26,3 +26,6 @@ typedef struct {
 uint8_t epaper_sr_word(const epaper_sr_t *s);
 /* Rest: everything off, the converter disabled. At boot and in deep sleep (T5 spec §5.4). */
 epaper_sr_t epaper_sr_off(void);
+/* Sense: PWR_EN alone, for the battery's divider, which hangs behind the same switch (T5 spec §2.5 gotcha 24);
+ * the converter stays disabled and the rails off. */
+epaper_sr_t epaper_sr_sense(void);

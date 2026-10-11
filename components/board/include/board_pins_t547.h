@@ -10,7 +10,7 @@
 #define BOARD_PIN_BACK    0  /* Back: the shift register's strobe too, read only between updates (BOARD_PIN_SR_STR) */
 #define BOARD_PIN_I2C_SDA 15 /* the touch/Grove connector's bus; nothing on it in the fork */
 #define BOARD_PIN_I2C_SCL 14
-#define BOARD_PIN_BAT_ADC 36 /* ADC1_CH0 = VBAT x 1/2 */
+#define BOARD_PIN_BAT_ADC 36 /* ADC1_CH0 = VBAT x 1/2, switched with POWER_EN or VBUS (T5 spec §2.5 gotcha 24) */
 
 /* The panel's 74HCT4094 (T5 spec §2.3): epdiy drives it during updates; the fork rests it at boot and
  * holds its lines through deep sleep (§5.4). */

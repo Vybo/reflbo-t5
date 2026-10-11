@@ -43,6 +43,10 @@ typedef struct {
 esp_err_t sensors_init(i2c_master_bus_handle_t bus, bool cold);
 esp_err_t sensors_sample_env(time_t now);
 esp_err_t sensors_sample_battery(time_t now);
+/* A board whose battery divider is switched (the T5's, behind PWR_EN, T5 spec §2.5 gotcha 24) sets the switch:
+ * sensors_sample_battery() turns it on before reading and off after, and fails with its error. NULL: none. */
+typedef esp_err_t (*sensors_battery_switch_t)(bool on);
+void sensors_set_battery_switch(sensors_battery_switch_t fn);
 /* Calibration offsets added to every reading (settings sensors.temp_offset_c, hum_offset_pct). */
 void sensors_set_offsets(int temp_c100, int hum_pct100);
 /* How the battery's voltage becomes its level (settings battery.*); a change applies at once. */

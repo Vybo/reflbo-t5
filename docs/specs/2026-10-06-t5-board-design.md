@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -108,7 +108,7 @@ The bits go out last first, then the strobe rises: output enable, mode, PWR_EN (
 
 1. **No RTC.** Power-off loses the time; the clock reads 1970 until a sync or a manual set (§8.1).
 2. **IO0 is both BOOT and the strobe.** Pressing BOOT while the driver shifts bits corrupts the latch, which the next clean update repairs. Held at reset, it enters download mode. Since DT13 it is also the Back button: the firmware reads it only between updates, and an update that ends with it held is followed by a clean one.
-3. **Floating shift-register lines can switch the panel's rails on.** In deep sleep, IO18 and IO23 are digital pads: they keep their level only with `gpio_hold_en()` plus `gpio_deep_sleep_hold_en()`; IO0 stays high on its pull-up (§5.4).
+3. **Floating shift-register lines can switch the panel's rails on.** In deep sleep, IO18 and IO23 are digital pads: they keep their level only with `gpio_hold_en()` plus `gpio_deep_sleep_hold_en()`. The strobe's level doesn't matter then: nothing clocks the register under the latch, which holds the rest word (§5.4).
 4. **The panel bus uses strapping pins** (IO0, IO2, IO5). They must be inputs or at their boot level at every reset; epdiy releases them when it powers the panel off.
 5. **VCOM is a trimpot.** If contrast looks wrong, it's set by hand on the board, not in software.
 6. **The waveform has one temperature range** (epdiy's `ED047TC1`: 20–30 °C), so the missing temperature sensor costs nothing.
@@ -123,11 +123,13 @@ The bits go out last first, then the strobe rises: output enable, mode, PWR_EN (
 15. **Console input outranks `sleep test`.** The 5-minute hold from any console line came before the test's cycles in the power policy; `power_start_test()` clears the hold, so the cycles start at once.
 16. **The slow clock drifts.** Over 30 one-minute deep-sleep cycles the 150 kHz RC ran about 0.9 % fast (13 minutes a day), the 8MD256 source about 0.1 % slow (85 s a day): the T5 uses 8MD256 (§8.1).
 17. **`epd_init()` sets the board every time**, and epdiy warns "EPD board can only be set once!" from the second update on, routine wakes included. The fork sets epdiy's log tag to errors; P5's fallback logs as `epd` and still shows.
-18. **The battery reads about 4.78 V with USB in**, the LiPo's charger voltage, so the gauge shows full while USB is connected and the battery's own voltage once unplugged. As upstream, charging is invisible to the firmware.
+18. **The battery reads about 4.78 V with USB in**: the divider then measures the 5 V line, VBUS after the Schottky D8, not the cell (gotcha 24), so the gauge shows full while USB is connected and the battery's own voltage once unplugged. As upstream, charging is invisible to the firmware.
 19. **The ESP32 refuses a light sleep of a millisecond** (`ESP_ERR_SLEEP_TOO_SHORT_SLEEP_DURATION`, which is `ESP_ERR_INVALID_ARG`). A light sleep that woke just before its minute asked for that much, got refused, and the loop went straight back to it without ticking: the board spun awake at 240 MHz for good (115–138 mA on the owner's meter). The app ticks a wake that has come (`sched_wake_due()`) instead of planning a sleep for it. The S3 sleeps that millisecond, so the RLCD never showed it; the shared fix goes upstream with the merge.
 20. **USB power keeps the panel's rail on.** In LilyGo's schematic (`T5-4.7.pdf`, the CP2104 revision), the switched `3V3` that feeds the panel, its LT1945 boost converter, the ±15 V regulators, the VCOM amplifier and the blue LED is turned on through Q2 by either POWER_EN (D6, the shift register) or VBUS (D7). With USB in, it stays on whatever the firmware does, and the USB-serial chip runs too: the owner's USB meter read about 65 mA with the ESP32 in deep sleep and 67 mA in light sleep (T1, 2026-10-08), both the hardware's floor. The sleep current exists only on battery, where POWER_EN switches the rail off; LilyGo quotes about 380 µA. A USB meter can't measure it (§8.5).
 21. **UART input sent during a clean update is lost** (T3a's board check). Each menu step on the T5 redraws clean for about 2.2 s, and console lines that arrive meanwhile don't reach the REPL, so a script that sends `btn` commands back to back loses most of them. Scripts wait for each update to finish (1.5 s without output) before the next command.
 22. **Opening the serial port presses IO0 for a moment** (T4b's board check). The CH9102's auto-reset wiring pulls IO0 low for a few milliseconds when a PC opens the port, even with DTR and RTS changed together; with Back on IO0 that read as a press (it closed the menu, and would leave config mode). Back takes a 60 ms minimum press (`gesture_config_t.min_press_ms`), which a finger always holds.
+23. **IO0 has no pull-up of its own.** The schematic gives IO0 (BOOT, the strobe, Back) no resistor. With USB in, the CH9102's RTS, high at rest, holds it up through the auto-reset transistor's base–collector junction; on battery nothing does. `gpio_config()` turns a pin's pull-up off unless asked, and the buttons and the panel's idle both configured IO0 that way, so on battery IO0 floated and Back pressed itself: the menu closed at once, and each minute's wake stayed up 10–15 s (the owner, 2026-10-11, the T4b build on battery). IO0 now keeps the chip's pull-up (about 45 kΩ) whenever it is an input, through light sleep too. At the desk, holding DTR and RTS both asserted takes the CH9102's pull away, as on battery.
+24. **The battery's divider is switched too.** R29 and R32 (100k/100k) hang from `BAT`, which Q3 connects to the 5 V line only while Q2 conducts: POWER_EN or VBUS (gotcha 20). On battery with POWER_EN off the ADC read 0 V, and the gauge showed 0 % (since T1, found 2026-10-11). Each battery reading now shifts the sense word into the register (POWER_EN alone: the converter disabled, the rails off; `epaper_sr_sense()`), waits 20 ms and shifts the rest word back (`display_battery_sense()`, set with `sensors_set_battery_switch()`), as LilyGo's examples wrap `analogRead()` in `epd_poweron()`. IO0 strobes the word, so Back is paused meanwhile, and a Back held at that moment skips the reading.
 
 ## 3. The fork
 
@@ -232,7 +234,7 @@ As built (T4, 2026-10-11):
 
 - The rails are on only during an update: epdiy powers them up, updates and powers them down, then the fork de-initialises it.
 - At boot, before anything else touches the panel, the shift register gets the "all off" word.
-- Before deep sleep: the shift register's clock and data (IO18, IO23) are driven low and held with `gpio_hold_en()` and `gpio_deep_sleep_hold_en()`; the strobe (IO0) is an input on its 10k pull-up, so the latch follows a register nothing clocks.
+- Before deep sleep: the shift register's clock and data (IO18, IO23) are driven low and held with `gpio_hold_en()` and `gpio_deep_sleep_hold_en()`; the strobe (IO0) is an input on the chip's pull-up (§2.5 gotcha 23), and whatever its level, the latch holds or follows a register nothing clocks.
 - After a wake, the holds are released before anything else touches the panel.
 
 ### 5.5 The previous frame across deep sleep
@@ -413,20 +415,20 @@ As built (T3c):
 ### 8.3 Buttons
 
 - **Before DT13:** KEY on IO34, BOOT's role on IO35, with upstream's gestures and timings (upstream §5.6); IO39 and IO0 unused.
-- **DT13 (T4b):** four buttons in the board's order, after RESET: **Back** (IO0), **Up** (IO35), **Enter** (IO34), **Down** (IO39). All active low on external pull-ups.
+- **DT13 (T4b):** four buttons in the board's order, after RESET: **Back** (IO0), **Up** (IO35), **Enter** (IO34), **Down** (IO39). All active low: IO35, IO34 and IO39 on external pull-ups, IO0 on the chip's own (§2.5 gotcha 23).
 - **The dashboard:** Up and Down step to the previous and the next preset (with the preset's toast; Up skips the same presets the cycle skips, backwards). Enter refreshes, or on the Radar layout plays the last hour or syncs for a frame (upstream's BOOT short). Hold Enter (1 s) opens the menu. Hold Up (3 s) starts config mode. Double Enter turns sync mode `always` on or off; double Down the auto-cycle. Back does nothing here, but like any press it stops the radar's loop.
 - **The menu:** Up and Down move to the previous and the next item, and step a value up and down while editing (Up +, Down −). Enter opens, edits, saves or confirms. Back, or holding Enter, cancels an edit or a confirmation, goes up a level, and at the top closes the menu. The hint line names the four buttons (en and cs).
 - **Config mode:** Enter as upstream's KEY short (the other code, back); Back or holding Enter turns Wi-Fi off. **First run:** Enter continues, holding Enter opens the menu, holding Up (3 s) starts config mode. **The critical screen and a night peek:** any button.
-- **Waking:** Up (ext1) and Enter (ext0) wake the board from deep sleep; Back and Down can't. After any press the T5 stays awake 10 s, so Back and Down work as the next press.
+- **Waking:** Up (ext1) and Enter (ext0) wake the board from deep sleep; Back and Down can't. After any press the T5 stays awake 5 s (10 s until the owner's battery check, 2026-10-11), so Back and Down work as the next press.
 - **IO0 between updates:** the display pauses IO0's interrupt while it drives the panel (IO0 is then the shift register's strobe) and resumes it after; a press during an update is lost, and if IO0 is still held when an update ends, the next update is clean, as the latch may have missed its word (§2.5 gotcha 2). Holding IO0 at a reset starts download mode.
 - **Gesture timings:** Back short only; Up short and a 3 s hold on the dashboard; Enter short, double and a 1 s hold; Down short and double on the dashboard. In the menu no button waits for a double press.
 - **The console:** `btn <up|enter|down|back> <short|double|long>` (`key` and `boot` stay as Enter's and Up's names); the logs name the buttons UP, ENTER, DOWN and BACK and print each press and release with its GPIO.
 - **The mapping** is one pure table per board (`ui_controls`), host-tested: the RLCD's pins upstream's behaviour as it is.
-- **As built (T4b, 2026-10-11):** `ui_controls()` (`components/ui/ui_controls.c`) and `ui_hint()` (the four-button hint lines, `LS_HINT4_*`, `LS_F4_*`); `ui_presets_prev()`; the menu's `UI_MENU_KEY_UP`, `_DOWN`, `_ESCAPE`; the profile's `buttons` (2 or 4); `board_buttons_back_pause()`, called by the display around each update; `BOARD_BUTTON_FOLLOW_MS` (10 s on the T5); Back's 60 ms minimum press (gotcha 22). At the board the owner found it works well; a Back pressed during an update was dropped and, held to the update's end, repaired by a clean one.
+- **As built (T4b, 2026-10-11):** `ui_controls()` (`components/ui/ui_controls.c`) and `ui_hint()` (the four-button hint lines, `LS_HINT4_*`, `LS_F4_*`); `ui_presets_prev()`; the menu's `UI_MENU_KEY_UP`, `_DOWN`, `_ESCAPE`; the profile's `buttons` (2 or 4); `board_buttons_back_pause()`, called by the display around each update; `BOARD_BUTTON_FOLLOW_MS` (5 s on the T5); Back's 60 ms minimum press (gotcha 22) and IO0's pull-up (gotcha 23). At the board the owner found it works well; a Back pressed during an update was dropped and, held to the update's end, repaired by a clean one.
 
 ### 8.4 Battery
 
-GPIO36, ADC1 channel 0, 12 dB, divider 2 (the factor setting as upstream), line-fitting calibration. ADC1 doesn't conflict with Wi-Fi. The voltage-to-level model, the manual calibration and the learned curve are upstream's.
+GPIO36, ADC1 channel 0, 12 dB, divider 2 (the factor setting as upstream), line-fitting calibration. ADC1 doesn't conflict with Wi-Fi. The voltage-to-level model, the manual calibration and the learned curve are upstream's. The divider is switched with the panel's supply: each reading turns POWER_EN on for 20 ms (§2.5 gotcha 24); with USB in it reads the 5 V line (gotcha 18).
 
 ### 8.5 Power
 
@@ -441,7 +443,9 @@ Upstream's N2 goal (below 2 mA on average) is the yardstick.
 
 T1 (2026-10-07/08): a deep-sleep minute wakes for about 2.2 s, the clean update's length. On USB the owner's meter reads the hardware's floor, not the sleep current (§2.5 gotcha 20): about 107 mA awake at 240 MHz, 67 mA in light sleep, 65 mA in deep sleep. On battery (owner's multimeter in series with the LiPo, 2026-10-09): 0.3 mA in deep sleep and about 150 mA for the 2 s clean redraw each minute, about 6 mA on average at a 1-minute update; N2 (below 2 mA) needs T4's fast updates at that interval, and holds at 5 minutes and more with clean redraws (`docs/power.md`).
 
-T4 (2026-10-11): with fast updates a routine deep-sleep minute is awake about 1.49 s (`sleep stats`), the update itself about 0.38 s for a minute's digit. The owner's meter on battery is still to come; at T1's figures (0.3 mA asleep, about 150 mA during an update, about 107 mA awake otherwise) that is roughly 3 mA on average at a 1-minute update, an estimate until measured (`docs/power.md`).
+T4 (2026-10-11): with fast updates a routine deep-sleep minute is awake about 1.49 s (`sleep stats`), the update itself about 0.38 s for a minute's digit. At T1's figures (0.3 mA asleep, about 150 mA during an update, about 107 mA awake otherwise) that is roughly 3 mA on average at a 1-minute update, an estimate until measured (`docs/power.md`).
+
+T4b on battery (owner's meter in series, the meter build, 2026-10-11): about 42 mA awake, 145–150 mA while the panel updates (about 1 s for a minute's digit, a preset switch alike), below the meter's resolution asleep. Each minute then stayed awake 10–15 s at 42 mA, the phantom Back presses of §2.5 gotcha 23; with IO0's pull-up and the 5 s follow the minute should be back near T4's 1.5 s. To measure again.
 
 ## 9. Settings, menu, web and console
 
@@ -536,3 +540,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r9 | 2026-10-11 | T4 as built: the update policy, fast updates, `display.clean_after` and its sentence, the counters (§5.3); the frame drawn again after a wake (§5.5); the night's mark (§5.6); the minute's awake time (§8.5); the menu's hidden items (§9); T4 built (§11); the cold boot, ghosting, the fade on USB, the menu (§12) |
 | r10 | 2026-10-11 | DT13: the T5's four buttons, Back on IO0 (§1.2, §2.2, §2.5, §8.3, §9, §11, §12) |
 | r11 | 2026-10-11 | T4b as built (§8.3); gotcha 22, the serial port's press on IO0 (§2.5); T4b done (§11) |
+| r12 | 2026-10-11 | On battery (the owner's check): IO0's pull-up, gotcha 23; the switched battery divider, gotchas 18 and 24, §8.4; the 5 s follow (§8.3); the meter's T4b figures (§8.5); gotcha 3 and §5.4 without the strobe's pull-up |

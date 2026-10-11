@@ -17,6 +17,7 @@
 #include "freertos/task.h"
 #include "gfx_test_pattern.h"
 #include "util_crc32.h"
+#include "util_ticks.h"
 
 /* LilyGo T5-4.7 (T5 spec §5), through epdiy's own board definition for this board. The UI draws the panel's own
  * 960×540 frame at 4 bpp in epdiy's layout (T3a, T5 spec §6), which goes to epdiy as it is. Updates follow the
@@ -29,6 +30,7 @@
 #define FRAME_SIZE    (PANEL_W / 2 * PANEL_H)
 #define TEMPERATURE_C 25 /* the ED047TC1 waveform has one range, 20-30 °C (T5 spec §2.5) */
 #define EPD_OPTIONS   (EPD_LUT_64K | EPD_FEED_QUEUE_8)
+#define BATTERY_SETTLE_MS 20 /* the 100k/100k divider and its capacitor after PWR_EN; LilyGo's examples wait 10 ms */
 
 static const char *TAG = "display";
 
@@ -233,6 +235,17 @@ void display_clean_next(void)
 void display_set_clean_after(uint8_t n)
 {
     s_policy.clean_after = n < 1 ? 1 : n;
+}
+
+esp_err_t display_battery_sense(bool on)
+{
+    board_buttons_back_pause(true); /* IO0 strobes the word in (DT13) */
+    esp_err_t err = epaper_board_sense(on);
+    board_buttons_back_pause(false);
+    if (err == ESP_OK && on) {
+        vTaskDelay(util_ticks_at_least(BATTERY_SETTLE_MS, portTICK_PERIOD_MS)); /* the divider's filter */
+    }
+    return err;
 }
 
 /* Rests the shift register first, as a failed boot's retry sleep may come before display_init (final review

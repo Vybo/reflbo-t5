@@ -93,3 +93,15 @@ The ~65 mA is the hardware with USB in: VBUS holds the panel's switched rail on 
 
 That is about 6 mA on average at the default 1-minute update (0.09 mAh a minute in the redraw against 0.005 mAh in sleep), and about 0.7 mA at 15 minutes. Upstream's N2 goal (below 2 mA) needs T4's fast updates at a 1-minute update. The meter's burden voltage on that range sagged the battery node enough at the first boot that the single reading came out critical (≤ 3300 mV) and the board showed "Charge me", hence the measurement build; with the battery connected directly it boots normally. Since T4b that build is a Kconfig option, `CONFIG_REFLBO_METER_BUILD` (off by default; AGENTS.md §10).
 
+The "critical" reading was most likely not the meter's burden: the battery's divider is switched with the panel's supply, so on battery every reading before 2026-10-11 was about 0 V, and the gauge showed 0 % without a meter too (T5 spec §2.5 gotcha 24). Readings now turn POWER_EN on for 20 ms.
+
+**T4b on battery** (2026-10-11, the owner's meter in series, the meter build of 5f989f4):
+
+| State | Current | Length |
+|---|---|---|
+| Awake, panel idle | about 42 mA | 10–15 s after each minute's update |
+| A panel update (a minute's digit, a preset switch alike) | 145–150 mA | about 1 s |
+| Asleep | below the meter's resolution | the rest of the minute |
+
+The 10–15 s awake each minute came from IO0 floating on battery, read as Back presses that kept the board up (T5 spec §2.5 gotcha 23). With IO0's pull-up and a 5 s follow after a real press, a minute should be back near T4's 1.5 s awake: about 1 s at 150 mA plus 0.5 s at 42 mA, roughly 3 mA on average with 0.3 mA asleep. To measure again.
+

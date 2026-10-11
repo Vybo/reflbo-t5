@@ -677,6 +677,7 @@ static esp_err_t boot(void)
     } else {
         ESP_RETURN_ON_ERROR(display_init(), TAG, "display");
     }
+    sensors_set_battery_switch(display_battery_sense); /* the T5's divider is behind PWR_EN (T5 spec §2.5) */
     if (!ui_profile_matches(display_fb())) { /* the UI would draw off its frame (T3a) */
         ESP_LOGE(TAG, "the display's frame doesn't match the UI profile");
         return ESP_ERR_INVALID_STATE;

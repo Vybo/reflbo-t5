@@ -50,3 +50,7 @@ bool display_wants_shown(void);
 /* The frame in display_fb() is the one the panel shows if its CRC matches the snapshot's: true then, and fast
  * updates go on from it; false, and the next update is clean. True on the RLCD. */
 bool display_adopt_shown(void);
+/* The T5's battery divider hangs behind the panel's PWR_EN switch (T5 spec §2.5 gotcha 24): on before a battery
+ * reading, settled when it returns, and off after it. ESP_ERR_INVALID_STATE while Back holds IO0 low. Nothing to
+ * do on the RLCD. */
+esp_err_t display_battery_sense(bool on);

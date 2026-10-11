@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdbool.h>
+
 #include "esp_err.h"
 
 /*
@@ -12,6 +14,11 @@
  * strobe (IO0) released to its pull-up. At boot before anything else touches the panel, and after every
  * epd_deinit(). */
 void epaper_board_idle(void);
+/* The sense word (epaper_sr_sense(): PWR_EN alone, for the battery's divider, T5 spec §2.5 gotcha 24) on, or
+ * the rest word back. Between
+ * updates only, after epaper_board_idle(). ESP_ERR_INVALID_STATE while IO0 is held low (Back): the latch would
+ * miss the word. */
+esp_err_t epaper_board_sense(bool on);
 /* Holds the clock and data low through deep sleep: they're digital pads (T5 spec §2.5). */
 esp_err_t epaper_board_prepare_deep_sleep(void);
 /* Releases those holds: after a deep-sleep wake, or after epaper_board_prepare_deep_sleep() failed. */

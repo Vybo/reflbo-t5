@@ -42,11 +42,28 @@ static void test_rest_matches_epdiys_power_off(void)
     TEST_ASSERT_EQUAL_HEX8(0x02, epaper_sr_word(&off));
 }
 
+/* The battery's divider hangs behind PWR_EN's switch (T5 spec §2.5 gotcha 24): the sense word turns PWR_EN on and leaves the
+ * converter disabled, the rails, STV, OE, MODE and LE off. */
+static void test_sense_powers_only_the_switched_supply(void)
+{
+    epaper_sr_t sense = epaper_sr_sense();
+    TEST_ASSERT_TRUE(sense.power_enable);
+    TEST_ASSERT_TRUE(sense.power_disable);
+    TEST_ASSERT_FALSE(sense.pos_power);
+    TEST_ASSERT_FALSE(sense.neg_power);
+    TEST_ASSERT_FALSE(sense.stv);
+    TEST_ASSERT_FALSE(sense.output_enable);
+    TEST_ASSERT_FALSE(sense.mode);
+    TEST_ASSERT_FALSE(sense.latch_enable);
+    TEST_ASSERT_EQUAL_HEX8(0x22, epaper_sr_word(&sense));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_each_signal_has_its_bit);
     RUN_TEST(test_off_leaves_only_the_logic_supply_disabled);
     RUN_TEST(test_rest_matches_epdiys_power_off);
+    RUN_TEST(test_sense_powers_only_the_switched_supply);
     return UNITY_END();
 }

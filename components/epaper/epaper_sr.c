@@ -10,3 +10,8 @@ epaper_sr_t epaper_sr_off(void)
 {
     return (epaper_sr_t){ .power_disable = true };
 }
+
+epaper_sr_t epaper_sr_sense(void)
+{
+    return (epaper_sr_t){ .power_enable = true, .power_disable = true };
+}

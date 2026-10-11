@@ -145,6 +145,12 @@ esp_err_t display_clean(void)
 /* The RLCD shows each push as it is, and keeps its frame in RTC RAM's snapshot: nothing to clean or rebuild. */
 void display_clean_next(void) {}
 
+esp_err_t display_battery_sense(bool on)
+{
+    (void)on;
+    return ESP_OK; /* the RLCD's divider is always on (AGENTS.md gotcha 17) */
+}
+
 void display_set_clean_after(uint8_t n)
 {
     (void)n;
