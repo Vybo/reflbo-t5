@@ -71,6 +71,11 @@ static inline void fixture_menu_model(ui_menu_model_t *m, const lang_t *lang)
     m->info[UI_MI_INFO_UPTIME] = "2 d 3 h";
     m->info[UI_MI_INFO_MEMORY] = "7.9 MB";
     m->local = fixture_local(20, 48, 0);
+    static const char *const clean[] = { "1", "2", "3", "4", "6", "10", "15", "20", "30", "60", "120", "240" };
+    m->choices[UI_MI_CLEAN_REFRESH] = clean; /* main/app_menu.c's */
+    m->choice_count[UI_MI_CLEAN_REFRESH] = 12;
+    m->value[UI_MI_CLEAN_REFRESH] = 9; /* 60 */
+    ui_menu_hide_for_board(m); /* as the app does (T5 spec §9) */
 }
 
 /* Moves the menu's cursor to `item` in the current section. */
@@ -147,6 +152,9 @@ static inline bool fixture_screen(const char *name, gfx_fb_t *fb)
     } else if (strcmp(name, "menu_edit_offset_cs") == 0) {
         fixture_menu_open(&menu, &model, UI_MI_SENSORS, UI_MI_TEMP_OFFSET);
         ui_menu_input(&menu, &model, UI_MENU_KEY_SELECT);
+    } else if (strcmp(name, "menu_edit_clean_cs") == 0) { /* T4: e-paper's clean refresh */
+        fixture_menu_open(&menu, &model, UI_MI_DISPLAY, UI_MI_CLEAN_REFRESH);
+        ui_menu_input(&menu, &model, UI_MENU_KEY_SELECT);
     } else if (strcmp(name, "menu_info_en") == 0) {
         fixture_menu_open(&menu, &model, UI_MI_INFO, UI_MI_INFO_BATTERY);
     } else if (strcmp(name, "menu_system_cs") == 0) {
@@ -209,7 +217,7 @@ static const char *const k_screen_fixtures[] = { "menu_root_en", "menu_root_cs",
 /* The fixtures with a T5 golden (test/host/golden/t5/screen_<name>.pgm.gz), NULL-terminated: each joins once the
  * owner has approved its render (T5 spec DT2). */
 static const char *const k_t5_screen_fixtures[] = {
-    "menu_root_en", "menu_root_cs", "menu_presets_cs", "menu_edit_zone_en", "menu_edit_offset_cs",
+    "menu_root_en", "menu_root_cs", "menu_presets_cs", "menu_edit_zone_en", /* menu_edit_clean_cs: the owner's look */
     "menu_info_en", "menu_system_cs", "menu_datetime_cs", "menu_confirm_cs", "toast_preset_cs", "critical_en",
     "critical_cs", "menu_wifi_en", "menu_confirm_password_cs", "config_ap_en", "config_ap_url_cs",
     "config_starting_en", "config_joining_en", "config_station_en", "config_station_ap_cs",

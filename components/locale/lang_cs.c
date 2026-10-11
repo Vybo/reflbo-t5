@@ -103,6 +103,7 @@ const lang_t lang_cs = {
         [LS_M_DISPLAY] = "Displej",
         [LS_M_UPDATE_INTERVAL] = "Interval obnovy",
         [LS_M_REFRESH_RATE] = "Obnovovací frekvence",
+        [LS_M_CLEAN_REFRESH] = "Čisté překreslení",
         [LS_M_SENSORS] = "Senzory",
         [LS_M_TEMP_OFFSET] = "Korekce teploty",
         [LS_M_HUM_OFFSET] = "Korekce vlhkosti",

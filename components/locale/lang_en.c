@@ -63,6 +63,7 @@ const lang_t lang_en = {
         [LS_M_DISPLAY] = "Display",
         [LS_M_UPDATE_INTERVAL] = "Update interval",
         [LS_M_REFRESH_RATE] = "Refresh rate",
+        [LS_M_CLEAN_REFRESH] = "Clean refresh",
         [LS_M_SENSORS] = "Sensors",
         [LS_M_TEMP_OFFSET] = "Temperature offset",
         [LS_M_HUM_OFFSET] = "Humidity offset",

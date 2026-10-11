@@ -4,6 +4,7 @@
 #include "gfx_fonts.h"
 #include "lang.h"
 #include "ui_menu.h"
+#include "ui_profile.h"
 #include "unity.h"
 
 static ui_menu_t s_m;
@@ -340,6 +341,37 @@ static void test_the_sync_steps_switch_on_and_off(void)
     TEST_ASSERT_EQUAL_INT(UI_MI_SYNC_STEPS, ui_menu_current(&s_m, &s_model)); /* back where it was */
 }
 
+/* T4 (T5 spec §9): the menu hides what the board lacks; the T5 has Clean refresh in place of Refresh rate. */
+static int section(ui_menu_item_t sec, const ui_menu_model_t *model, ui_menu_item_t *items)
+{
+    ui_menu_t m;
+    ui_menu_open(&m);
+    m.section = sec;
+    return ui_menu_visible(&m, model, items, UI_MI_COUNT);
+}
+
+static void test_the_menu_hides_what_the_board_lacks(void)
+{
+    ui_menu_item_t items[UI_MI_COUNT];
+    ui_menu_model_t model;
+    memset(&model, 0, sizeof(model));
+    ui_menu_hide_for_board(&model);
+    TEST_ASSERT_EQUAL_INT(2, section(UI_MI_DISPLAY, &model, items));
+    TEST_ASSERT_EQUAL_INT(UI_MI_UPDATE_INTERVAL, items[0]);
+    TEST_ASSERT_EQUAL_INT(UI_MI_REFRESH_RATE, items[1]);
+    TEST_ASSERT_EQUAL_INT(3, section(UI_MI_SENSORS, &model, items));
+
+    ui_profile_use(&ui_profile_t547);
+    memset(&model, 0, sizeof(model));
+    ui_menu_hide_for_board(&model);
+    ui_profile_use(NULL);
+    TEST_ASSERT_EQUAL_INT(2, section(UI_MI_DISPLAY, &model, items));
+    TEST_ASSERT_EQUAL_INT(UI_MI_UPDATE_INTERVAL, items[0]);
+    TEST_ASSERT_EQUAL_INT(UI_MI_CLEAN_REFRESH, items[1]);
+    TEST_ASSERT_EQUAL_INT(1, section(UI_MI_SENSORS, &model, items));
+    TEST_ASSERT_EQUAL_INT(UI_MI_UNITS, items[0]);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -358,5 +390,6 @@ int main(void)
     RUN_TEST(test_the_wifi_section_asks_before_it_forgets_anything);
     RUN_TEST(test_info_shows_the_network_addresses);
     RUN_TEST(test_a_long_value_leaves_the_label_alone);
+    RUN_TEST(test_the_menu_hides_what_the_board_lacks);
     return UNITY_END();
 }

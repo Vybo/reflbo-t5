@@ -43,6 +43,7 @@ typedef enum {
     UI_MI_DISPLAY,
     UI_MI_UPDATE_INTERVAL, /* number, minutes 1-15 */
     UI_MI_REFRESH_RATE,    /* choice: 0.25-8 Hz */
+    UI_MI_CLEAN_REFRESH,   /* choice: every Nth update clean, e-paper (T5 spec §5.3) */
     UI_MI_SENSORS,
     UI_MI_TEMP_OFFSET, /* number, 0.1 °C, -10.0 to +10.0 */
     UI_MI_HUM_OFFSET,  /* number, 0.1 %, -20.0 to +20.0 in 0.5 steps */
@@ -114,6 +115,9 @@ typedef struct {
 void ui_menu_open(ui_menu_t *m);
 ui_menu_intent_t ui_menu_input(ui_menu_t *m, const ui_menu_model_t *model, ui_menu_key_t key);
 /* The visible items of the current section, in order; returns their number. */
+/* Hides the items for hardware the board lacks (T5 spec §9): Refresh rate without UI_CAP_LPM_RATE, Clean refresh
+ * without UI_CAP_EPAPER, the temperature and humidity offsets without UI_CAP_ENV_SENSOR. */
+void ui_menu_hide_for_board(ui_menu_model_t *model);
 int ui_menu_visible(const ui_menu_t *m, const ui_menu_model_t *model, ui_menu_item_t *out, int max);
 ui_menu_item_t ui_menu_current(const ui_menu_t *m, const ui_menu_model_t *model);
 /* The label of an item in the pack's language. */

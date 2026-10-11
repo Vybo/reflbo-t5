@@ -51,6 +51,10 @@ static const char *const k_units[] = { "°C", "°F" };
 static const uint16_t k_sync_min[] = { 15, 30, 60, 120, 180, 360, 720, 1440 }; /* spec §9.3: 15-1440 */
 static const char *const k_sync_labels[] = { "15 min", "30 min", "1 h", "2 h", "3 h", "6 h", "12 h", "24 h" };
 #define SYNC_STEPS ((int)(sizeof(k_sync_min) / sizeof(k_sync_min[0])))
+/* Display ▸ Clean refresh on e-paper: every Nth update clean (T5 spec §5.3), the web page's values too. */
+static const uint16_t k_clean_after[] = { 1, 2, 3, 4, 6, 10, 15, 20, 30, 60, 120, 240 };
+static const char *const k_clean_labels[] = { "1", "2", "3", "4", "6", "10", "15", "20", "30", "60", "120", "240" };
+#define CLEAN_STEPS ((int)(sizeof(k_clean_after) / sizeof(k_clean_after[0])))
 static const char *const k_languages[] = { "en", "cs" };
 #define LANGUAGE_COUNT ((int)(sizeof(k_languages) / sizeof(k_languages[0])))
 
@@ -182,6 +186,9 @@ static void build_model(void)
     m->choices[UI_MI_REFRESH_RATE] = s_rates;
     m->choice_count[UI_MI_REFRESH_RATE] = RATE_COUNT;
     m->value[UI_MI_REFRESH_RATE] = rate;
+    m->choices[UI_MI_CLEAN_REFRESH] = k_clean_labels;
+    m->choice_count[UI_MI_CLEAN_REFRESH] = CLEAN_STEPS;
+    m->value[UI_MI_CLEAN_REFRESH] = nearest_index(k_clean_after, CLEAN_STEPS, set->clean_after);
 
     m->value[UI_MI_TEMP_OFFSET] = set->temp_offset_c100 / 10;
     m->value[UI_MI_HUM_OFFSET] = set->hum_offset_pct100 / 10;
@@ -197,6 +204,7 @@ static void build_model(void)
     }
     m->choices[UI_MI_LANGUAGE] = s_language_names;
     m->choice_count[UI_MI_LANGUAGE] = LANGUAGE_COUNT;
+    ui_menu_hide_for_board(m); /* T5 spec §9: nothing for hardware the board lacks */
 
     ui_context_t ctx;
     app_ui_context(&ctx);
@@ -316,6 +324,10 @@ static void apply(const ui_menu_intent_t *in)
         case UI_MI_REFRESH_RATE:
             set->lpm_quarter_hz = k_quarter_hz[in->value < RATE_COUNT ? in->value : 2];
             apply_settings = save_settings = true;
+            break;
+        case UI_MI_CLEAN_REFRESH:
+            set->clean_after = (uint8_t)k_clean_after[in->value >= 0 && in->value < CLEAN_STEPS ? in->value : 9];
+            apply_settings = save_settings = true; /* app_ui_apply_settings() tells the display */
             break;
         case UI_MI_TEMP_OFFSET:
             set->temp_offset_c100 = (int16_t)(in->value * 10);
