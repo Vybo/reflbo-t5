@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "gfx_fonts.h"
+#include "ui_internal.h"
 #include "ui_profile.h"
 #include "ui_screens.h"
 
@@ -92,7 +93,7 @@ static void draw_header(gfx_fb_t *fb, const ui_config_view_t *v, const lang_t *l
 
 static void draw_hints(gfx_fb_t *fb, const char *hints)
 {
-    gfx_hline(fb, 0, FOOTER_Y - UI_PX(4), fb->width, GFX_BLACK);
+    ui_hline(fb, 0, FOOTER_Y - UI_PX(4), fb->width, GFX_BLACK); /* UI_PX(1) wide (T5 spec §6.4) */
     char fit[96];
     gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), hints, fb->width - UI_PX(12), fit, sizeof(fit));
     gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12),

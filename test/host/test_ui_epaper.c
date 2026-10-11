@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "dashboard_fixtures.h"
+#include "screen_fixtures.h"
 #include "gfx.h"
 #include "ui_internal.h"
 #include "ui_profile.h"
@@ -97,6 +98,33 @@ static void test_the_t5_moon_has_a_2_px_outline(void)
     TEST_ASSERT_FALSE(gfx_get_pixel(&fb, 50 - 29, 50));
 }
 
+/* Found with the moon: the menu's and the config screen's footer rules were 1 px on the T5 (T5 spec §6.4). No
+ * T5 screen has a full-width rule one pixel high. */
+static int dark_in_row(const gfx_fb_t *fb, int y)
+{
+    int dark = 0;
+    for (int x = 0; y >= 0 && y < fb->height && x < fb->width; x++) {
+        dark += gfx_get_level(fb, x, y) < 8;
+    }
+    return dark;
+}
+
+static void test_no_t5_screen_has_a_1_px_rule(void)
+{
+    ui_profile_use(&ui_profile_t547);
+    for (size_t i = 0; k_t5_screen_fixtures[i] != NULL; i++) {
+        gfx_fb_t fb;
+        gfx_fb_init_fmt(&fb, s_a, 960, 540, GFX_FMT_4BPP);
+        TEST_ASSERT_TRUE_MESSAGE(fixture_screen(k_t5_screen_fixtures[i], &fb), k_t5_screen_fixtures[i]);
+        for (int y = 0; y < fb.height; y++) {
+            int w = fb.width; /* a rule: a dark row between two mostly light ones, not a row of a dark bar */
+            if (dark_in_row(&fb, y) >= w * 9 / 10 && dark_in_row(&fb, y - 1) < w / 2 && dark_in_row(&fb, y + 1) < w / 2) {
+                TEST_FAIL_MESSAGE(k_t5_screen_fixtures[i]);
+            }
+        }
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -104,5 +132,6 @@ int main(void)
     RUN_TEST(test_the_t5_draws_no_seconds);
     RUN_TEST(test_a_night_puts_a_moon_and_its_end_in_the_t5_status_bar);
     RUN_TEST(test_the_t5_moon_has_a_2_px_outline);
+    RUN_TEST(test_no_t5_screen_has_a_1_px_rule);
     return UNITY_END();
 }
