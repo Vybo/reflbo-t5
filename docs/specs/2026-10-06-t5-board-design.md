@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -127,6 +127,7 @@ The bits go out last first, then the strobe rises: output enable, mode, PWR_EN (
 19. **The ESP32 refuses a light sleep of a millisecond** (`ESP_ERR_SLEEP_TOO_SHORT_SLEEP_DURATION`, which is `ESP_ERR_INVALID_ARG`). A light sleep that woke just before its minute asked for that much, got refused, and the loop went straight back to it without ticking: the board spun awake at 240 MHz for good (115–138 mA on the owner's meter). The app ticks a wake that has come (`sched_wake_due()`) instead of planning a sleep for it. The S3 sleeps that millisecond, so the RLCD never showed it; the shared fix goes upstream with the merge.
 20. **USB power keeps the panel's rail on.** In LilyGo's schematic (`T5-4.7.pdf`, the CP2104 revision), the switched `3V3` that feeds the panel, its LT1945 boost converter, the ±15 V regulators, the VCOM amplifier and the blue LED is turned on through Q2 by either POWER_EN (D6, the shift register) or VBUS (D7). With USB in, it stays on whatever the firmware does, and the USB-serial chip runs too: the owner's USB meter read about 65 mA with the ESP32 in deep sleep and 67 mA in light sleep (T1, 2026-10-08), both the hardware's floor. The sleep current exists only on battery, where POWER_EN switches the rail off; LilyGo quotes about 380 µA. A USB meter can't measure it (§8.5).
 21. **UART input sent during a clean update is lost** (T3a's board check). Each menu step on the T5 redraws clean for about 2.2 s, and console lines that arrive meanwhile don't reach the REPL, so a script that sends `btn` commands back to back loses most of them. Scripts wait for each update to finish (1.5 s without output) before the next command.
+22. **Opening the serial port presses IO0 for a moment** (T4b's board check). The CH9102's auto-reset wiring pulls IO0 low for a few milliseconds when a PC opens the port, even with DTR and RTS changed together; with Back on IO0 that read as a press (it closed the menu, and would leave config mode). Back takes a 60 ms minimum press (`gesture_config_t.min_press_ms`), which a finger always holds.
 
 ## 3. The fork
 
@@ -421,6 +422,7 @@ As built (T3c):
 - **Gesture timings:** Back short only; Up short and a 3 s hold on the dashboard; Enter short, double and a 1 s hold; Down short and double on the dashboard. In the menu no button waits for a double press.
 - **The console:** `btn <up|enter|down|back> <short|double|long>` (`key` and `boot` stay as Enter's and Up's names); the logs name the buttons UP, ENTER, DOWN and BACK and print each press and release with its GPIO.
 - **The mapping** is one pure table per board (`ui_controls`), host-tested: the RLCD's pins upstream's behaviour as it is.
+- **As built (T4b, 2026-10-11):** `ui_controls()` (`components/ui/ui_controls.c`) and `ui_hint()` (the four-button hint lines, `LS_HINT4_*`, `LS_F4_*`); `ui_presets_prev()`; the menu's `UI_MENU_KEY_UP`, `_DOWN`, `_ESCAPE`; the profile's `buttons` (2 or 4); `board_buttons_back_pause()`, called by the display around each update; `BOARD_BUTTON_FOLLOW_MS` (10 s on the T5); Back's 60 ms minimum press (gotcha 22). At the board the owner found it works well; a Back pressed during an update was dropped and, held to the update's end, repaired by a clean one.
 
 ### 8.4 Battery
 
@@ -497,7 +499,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | T3b | The views and the grays: Radar and Flights at 960×540, the Solar and Energy layouts, the chart and flow widgets, the map's fonts and marks; §6.4's gray uses | Their renders approved and their goldens committed; each view on the panel (done 2026-10-10) |
 | T3c | The web page: the panel's size and aspect from `/api/layouts`, the split editor's grid, the gray preview; the T5's gray BMPs fetched over Wi-Fi | The page edits a T5 preset and its preview matches the panel (done 2026-10-10) |
 | T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured (built 2026-10-11; the owner's checks on battery and the current open) |
-| T4b | The T5's four buttons (DT13): Back, Up, Enter, Down in the board's order, the controls table, the menu's up, down and escape, the T5's hint lines, IO0 between updates | The owner uses the four buttons on the dashboard and in the menu; the press logs agree |
+| T4b | The T5's four buttons (DT13): Back, Up, Enter, Down in the board's order, the controls table, the menu's up, down and escape, the T5's hint lines, IO0 between updates | The owner uses the four buttons on the dashboard and in the menu; the press logs agree (done 2026-10-11) |
 
 ## 12. Risks and open items
 
@@ -533,3 +535,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r8 | 2026-10-10 | T3c as built: the catalogue's `bpp` and `radar`, the page's images, kilometres and hidden rows (§7.4, §9); the fields a board can't fill left out (§4.3); the gray preview and the BMPs checked over Wi-Fi (§6.5); T3c done (§11); RainViewer's loop measured and bounded by PSRAM with room for the next frame and a way out of a failed one (review), ČHMÚ's measured (§12); §6.4's dark half made to agree with AGENTS.md (T3b review) |
 | r9 | 2026-10-11 | T4 as built: the update policy, fast updates, `display.clean_after` and its sentence, the counters (§5.3); the frame drawn again after a wake (§5.5); the night's mark (§5.6); the minute's awake time (§8.5); the menu's hidden items (§9); T4 built (§11); the cold boot, ghosting, the fade on USB, the menu (§12) |
 | r10 | 2026-10-11 | DT13: the T5's four buttons, Back on IO0 (§1.2, §2.2, §2.5, §8.3, §9, §11, §12) |
+| r11 | 2026-10-11 | T4b as built (§8.3); gotcha 22, the serial port's press on IO0 (§2.5); T4b done (§11) |
