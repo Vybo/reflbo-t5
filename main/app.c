@@ -718,6 +718,9 @@ static esp_err_t boot(void)
     if (s_ota_pending) { /* spec §10.5: awake, without deep sleep, until it has proved itself */
         ESP_LOGW(TAG, "new firmware: valid after %d s without a panic", OTA_VERIFY_MS / 1000);
     }
+#if CONFIG_REFLBO_METER_BUILD
+    ESP_LOGW(TAG, "meter build: no critical-battery screen, the clock starts at midnight (docs/power.md)");
+#endif
     ESP_LOGI(TAG, "reflbo ready (%s wake%s)", power_wake_name(wake), warm ? ", warm" : "");
     return ESP_OK;
 }

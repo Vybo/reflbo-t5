@@ -469,6 +469,9 @@ void app_ui_sample(time_t now)
             ds_clear(&s.ds, DS_BAT_DAYS);
         }
         bool critical = battery_critical(s.critical, bat.smoothed_mv, bat.state); /* spec §8 */
+#if CONFIG_REFLBO_METER_BUILD
+        critical = false; /* an ammeter's burden sags the reading (docs/power.md) */
+#endif
         if (critical && !s.critical) {
             ESP_LOGW(TAG, "battery critical: %d mV", bat.smoothed_mv);
         } else if (!critical && s.critical) {

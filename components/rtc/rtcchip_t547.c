@@ -3,6 +3,7 @@
 #include <sys/time.h>
 
 #include "rtc_sysclock.h"
+#include "sdkconfig.h"
 
 /* The LilyGo T5-4.7 has no RTC chip (DT10): rtcchip_* is the ESP32's system clock, so timekeeping.c works
  * on it unchanged (T5 spec §8.1). Writing is settimeofday(); there's no alarm, and the "precise set" is the
@@ -11,6 +12,12 @@
 esp_err_t rtcchip_init(i2c_master_bus_handle_t bus)
 {
     (void)bus;
+#if CONFIG_REFLBO_METER_BUILD
+    if (!rtc_sysclock_valid(time(NULL))) { /* every minute redraws on battery, with no sync (docs/power.md) */
+        struct timeval tv = { .tv_sec = 1791756000 }; /* 2026-10-12 00:00 Europe/Prague */
+        settimeofday(&tv, NULL);
+    }
+#endif
     return ESP_OK;
 }
 

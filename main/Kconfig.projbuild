@@ -97,4 +97,13 @@ menu "reflbo"
             bool "Deep sleep"
     endchoice
 
+    config REFLBO_METER_BUILD
+        bool "Measurement build for an ammeter in series with the battery"
+        default n
+        help
+            For measuring the current with a multimeter in series with the battery (docs/power.md): the
+            critical-battery screen never shows, as the meter's burden voltage sags the battery's reading, and
+            on the T5 an unset clock starts at midnight, so every minute redraws without a sync. Not for
+            everyday use: the board then doesn't stop for a flat battery. Logged at every boot.
+
 endmenu
