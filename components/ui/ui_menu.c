@@ -119,6 +119,11 @@ ui_menu_item_t ui_menu_current(const ui_menu_t *m, const ui_menu_model_t *model)
     return n == 0 ? UI_MI_ROOT : items[m->cursor < n ? m->cursor : n - 1];
 }
 
+bool ui_menu_confirm_yes(const ui_menu_t *m)
+{
+    return m->mode == UI_MENU_CONFIRM && m->edit != 0;
+}
+
 const char *ui_menu_label(ui_menu_item_t item, const lang_t *lang)
 {
     return (unsigned)item < UI_MI_COUNT ? lang_str(lang, k_nodes[item].label) : "";
@@ -252,6 +257,7 @@ static ui_menu_intent_t select_item(ui_menu_t *m, const ui_menu_model_t *model, 
     case K_ACTION:
         if (n->confirm) {
             m->mode = UI_MENU_CONFIRM;
+            m->edit = 0; /* the T5's question opens on No */
             return k_none;
         }
         return (ui_menu_intent_t){ .kind = UI_MENU_ACTION, .item = item };
@@ -315,11 +321,16 @@ ui_menu_intent_t ui_menu_input(ui_menu_t *m, const ui_menu_model_t *model, ui_me
         }
         return k_none;
     case UI_MENU_CONFIRM:
-        if (key == UI_MENU_KEY_NEXT || key == UI_MENU_KEY_UP || key == UI_MENU_KEY_DOWN) {
-            return k_none; /* only KEY long, or the T5's Enter, confirms */
+        if (key == UI_MENU_KEY_UP || key == UI_MENU_KEY_DOWN) {
+            m->edit = !m->edit; /* the T5's No and Yes */
+            return k_none;
+        }
+        if (key == UI_MENU_KEY_NEXT) {
+            return k_none; /* only KEY long confirms on the RLCD */
         }
         m->mode = UI_MENU_BROWSE;
-        if (key == UI_MENU_KEY_SELECT) {
+        /* The T5's Enter applies the answer chosen, so a quick double Enter lands on No (T5 spec §8.3). */
+        if (key == UI_MENU_KEY_SELECT && (ui_profile()->buttons < 4 || m->edit)) {
             return (ui_menu_intent_t){ .kind = UI_MENU_ACTION, .item = item };
         }
         return k_none;

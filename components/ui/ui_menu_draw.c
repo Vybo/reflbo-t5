@@ -160,6 +160,30 @@ static void draw_question(gfx_fb_t *fb, const char *text, int y)
     }
 }
 
+/* The T5's answers, No and Yes side by side as two equal buttons, the chosen one filled (T5 spec §8.3). */
+static void draw_answers(gfx_fb_t *fb, const ui_menu_t *m, const lang_t *lang, int y)
+{
+    const gfx_font_t *f = UI_FONT(UI_F_BOLD_20);
+    const char *answer[2] = { lang_str(lang, LS_NO), lang_str(lang, LS_YES) };
+    int w = gfx_text_width(f, answer[0]);
+    if (gfx_text_width(f, answer[1]) > w) {
+        w = gfx_text_width(f, answer[1]);
+    }
+    w += UI_PX(40);
+    int gap = UI_PX(24), x = (fb->width - 2 * w - gap) / 2;
+    bool yes = ui_menu_confirm_yes(m);
+    for (int i = 0; i < 2; i++, x += w + gap) {
+        gfx_rect_t r = { (int16_t)x, (int16_t)y, (int16_t)w, (int16_t)UI_PX(34) };
+        bool chosen = (i == 1) == yes;
+        if (chosen) {
+            gfx_fill_rect(fb, r, GFX_BLACK);
+        } else {
+            ui_frame(fb, r, GFX_BLACK);
+        }
+        gfx_text_in_rect(fb, f, r, GFX_ALIGN_CENTER, answer[i], chosen ? GFX_WHITE : GFX_BLACK);
+    }
+}
+
 void ui_draw_menu(gfx_fb_t *fb, const ui_menu_t *m, const ui_menu_model_t *model, const lang_t *lang)
 {
     gfx_reset_clip(fb);
@@ -173,6 +197,9 @@ void ui_draw_menu(gfx_fb_t *fb, const ui_menu_t *m, const ui_menu_model_t *model
     case UI_MENU_CONFIRM:
         draw_header(fb, ui_menu_label(item, lang));
         draw_question(fb, ui_menu_question(item, lang), MID + UI_PX(110));
+        if (ui_profile()->buttons >= 4) {
+            draw_answers(fb, m, lang, MID + UI_PX(185));
+        }
         draw_hints(fb, lang_str(lang, ui_hint(LS_HINT_CONFIRM)));
         break;
     default:

@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -417,7 +417,7 @@ As built (T3c):
 - **Before DT13:** KEY on IO34, BOOT's role on IO35, with upstream's gestures and timings (upstream §5.6); IO39 and IO0 unused.
 - **DT13 (T4b):** four buttons in the board's order, after RESET: **Back** (IO0), **Up** (IO35), **Enter** (IO34), **Down** (IO39). All active low: IO35, IO34 and IO39 on external pull-ups, IO0 on the chip's own (§2.5 gotcha 23).
 - **The dashboard:** Up and Down step to the previous and the next preset (with the preset's toast; Up skips the same presets the cycle skips, backwards). Enter refreshes, or on the Radar layout plays the last hour or syncs for a frame (upstream's BOOT short). Hold Enter (1 s) opens the menu. Hold Up (3 s) starts config mode. Double Enter turns sync mode `always` on or off; double Down the auto-cycle. Back does nothing here, but like any press it stops the radar's loop.
-- **The menu:** Up and Down move to the previous and the next item, and step a value up and down while editing (Up +, Down −). Enter opens, edits, saves or confirms. Back, or holding Enter, cancels an edit or a confirmation, goes up a level, and at the top closes the menu. The hint line names the four buttons (en and cs).
+- **The menu:** Up and Down move to the previous and the next item, and step a value up and down while editing (Up +, Down −). Enter opens, edits or saves. Back, or holding Enter, cancels an edit or a question, goes up a level, and at the top closes the menu. A question (Forget networks, Reset web password, Factory reset) offers **No** and **Yes**, No chosen when it opens; Up and Down switch, Enter applies the answer chosen, so a quick double Enter on the item lands on No (owner, 2026-10-11). The hint line names the four buttons (en and cs).
 - **Config mode:** Enter as upstream's KEY short (the other code, back); Back or holding Enter turns Wi-Fi off. **First run:** Enter continues, holding Enter opens the menu, holding Up (3 s) starts config mode. **The critical screen and a night peek:** any button.
 - **Waking:** Up (ext1) and Enter (ext0) wake the board from deep sleep; Back and Down can't. After any press the T5 stays awake 5 s (10 s until the owner's battery check, 2026-10-11), so Back and Down work as the next press.
 - **IO0 between updates:** the display pauses IO0's interrupt while it drives the panel (IO0 is then the shift register's strobe) and resumes it after; a press during an update is lost, and if IO0 is still held when an update ends, the next update is clean, as the latch may have missed its word (§2.5 gotcha 2). Holding IO0 at a reset starts download mode.
@@ -541,3 +541,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r10 | 2026-10-11 | DT13: the T5's four buttons, Back on IO0 (§1.2, §2.2, §2.5, §8.3, §9, §11, §12) |
 | r11 | 2026-10-11 | T4b as built (§8.3); gotcha 22, the serial port's press on IO0 (§2.5); T4b done (§11) |
 | r12 | 2026-10-11 | On battery (the owner's check): IO0's pull-up, gotcha 23; the switched battery divider, gotchas 18 and 24, §8.4; the 5 s follow (§8.3); the meter's T4b figures (§8.5); gotcha 3 and §5.4 without the strobe's pull-up |
+| r13 | 2026-10-11 | The T5's questions answer No or Yes, No first (§8.3) |

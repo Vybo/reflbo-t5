@@ -123,6 +123,9 @@ ui_menu_intent_t ui_menu_input(ui_menu_t *m, const ui_menu_model_t *model, ui_me
 void ui_menu_hide_for_board(ui_menu_model_t *model);
 int ui_menu_visible(const ui_menu_t *m, const ui_menu_model_t *model, ui_menu_item_t *out, int max);
 ui_menu_item_t ui_menu_current(const ui_menu_t *m, const ui_menu_model_t *model);
+/* A question on the T5 offers No and Yes, No first; Up and Down switch, Enter applies (T5 spec §8.3). True while
+ * Yes is chosen. The RLCD confirms with KEY held and never chooses. */
+bool ui_menu_confirm_yes(const ui_menu_t *m);
 /* The label of an item in the pack's language. */
 const char *ui_menu_label(ui_menu_item_t item, const lang_t *lang);
 bool ui_menu_is_section(ui_menu_item_t item);

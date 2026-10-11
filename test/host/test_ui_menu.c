@@ -22,7 +22,10 @@ void setUp(void)
     ui_menu_open(&s_m);
 }
 
-void tearDown(void) {}
+void tearDown(void)
+{
+    ui_profile_use(NULL); /* the RLCD's, for the next test */
+}
 
 static ui_menu_intent_t press(ui_menu_key_t key)
 {
@@ -422,6 +425,60 @@ static void test_up_and_down_never_confirm(void)
     TEST_ASSERT_EQUAL(UI_MENU_BROWSE, s_m.mode);
 }
 
+/* T5: the question opens on No, so a quick double Enter (open, then Enter again) cancels instead of confirming. */
+static void test_t5_a_double_enter_cancels(void)
+{
+    ui_profile_use(&ui_profile_t547);
+    open_item(UI_MI_SYSTEM);
+    open_item(UI_MI_FACTORY_RESET);
+    TEST_ASSERT_EQUAL(UI_MENU_CONFIRM, s_m.mode);
+    TEST_ASSERT_FALSE(ui_menu_confirm_yes(&s_m));
+    TEST_ASSERT_EQUAL(UI_MENU_NONE, press(UI_MENU_KEY_SELECT).kind);
+    TEST_ASSERT_EQUAL(UI_MENU_BROWSE, s_m.mode);
+    TEST_ASSERT_EQUAL_INT(UI_MI_FACTORY_RESET, ui_menu_current(&s_m, &s_model));
+}
+
+/* T5: Up or Down moves to Yes, and Enter then runs the action; another step goes back to No. */
+static void test_t5_yes_then_enter_confirms(void)
+{
+    ui_profile_use(&ui_profile_t547);
+    open_item(UI_MI_WIFI);
+    open_item(UI_MI_FORGET_NETWORKS);
+    press(UI_MENU_KEY_DOWN);
+    TEST_ASSERT_TRUE(ui_menu_confirm_yes(&s_m));
+    press(UI_MENU_KEY_UP);
+    TEST_ASSERT_FALSE(ui_menu_confirm_yes(&s_m));
+    press(UI_MENU_KEY_UP);
+    TEST_ASSERT_TRUE(ui_menu_confirm_yes(&s_m));
+    ui_menu_intent_t in = press(UI_MENU_KEY_SELECT);
+    TEST_ASSERT_EQUAL(UI_MENU_ACTION, in.kind);
+    TEST_ASSERT_EQUAL_INT(UI_MI_FORGET_NETWORKS, in.item);
+    TEST_ASSERT_EQUAL(UI_MENU_BROWSE, s_m.mode);
+}
+
+/* T5: a question asked again opens on No, whatever the last one was left on. */
+static void test_t5_each_question_opens_on_no(void)
+{
+    ui_profile_use(&ui_profile_t547);
+    open_item(UI_MI_SYSTEM);
+    open_item(UI_MI_FACTORY_RESET);
+    press(UI_MENU_KEY_DOWN);
+    press(UI_MENU_KEY_ESCAPE); /* cancelled on Yes */
+    press(UI_MENU_KEY_SELECT);
+    TEST_ASSERT_EQUAL(UI_MENU_CONFIRM, s_m.mode);
+    TEST_ASSERT_FALSE(ui_menu_confirm_yes(&s_m));
+}
+
+/* The RLCD has no Up or Down: holding KEY (select) confirms at once, as upstream. */
+static void test_rlcd_select_confirms_at_once(void)
+{
+    open_item(UI_MI_SYSTEM);
+    open_item(UI_MI_FACTORY_RESET);
+    ui_menu_intent_t in = press(UI_MENU_KEY_SELECT);
+    TEST_ASSERT_EQUAL(UI_MENU_ACTION, in.kind);
+    TEST_ASSERT_EQUAL_INT(UI_MI_FACTORY_RESET, in.item);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -444,5 +501,9 @@ int main(void)
     RUN_TEST(test_up_and_down_move_and_step);
     RUN_TEST(test_escape_cancels_goes_up_and_closes);
     RUN_TEST(test_up_and_down_never_confirm);
+    RUN_TEST(test_t5_a_double_enter_cancels);
+    RUN_TEST(test_t5_yes_then_enter_confirms);
+    RUN_TEST(test_t5_each_question_opens_on_no);
+    RUN_TEST(test_rlcd_select_confirms_at_once);
     return UNITY_END();
 }

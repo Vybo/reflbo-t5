@@ -68,6 +68,8 @@ typedef enum {
     LS_M_FACTORY_RESET,
     LS_ON,
     LS_OFF,
+    LS_YES, /* the T5's question answers (T5 spec §8.3) */
+    LS_NO,
     LS_HINT_BROWSE,   /* the button hints at the bottom of the menu (spec §5.6) */
     LS_HINT_EDIT,
     LS_HINT_DATETIME,
