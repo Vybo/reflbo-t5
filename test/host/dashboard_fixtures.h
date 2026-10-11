@@ -500,5 +500,5 @@ static const char *const k_t5_dashboard_fixtures[] = {
     "solar_evening", "energy", "energy_battery", "energy_night_cs", "energy_none", "energy_low",
     "grid_rain_map", "weather_rain_map", "grid_solar", "weather_solar", "focus_solar", "grid_solar_low",
     "split_weather", "split_eight", "split_compact", "split_compact_cs", "split_xs_rows", "split_xs_grid",
-    "split_xs_narrow", NULL
+    "split_xs_narrow", "night", NULL
 };
