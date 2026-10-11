@@ -32,6 +32,22 @@ static int64_t s_closed_ms; /* app_uptime_ms() when the menu last closed */
 
 /* Gesture timings (spec §5.6): the dashboard binds both double presses (BOOT's since M6b, D31) and
  * a 3 s BOOT long press; the menu binds neither double, so KEY short answers at once. */
+#if CONFIG_REFLBO_BOARD_T547
+/* The T5 (T5 spec §8.3): Enter's double and 1 s hold, Up's 3 s hold without a double (so Up answers at once), Down's
+ * double; Back short only. */
+const gesture_config_t k_app_dashboard_buttons[BOARD_BUTTON_COUNT] = {
+    [BOARD_BUTTON_KEY] = { .long_ms = 1000, .double_enabled = true },
+    [BOARD_BUTTON_BOOT] = { .long_ms = 3000, .double_enabled = false },
+    [BOARD_BUTTON_DOWN] = { .long_ms = 1000, .double_enabled = true },
+    [BOARD_BUTTON_BACK] = { .long_ms = 1000, .double_enabled = false },
+};
+static const gesture_config_t k_menu_buttons[BOARD_BUTTON_COUNT] = {
+    [BOARD_BUTTON_KEY] = { .long_ms = 1000, .double_enabled = false },
+    [BOARD_BUTTON_BOOT] = { .long_ms = 1000, .double_enabled = false },
+    [BOARD_BUTTON_DOWN] = { .long_ms = 1000, .double_enabled = false },
+    [BOARD_BUTTON_BACK] = { .long_ms = 1000, .double_enabled = false },
+};
+#else
 const gesture_config_t k_app_dashboard_buttons[BOARD_BUTTON_COUNT] = {
     [BOARD_BUTTON_KEY] = { .long_ms = 1000, .double_enabled = true },
     [BOARD_BUTTON_BOOT] = { .long_ms = 3000, .double_enabled = true },
@@ -40,6 +56,7 @@ static const gesture_config_t k_menu_buttons[BOARD_BUTTON_COUNT] = {
     [BOARD_BUTTON_KEY] = { .long_ms = 1000, .double_enabled = false },
     [BOARD_BUTTON_BOOT] = { .long_ms = 1000, .double_enabled = false },
 };
+#endif
 
 static const uint16_t k_cycle_s[] = { 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600 };
 static const char *const k_cycle_labels[] = { "10 s", "15 s", "30 s", "1 min", "2 min",

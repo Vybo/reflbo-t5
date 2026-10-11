@@ -36,6 +36,7 @@
 #include "sensors.h"
 #include "storage.h"
 #include "timekeeping.h"
+#include "ui_controls.h"
 #include "ui_profile.h"
 #include "ui_screens.h"
 #include "util_snapshot.h"
@@ -84,6 +85,10 @@ _Static_assert(((UI_CAPS_BOARD & UI_CAP_RTC_TRIM) != 0) == BOARD_HAS_RTC_TRIM, "
 _Static_assert(((UI_CAPS_BOARD & UI_CAP_RTC_ALARM_WAKE) != 0) == BOARD_HAS_RTC_ALARM_WAKE, "UI caps: RTC alarm");
 _Static_assert(((UI_CAPS_BOARD & UI_CAP_LPM_RATE) != 0) == BOARD_HAS_LPM_RATE, "UI caps: LPM rate");
 _Static_assert(((UI_CAPS_BOARD & UI_CAP_EPAPER) != 0) == BOARD_IS_EPAPER, "UI caps: e-paper");
+_Static_assert((int)UI_BTN_KEY == BOARD_BUTTON_KEY && (int)UI_BTN_BOOT == BOARD_BUTTON_BOOT, "buttons: KEY and BOOT");
+#if CONFIG_REFLBO_BOARD_T547
+_Static_assert((int)UI_BTN_DOWN == BOARD_BUTTON_DOWN && (int)UI_BTN_BACK == BOARD_BUTTON_BACK, "buttons: the T5's");
+#endif
 
 typedef enum {
     EV_RTC_ALARM,
@@ -288,70 +293,94 @@ static const char *preset_name(void)
     return p->presets[p->active].name;
 }
 
-/* Dashboard bindings (spec §5.6); the menu has its own while it is open. */
+/* What a press does, by the board's controls (upstream §5.6, T5 spec §8.3: ui_controls.c). */
 static void handle_button(board_button_t button, gesture_t gesture)
 {
     power_hold_awake_ms(GRACE_MS);
+    if (BOARD_BUTTON_FOLLOW_MS > 0) {
+        power_hold_awake_ms(BOARD_BUTTON_FOLLOW_MS); /* the T5's Down and Back can't wake it: the next press can (DT13) */
+    }
     if (app_ui_night()) { /* any press keeps the night's dashboard up, awake, as the peek lives in RAM */
         s_peek_until_ms = app_uptime_ms() + PEEK_MS;
         power_hold_awake_ms(PEEK_MS);
     }
     const lang_t *lang = lang_get(app_settings()->language);
     char text[64];
-    if (button != BOARD_BUTTON_BOOT || gesture != GESTURE_SHORT) {
-        app_radar_loop_stop(); /* spec §11.2: KEY short still switches the preset */
+    ui_screen_t screen = app_menu_is_open()       ? UI_SCREEN_MENU
+                         : app_config_active()    ? UI_SCREEN_CONFIG
+                         : app_state()->critical  ? UI_SCREEN_CRITICAL
+                         : app_ui_first_run()     ? UI_SCREEN_FIRST_RUN
+                                                  : UI_SCREEN_DASHBOARD;
+    ui_control_t c = ui_controls(screen, (ui_button_t)button,
+                                 gesture == GESTURE_DOUBLE ? UI_GESTURE_DOUBLE
+                                 : gesture == GESTURE_LONG ? UI_GESTURE_LONG
+                                                           : UI_GESTURE_SHORT);
+    if (c.what != UI_DO_REFRESH) {
+        app_radar_loop_stop(); /* spec §11.2: any other press ends the loop */
     }
-    if (app_menu_is_open()) {
-        bool held = gesture == GESTURE_LONG;
-        app_menu_key(button == BOARD_BUTTON_KEY ? (held ? UI_MENU_KEY_SELECT : UI_MENU_KEY_NEXT)
-                                                : (held ? UI_MENU_KEY_EXIT : UI_MENU_KEY_BACK));
-    } else if (app_config_active()) { /* spec §5.6 */
-        if (button == BOARD_BUTTON_KEY && gesture == GESTURE_SHORT) {
-            app_config_key();
-        } else if (button == BOARD_BUTTON_BOOT && gesture == GESTURE_LONG) {
-            app_config_exit();
-        }
-    } else if (app_state()->critical) {
+    bool always = app_state()->settings.sync_mode == SETTINGS_SYNC_ALWAYS;
+    switch (c.what) {
+    case UI_DO_MENU_KEY:
+        app_menu_key(c.key);
+        break;
+    case UI_DO_CONFIG_KEY:
+        app_config_key();
+        break;
+    case UI_DO_CONFIG_EXIT:
+        app_config_exit();
+        break;
+    case UI_DO_RESAMPLE:
         app_ui_sample(time(NULL)); /* only a recovered battery leaves this screen (spec §8) */
         app_ui_render();
-    } else if (app_ui_first_run()) { /* spec §5.5: KEY leads on to the dashboard or the menu */
-        if (button == BOARD_BUTTON_BOOT && gesture == GESTURE_LONG) {
-            app_config_enter();
-        } else if (button == BOARD_BUTTON_KEY && (gesture == GESTURE_SHORT || gesture == GESTURE_LONG)) {
-            app_ui_end_first_run();
-            if (gesture == GESTURE_LONG) {
-                app_menu_open();
-            }
+        break;
+    case UI_DO_FIRST_RUN_CONTINUE: /* spec §5.5: on to the dashboard, or the menu */
+    case UI_DO_FIRST_RUN_MENU:
+        app_ui_end_first_run();
+        if (c.what == UI_DO_FIRST_RUN_MENU) {
+            app_menu_open();
         }
-    } else if (button == BOARD_BUTTON_KEY && gesture == GESTURE_SHORT) {
-        app_ui_select(ui_presets_next(app_presets(), app_state()->settings.sync_mode == SETTINGS_SYNC_ALWAYS), true);
+        break;
+    case UI_DO_PRESET_NEXT:
+    case UI_DO_PRESET_PREV:
+        app_ui_select(c.what == UI_DO_PRESET_NEXT ? ui_presets_next(app_presets(), always)
+                                                  : ui_presets_prev(app_presets(), always),
+                      true);
         snprintf(text, sizeof(text), "%s: %s", lang_str(lang, LS_T_PRESET), preset_name());
         app_ui_toast(text);
-    } else if (button == BOARD_BUTTON_KEY && gesture == GESTURE_DOUBLE) {
+        break;
+    case UI_DO_CYCLE_TOGGLE:
         app_ui_toggle_cycle();
         app_ui_toast(lang_str(lang, app_presets()->cycle_enabled ? LS_T_CYCLE_ON : LS_T_CYCLE_OFF));
-    } else if (button == BOARD_BUTTON_KEY && gesture == GESTURE_LONG) {
+        break;
+    case UI_DO_MENU_OPEN:
         app_menu_open();
-    } else if (button == BOARD_BUTTON_BOOT && gesture == GESTURE_SHORT &&
-               app_presets()->presets[app_presets()->active].layout == UI_LAYOUT_RADAR) {
-        if (app_radar_loop_start()) {
-            ESP_LOGI(TAG, "BOOT short: the radar's loop"); /* D28 */
+        break;
+    case UI_DO_REFRESH:
+        if (app_presets()->presets[app_presets()->active].layout == UI_LAYOUT_RADAR) {
+            if (app_radar_loop_start()) {
+                ESP_LOGI(TAG, "%s: the radar's loop", board_button_name(button)); /* D28 */
+            } else {
+                ESP_LOGI(TAG, "%s: a sync for a fresh frame", board_button_name(button)); /* D30: no hour to play */
+                app_sync_now_toast();
+            }
         } else {
-            ESP_LOGI(TAG, "BOOT short: a sync for a fresh frame"); /* D30: no hour to play */
-            app_sync_now_toast();
+            app_ui_sample(time(NULL));
+            app_ui_render();
+            ESP_LOGI(TAG, "%s: sensors refreshed", board_button_name(button));
         }
-    } else if (button == BOARD_BUTTON_BOOT && gesture == GESTURE_SHORT) {
-        app_ui_sample(time(NULL));
-        app_ui_render();
-        ESP_LOGI(TAG, "BOOT short: sensors refreshed");
-    } else if (button == BOARD_BUTTON_BOOT && gesture == GESTURE_DOUBLE) { /* spec §5.6, D31 */
+        break;
+    case UI_DO_ALWAYS_TOGGLE: /* spec §5.6, D31 */
         if (app_menu_closed_within(MENU_SETTLE_MS)) {
-            ESP_LOGI(TAG, "BOOT double just after the menu closed: ignored"); /* the presses that backed out */
+            ESP_LOGI(TAG, "double press just after the menu closed: ignored"); /* the presses that backed out */
         } else {
             app_sync_toggle_always();
         }
-    } else if (button == BOARD_BUTTON_BOOT && gesture == GESTURE_LONG) {
-        app_config_enter(); /* 3 s on the dashboard (spec §5.6) */
+        break;
+    case UI_DO_CONFIG_ENTER:
+        app_config_enter(); /* a 3 s hold (spec §5.6) */
+        break;
+    default:
+        break;
     }
     schedule_next();
 }

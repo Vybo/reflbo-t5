@@ -22,6 +22,10 @@ static const char *TAG = "app_config";
 static const gesture_config_t k_config_buttons[BOARD_BUTTON_COUNT] = {
     [BOARD_BUTTON_KEY] = { .long_ms = 1000, .double_enabled = false },
     [BOARD_BUTTON_BOOT] = { .long_ms = 1000, .double_enabled = false },
+#if CONFIG_REFLBO_BOARD_T547
+    [BOARD_BUTTON_DOWN] = { .long_ms = 1000, .double_enabled = false }, /* T5 spec §8.3 */
+    [BOARD_BUTTON_BACK] = { .long_ms = 1000, .double_enabled = false },
+#endif
 };
 
 static bool s_net_ready, s_on, s_qr_url;
