@@ -34,6 +34,10 @@ static gesture_t on_edge(gesture_recogniser_t *g, bool pressed, uint32_t now_ms)
         return GESTURE_NONE;
     }
     if (g->state == ST_PRESSED) {
+        if (!reached(now_ms, g->mark_ms, g->config.min_press_ms)) {
+            g->state = ST_IDLE; /* shorter than a finger's press: a glitch on the line */
+            return GESTURE_NONE;
+        }
         if (g->config.double_enabled) {
             g->state = ST_WAIT_SECOND;
             g->mark_ms = now_ms;

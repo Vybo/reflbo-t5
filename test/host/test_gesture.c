@@ -86,6 +86,19 @@ static void test_tap_shorter_than_debounce_is_caught_at_recheck(void)
     TEST_ASSERT_EQUAL(GESTURE_SHORT, gesture_update(&s_g, false, 1030));
 }
 
+/* T4b: opening the T5's serial port glitches IO0 (the CH9102's auto-reset) for a few ms: Back takes a minimum press,
+ * which a finger always holds. */
+static void test_a_press_shorter_than_the_minimum_gives_nothing(void)
+{
+    gesture_set_config(&s_g, (gesture_config_t){ .long_ms = 1000, .double_enabled = false, .min_press_ms = 60 });
+    gesture_update(&s_g, true, 1000);
+    TEST_ASSERT_EQUAL(GESTURE_NONE, gesture_update(&s_g, false, 1005)); /* the glitch */
+    TEST_ASSERT_EQUAL(GESTURE_NONE, gesture_update(&s_g, false, 1030)); /* settled: dropped, not a short */
+    TEST_ASSERT_FALSE(gesture_busy(&s_g));
+    gesture_update(&s_g, true, 2000);
+    TEST_ASSERT_EQUAL(GESTURE_SHORT, gesture_update(&s_g, false, 2090)); /* a finger's press */
+}
+
 static void test_times_wrap_around(void)
 {
     gesture_update(&s_g, true, UINT32_MAX - 500);
@@ -161,5 +174,6 @@ int main(void)
     RUN_TEST(test_a_button_held_after_its_long_press_is_not_busy);
     RUN_TEST(test_an_ignored_press_gives_nothing_and_its_release_is_debounced);
     RUN_TEST(test_ignoring_a_press_being_timed_drops_it);
+    RUN_TEST(test_a_press_shorter_than_the_minimum_gives_nothing);
     return UNITY_END();
 }

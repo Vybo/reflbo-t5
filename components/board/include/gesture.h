@@ -25,6 +25,7 @@ typedef enum {
 typedef struct {
     uint32_t long_ms;    /* hold time for a long press: 1000, or 3000 for BOOT on the dashboard */
     bool double_enabled; /* wait GESTURE_DOUBLE_MS for a second press before reporting a short one */
+    uint16_t min_press_ms; /* a press released sooner gives nothing: 0 for none (the T5's Back, T5 spec §8.3) */
 } gesture_config_t;
 
 typedef struct {
