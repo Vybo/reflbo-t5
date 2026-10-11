@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4 (§13)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -45,6 +45,7 @@ Fork decisions are numbered DT1, DT2, … so they don't collide with upstream's 
 | DT10 | Owner, 2026-10-07: no RTC module is added. The T5 keeps time with the ESP32's own clock between syncs (NTP) and loses it at power-off until the next sync (§8.1) |
 | DT11 | 2026-10-07: the T5's console is UART0 through the CH9102. A PC can't be detected on it, so console input keeps the board awake for 5 minutes instead (§9) |
 | DT12 | Owner, 2026-10-07 (T1 bring-up): if the ESP32's clock drifts too much, one NTP sync a day is acceptable (upstream's default schedule); a trim from sync to sync stays a proposal (§8.1, §12) |
+| DT13 | 2026-10-11, the owner at the board (T4b): the T5's buttons follow their order on the board's edge, RESET, IO0, IO35, IO34, IO39 (found by logging the owner's presses): **Back** on IO0, **Up** on IO35, **Enter** on IO34, **Down** on IO39. Up and Enter wake the board, as BOOT's and KEY's pins did. IO0 is read only between panel updates, at the owner's choice with its risks (§2.5 gotcha 2). The RLCD keeps its two buttons as they are |
 
 ### 1.3 Out of scope
 
@@ -75,16 +76,16 @@ No RTC, no temperature or humidity sensor, no audio codec, no speaker.
 
 | GPIO | Function | Notes |
 |---|---|---|
-| 0 | The shift register's strobe; also BOOT | Strapping pin; an RTC GPIO. Never read as a button (DT7) |
+| 0 | The shift register's strobe; also BOOT; the **Back** button (DT13) | Strapping pin; an RTC GPIO. Read only between panel updates (§8.3); can't wake the board |
 | 1 / 3 | UART0 TX / RX | The console, through the CH9102 |
 | 5 | Panel CKH | Strapping pin |
 | 18 / 23 | Shift register clock / data | Digital pads: held through deep sleep with `gpio_deep_sleep_hold_en()` (§5.4) |
 | 25 | Panel CKV | RMT |
 | 26 | Panel STH | |
 | 33, 32, 4, 19, 2, 27, 21, 22 | Panel D0–D7 | I2S1 data. IO2 is a strapping pin |
-| 34 | KEY (side button) | Input only, external 100k pull-up; an RTC GPIO (ext0 wake) |
-| 35 | BOOT's role (side button) | Input only, external 100k pull-up; an RTC GPIO (ext1 wake) |
-| 39 | Third side button | Input only, external 100k pull-up; unused |
+| 34 | The **Enter** button (KEY's pin before DT13) | Input only, external 100k pull-up; an RTC GPIO (ext0 wake) |
+| 35 | The **Up** button (BOOT's pin before DT13) | Input only, external 100k pull-up; an RTC GPIO (ext1 wake) |
+| 39 | The **Down** button (DT13) | Input only, external 100k pull-up; can't wake the board (the ESP32 wakes on one ext0 pin and one ext1 group) |
 | 36 | BAT_ADC = VBAT × 1/2 (100k/100k, 1 %) | ADC1 channel 0, free of Wi-Fi |
 | 12–15 | microSD over SPI (MISO, MOSI, SCK, CS); the touch connector's I²C on 14 (SCL) and 15 (SDA), INT on 13; the Grove connectors | Unused in the fork. IO12 and IO15 are strapping pins |
 
@@ -106,7 +107,7 @@ The bits go out last first, then the strobe rises: output enable, mode, PWR_EN (
 ### 2.5 Hardware gotchas
 
 1. **No RTC.** Power-off loses the time; the clock reads 1970 until a sync or a manual set (§8.1).
-2. **IO0 is both BOOT and the strobe.** Pressing BOOT while the driver shifts bits corrupts the latch, which the next clean update repairs. Held at reset, it enters download mode.
+2. **IO0 is both BOOT and the strobe.** Pressing BOOT while the driver shifts bits corrupts the latch, which the next clean update repairs. Held at reset, it enters download mode. Since DT13 it is also the Back button: the firmware reads it only between updates, and an update that ends with it held is followed by a clean one.
 3. **Floating shift-register lines can switch the panel's rails on.** In deep sleep, IO18 and IO23 are digital pads: they keep their level only with `gpio_hold_en()` plus `gpio_deep_sleep_hold_en()`; IO0 stays high on its pull-up (§5.4).
 4. **The panel bus uses strapping pins** (IO0, IO2, IO5). They must be inputs or at their boot level at every reset; epdiy releases them when it powers the panel off.
 5. **VCOM is a trimpot.** If contrast looks wrong, it's set by hand on the board, not in software.
@@ -410,8 +411,16 @@ As built (T3c):
 
 ### 8.3 Buttons
 
-- KEY on IO34, BOOT's role on IO35, both active low with external 100k pull-ups, with the same gestures and timings as upstream (upstream §5.6).
-- IO39 stays free. IO0 is never read (DT7).
+- **Before DT13:** KEY on IO34, BOOT's role on IO35, with upstream's gestures and timings (upstream §5.6); IO39 and IO0 unused.
+- **DT13 (T4b):** four buttons in the board's order, after RESET: **Back** (IO0), **Up** (IO35), **Enter** (IO34), **Down** (IO39). All active low on external pull-ups.
+- **The dashboard:** Up and Down step to the previous and the next preset (with the preset's toast; Up skips the same presets the cycle skips, backwards). Enter refreshes, or on the Radar layout plays the last hour or syncs for a frame (upstream's BOOT short). Hold Enter (1 s) opens the menu. Hold Up (3 s) starts config mode. Double Enter turns sync mode `always` on or off; double Down the auto-cycle. Back does nothing here, but like any press it stops the radar's loop.
+- **The menu:** Up and Down move to the previous and the next item, and step a value up and down while editing (Up +, Down −). Enter opens, edits, saves or confirms. Back, or holding Enter, cancels an edit or a confirmation, goes up a level, and at the top closes the menu. The hint line names the four buttons (en and cs).
+- **Config mode:** Enter as upstream's KEY short (the other code, back); Back or holding Enter turns Wi-Fi off. **First run:** Enter continues, holding Enter opens the menu, holding Up (3 s) starts config mode. **The critical screen and a night peek:** any button.
+- **Waking:** Up (ext1) and Enter (ext0) wake the board from deep sleep; Back and Down can't. After any press the T5 stays awake 10 s, so Back and Down work as the next press.
+- **IO0 between updates:** the display pauses IO0's interrupt while it drives the panel (IO0 is then the shift register's strobe) and resumes it after; a press during an update is lost, and if IO0 is still held when an update ends, the next update is clean, as the latch may have missed its word (§2.5 gotcha 2). Holding IO0 at a reset starts download mode.
+- **Gesture timings:** Back short only; Up short and a 3 s hold on the dashboard; Enter short, double and a 1 s hold; Down short and double on the dashboard. In the menu no button waits for a double press.
+- **The console:** `btn <up|enter|down|back> <short|double|long>` (`key` and `boot` stay as Enter's and Up's names); the logs name the buttons UP, ENTER, DOWN and BACK and print each press and release with its GPIO.
+- **The mapping** is one pure table per board (`ui_controls`), host-tested: the RLCD's pins upstream's behaviour as it is.
 
 ### 8.4 Battery
 
@@ -445,6 +454,7 @@ T4 (2026-10-11): with fast updates a routine deep-sleep minute is awake about 1.
   - `panel clean`: a clean update now.
   - `panel test`: the T5's pattern (`gfx_draw_test_pattern_t5()`): the RLCD's, a 16-step gray ramp, anti-aliased text and an icon, over the whole panel until the next commit. A deep-idle board needs a reset first: the UART can't wake deep sleep.
   - `panel bench`: the clean, GL16 and DU times (T1).
+  - `btn up|enter|down|back <short|double|long>` (DT13, §8.3).
   - `panel sleep|wake` as upstream.
   - `preset cycle <id> on|off` puts a preset in the cycle or takes it out, as the Presets page's box does, and saves `presets.json` (owner, 2026-10-10: the T5's T3a-era file kept the four views out). Shared code: it reaches the RLCD with the merge.
   - `rtc get|set` on the system clock.
@@ -487,6 +497,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | T3b | The views and the grays: Radar and Flights at 960×540, the Solar and Energy layouts, the chart and flow widgets, the map's fonts and marks; §6.4's gray uses | Their renders approved and their goldens committed; each view on the panel (done 2026-10-10) |
 | T3c | The web page: the panel's size and aspect from `/api/layouts`, the split editor's grid, the gray preview; the T5's gray BMPs fetched over Wi-Fi | The page edits a T5 preset and its preview matches the panel (done 2026-10-10) |
 | T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured (built 2026-10-11; the owner's checks on battery and the current open) |
+| T4b | The T5's four buttons (DT13): Back, Up, Enter, Down in the board's order, the controls table, the menu's up, down and escape, the T5's hint lines, IO0 between updates | The owner uses the four buttons on the dashboard and in the menu; the press logs agree |
 
 ## 12. Risks and open items
 
@@ -504,7 +515,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 - **The task watchdog at boot:** a boot to the radar ran two clean updates and the map's render back to back on the app task and starved IDLE1 (found at T3b); `clean_update()` yields a tick after each update.
 - **Merge conflicts** with upstream's M7 in `components/ui`, mostly from `UI_PX()`. Merging `upstream/main` into the fork after each upstream milestone keeps them small.
 - **The T5-ePaper-S3** (LilyGo's newer board) would be a third board choice. Its V2.3 needs the S3 output patch from the fork's history (commit `7232440`); its V2.4 runs stock epdiy. Not planned.
-- **Buttons:** the owner's KEY long opened the menu at T3a's board check (2026-10-10); the rest of the buttons' owner check waits.
+- **Buttons:** the owner found KEY and BOOT out of the board's order (2026-10-11): DT13 maps four buttons; IO0's use as Back carries gotcha 2's risk, by the owner's choice.
 - **The menu's items for missing hardware** are hidden since T4 (§9).
 - **The console over UART drops input during a clean update** (~2.2 s, every menu step on the T5): scripts send button commands paced, and wake a deep-sleeping board only by resetting it (§9).
 
@@ -521,3 +532,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r7 | 2026-10-10 | T3b as built: the grays and line widths the owner chose at the panel, every line 2 px after the review (§6.4); the golden set (§6.5); the maps' zoom step and style (§7.1); the fonts left in the image (§7.2); the views' geometry, the radar's fetch view and the presets' cycle (§7.3); T3b done (§11); PSRAM measured, RainViewer's loop and the LUT's block, line widths, the watchdog at boot (§12) |
 | r8 | 2026-10-10 | T3c as built: the catalogue's `bpp` and `radar`, the page's images, kilometres and hidden rows (§7.4, §9); the fields a board can't fill left out (§4.3); the gray preview and the BMPs checked over Wi-Fi (§6.5); T3c done (§11); RainViewer's loop measured and bounded by PSRAM with room for the next frame and a way out of a failed one (review), ČHMÚ's measured (§12); §6.4's dark half made to agree with AGENTS.md (T3b review) |
 | r9 | 2026-10-11 | T4 as built: the update policy, fast updates, `display.clean_after` and its sentence, the counters (§5.3); the frame drawn again after a wake (§5.5); the night's mark (§5.6); the minute's awake time (§8.5); the menu's hidden items (§9); T4 built (§11); the cold boot, ghosting, the fade on USB, the menu (§12) |
+| r10 | 2026-10-11 | DT13: the T5's four buttons, Back on IO0 (§1.2, §2.2, §2.5, §8.3, §9, §11, §12) |
