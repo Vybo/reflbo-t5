@@ -32,7 +32,12 @@ typedef struct {
     uint8_t gesture;
 } msg_t;
 
+#if CONFIG_REFLBO_BOARD_T547
+static const gpio_num_t k_pins[BOARD_BUTTON_COUNT] = { BOARD_PIN_KEY, BOARD_PIN_BOOT, BOARD_PIN_DOWN, BOARD_PIN_BACK };
+#else
 static const gpio_num_t k_pins[BOARD_BUTTON_COUNT] = { BOARD_PIN_KEY, BOARD_PIN_BOOT };
+#endif
+static volatile bool s_back_paused; /* the T5's Back while IO0 strobes the panel */
 static QueueHandle_t s_queue;
 static board_button_cb_t s_cb;
 static gesture_recogniser_t s_rec[BOARD_BUTTON_COUNT];
@@ -54,9 +59,20 @@ static uint32_t now_ms(void)
     return (uint32_t)(esp_timer_get_time() / 1000);
 }
 
+/* The T5's Back, frozen while IO0 strobes the panel: its level then is the driver's, not a finger's. */
+static bool frozen(int button)
+{
+#if CONFIG_REFLBO_BOARD_T547
+    return button == BOARD_BUTTON_BACK && s_back_paused;
+#else
+    (void)button;
+    return false;
+#endif
+}
+
 bool board_buttons_pressed(board_button_t button)
 {
-    return gpio_get_level(k_pins[button]) == 0;
+    return !frozen(button) && gpio_get_level(k_pins[button]) == 0;
 }
 
 static void report(board_button_t button, gesture_t gesture)
@@ -94,12 +110,11 @@ static void buttons_task(void *arg)
             board_button_t b = (board_button_t)msg.button;
             switch (msg.kind) {
             case MSG_EDGE:
-#ifdef BOARD_PIN_SPARE
-                if (msg.button == BOARD_BUTTON_COUNT) { /* the spare button: logged only, for the owner's layout */
-                    ESP_LOGI(TAG, "IO%d %s", BOARD_PIN_SPARE, gpio_get_level(BOARD_PIN_SPARE) == 0 ? "pressed" : "released");
-                    break;
+                if (frozen(b)) {
+                    break; /* the strobe's own edges */
                 }
-                ESP_LOGI(TAG, "IO%d %s", k_pins[b], board_buttons_pressed(b) ? "pressed" : "released");
+#if CONFIG_REFLBO_BOARD_T547
+                ESP_LOGI(TAG, "IO%d %s", k_pins[b], board_buttons_pressed(b) ? "pressed" : "released"); /* DT13 */
 #endif
                 report(b, gesture_update(&s_rec[b], board_buttons_pressed(b), now_ms()));
                 break;
@@ -115,7 +130,9 @@ static void buttons_task(void *arg)
                 break;
             case MSG_RESYNC:
                 for (int i = 0; i < BOARD_BUTTON_COUNT; i++) {
-                    report((board_button_t)i, gesture_update(&s_rec[i], board_buttons_pressed(i), now_ms()));
+                    if (!frozen(i)) {
+                        report((board_button_t)i, gesture_update(&s_rec[i], board_buttons_pressed(i), now_ms()));
+                    }
                 }
                 break;
             case MSG_IGNORE:
@@ -133,7 +150,9 @@ static void buttons_task(void *arg)
         }
         bool busy = false;
         for (int b = 0; b < BOARD_BUTTON_COUNT; b++) {
-            report((board_button_t)b, gesture_update(&s_rec[b], board_buttons_pressed(b), now_ms()));
+            if (!frozen(b)) {
+                report((board_button_t)b, gesture_update(&s_rec[b], board_buttons_pressed(b), now_ms()));
+            }
             busy |= gesture_busy(&s_rec[b]);
         }
         s_busy = busy;
@@ -159,27 +178,34 @@ esp_err_t board_buttons_start(board_button_cb_t cb, const gesture_config_t confi
         gpio_config_t io = {
             .pin_bit_mask = 1ULL << k_pins[b],
             .mode = GPIO_MODE_INPUT,
-            .intr_type = GPIO_INTR_ANYEDGE, /* both buttons have external pull-ups */
+            .intr_type = GPIO_INTR_ANYEDGE, /* every button has an external pull-up */
         };
         ESP_RETURN_ON_ERROR(gpio_config(&io), TAG, "button pin");
         ESP_RETURN_ON_ERROR(gpio_isr_handler_add(k_pins[b], on_edge, (void *)(uintptr_t)b), TAG, "button ISR");
     }
-#ifdef BOARD_PIN_SPARE
-    /* The T5's third side button: its presses are logged with the others' (`buttons: IO39 pressed`), so the owner's
-     * presses map the GPIOs to their places on the board's edge. It wakes nothing. */
-    gpio_config_t spare = {
-        .pin_bit_mask = 1ULL << BOARD_PIN_SPARE,
-        .mode = GPIO_MODE_INPUT,
-        .intr_type = GPIO_INTR_ANYEDGE, /* an external pull-up */
-    };
-    ESP_RETURN_ON_ERROR(gpio_config(&spare), TAG, "spare pin");
-    ESP_RETURN_ON_ERROR(gpio_isr_handler_add(BOARD_PIN_SPARE, on_edge, (void *)(uintptr_t)BOARD_BUTTON_COUNT), TAG,
-                        "spare ISR");
-#endif
     BaseType_t ok = xTaskCreatePinnedToCore(buttons_task, "buttons", TASK_STACK, NULL, TASK_PRIORITY, NULL,
                                             tskNO_AFFINITY);
     ESP_RETURN_ON_FALSE(ok == pdPASS, ESP_ERR_NO_MEM, TAG, "task");
     return ESP_OK;
+}
+
+void board_buttons_back_pause(bool paused)
+{
+#if CONFIG_REFLBO_BOARD_T547
+    if (paused) {
+        s_back_paused = true;
+        gpio_set_intr_type(BOARD_PIN_BACK, GPIO_INTR_DISABLE);
+        return;
+    }
+    gpio_set_intr_type(BOARD_PIN_BACK, GPIO_INTR_ANYEDGE); /* the panel's driver re-configured the pin */
+    gpio_intr_enable(BOARD_PIN_BACK);
+    s_back_paused = false;
+    if (s_queue != NULL) {
+        post((msg_t){ .kind = MSG_RESYNC }); /* a Back held through the update starts its press now */
+    }
+#else
+    (void)paused;
+#endif
 }
 
 void board_buttons_inject(board_button_t button, gesture_t gesture)
@@ -215,7 +241,12 @@ bool board_buttons_busy(void)
 
 const char *board_button_name(board_button_t button)
 {
+#if CONFIG_REFLBO_BOARD_T547
+    static const char *const k_names[BOARD_BUTTON_COUNT] = { "ENTER", "UP", "DOWN", "BACK" }; /* DT13 */
+    return button < BOARD_BUTTON_COUNT ? k_names[button] : "?";
+#else
     return button == BOARD_BUTTON_KEY ? "KEY" : "BOOT";
+#endif
 }
 
 const char *board_gesture_name(gesture_t gesture)

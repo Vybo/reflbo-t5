@@ -4,6 +4,7 @@
 
 #include "esp_err.h"
 #include "gesture.h"
+#include "sdkconfig.h"
 
 /*
  * KEY and BOOT buttons -> gestures (spec §5.6). Edges arrive by interrupt; a task times the
@@ -11,8 +12,12 @@
  */
 
 typedef enum {
-    BOARD_BUTTON_KEY,
-    BOARD_BUTTON_BOOT,
+    BOARD_BUTTON_KEY,  /* the T5's Enter (IO34) */
+    BOARD_BUTTON_BOOT, /* the T5's Up (IO35) */
+#if CONFIG_REFLBO_BOARD_T547
+    BOARD_BUTTON_DOWN, /* IO39 (T5 spec §8.3, DT13) */
+    BOARD_BUTTON_BACK, /* IO0, also the panel's strobe: read only between updates */
+#endif
     BOARD_BUTTON_COUNT,
 } board_button_t;
 
@@ -33,5 +38,8 @@ void board_buttons_set_config(const gesture_config_t config[BOARD_BUTTON_COUNT])
 /* True while a gesture is being timed or an edge is queued; sleeping then would lose it. */
 bool board_buttons_busy(void);
 bool board_buttons_pressed(board_button_t button);
+/* The T5's Back is IO0, the panel's strobe while it updates (T5 spec §2.5 gotcha 2): the display pauses it around
+ * each update and resumes it after; a held Back then starts a press. No-op on the RLCD. */
+void board_buttons_back_pause(bool paused);
 const char *board_button_name(board_button_t button);
 const char *board_gesture_name(gesture_t gesture);

@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "board_buttons.h"
 #include "epaper_board.h"
 #include "epaper_budget.h"
 #include "epaper_update.h"
@@ -67,10 +68,12 @@ static void hl_init_once(void)
         return;
     }
     esp_log_level_set("epdiy", ESP_LOG_ERROR); /* epd_init() warns from its second call on */
+    board_buttons_back_pause(true); /* IO0 is the strobe while epdiy has it (DT13) */
     epd_init(&epd_board_lilygo_t5_47, &ED047TC1, EPD_OPTIONS);
     s_hl = epd_hl_init(NULL); /* the display's own waveform: epdiy_ED047TC1 */
     epd_deinit();
     epaper_board_idle();
+    board_buttons_back_pause(false);
     s_hl_ready = true;
 }
 
@@ -91,6 +94,7 @@ static esp_err_t panel_up(void)
     /* epd_init() sets the board each time and warns from the second on; routine wakes print warnings. P5's
      * LUT fallback logs as "epd" and stays. */
     esp_log_level_set("epdiy", ESP_LOG_ERROR);
+    board_buttons_back_pause(true); /* IO0 is the strobe until panel_down() (DT13) */
     epd_init(&epd_board_lilygo_t5_47, &ED047TC1, EPD_OPTIONS);
     uint32_t internal = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
     if (s_stats.min_internal == 0 || internal < s_stats.min_internal) {
@@ -105,6 +109,10 @@ static void panel_down(void)
     epd_poweroff();
     epd_deinit();
     epaper_board_idle();
+    board_buttons_back_pause(false);
+    if (board_buttons_pressed(BOARD_BUTTON_BACK)) {
+        s_policy.clean_next = true; /* Back held through the update: the latch may have missed a word (gotcha 2) */
+    }
 }
 
 /* The panel to white from whatever it shows, flashing, with epdiy's buffers to match. */
