@@ -56,9 +56,10 @@
 #define TETHER_RECHECK_MS 1000
 #define RETRY_S           300  /* after a failed boot with no PC attached */
 #define SNAP_MAGIC        0x72666c62u /* "rflb" */
-#define SNAP_VERSION      11 /* 6: the weather, the air quality and the syncs' state; 7: the rain; 8: split presets;
+#define SNAP_VERSION      12 /* 6: the weather, the air quality and the syncs' state; 7: the rain; 8: split presets;
                                    9: 24 cells (M6c); 10: the solar state and the sync's two steps (M6d);
-                                   11: the Developer API's plant (D37) */
+                                   11: the Developer API's plant (D37); 12: the shown frame's time and the
+                                   T5's update count (T4) */
 #define PEEK_MS           60000 /* a button during the night shows the dashboard this long (spec §9.1) */
 #define NIGHT_RECHECK_S   60    /* a night sleep with a button held looks again this often (D16) */
 #define CRITICAL_RECHECK_S 600  /* the critical sleep checks again this often if KEY is held */
@@ -487,6 +488,9 @@ static void enter_deep_sleep(time_t wake)
 static void enter_night_sleep(void)
 {
     time_t until = app_state()->night_until;
+    if (BOARD_IS_EPAPER) {
+        app_ui_render(); /* the panel keeps the dashboard: the moon and the end time first (T5 spec §5.6) */
+    }
     esp_err_t err = display_sleep();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "panel sleep: %s", esp_err_to_name(err));
@@ -648,6 +652,9 @@ static esp_err_t boot(void)
         return ESP_ERR_INVALID_STATE;
     }
     app_ui_apply_settings(); /* offsets, freshness and the panel rate, now that the panel is up */
+    if (warm) {
+        app_ui_restore_shown(); /* e-paper: what the panel shows, so the update can be fast (T5 spec §5.5) */
+    }
     ESP_RETURN_ON_ERROR(board_buttons_start(on_button, k_app_dashboard_buttons), TAG, "buttons");
     ESP_RETURN_ON_ERROR(start_rtc_int(), TAG, "RTC INT");
     ignore_held_buttons();

@@ -16,6 +16,7 @@
 #define BOARD_HAS_RTC_CHIP       0 /* the ESP32's own clock keeps time (DT10) */
 #define BOARD_HAS_RTC_ALARM_WAKE 0 /* no RTC: the ESP32's timer wakes the board */
 #define BOARD_HAS_LPM_RATE       0 /* e-paper: no refresh rate to set */
+#define BOARD_IS_EPAPER          1 /* the panel keeps its image unpowered; fast and clean updates (T4) */
 #define BOARD_RADAR_RV_KB        768 /* RainViewer's frames held and the one coming: 4 MB of PSRAM mapped (T3c) */
 #else
 #define BOARD_NAME               "rlcd42"
@@ -26,5 +27,6 @@
 #define BOARD_HAS_RTC_CHIP       1
 #define BOARD_HAS_RTC_ALARM_WAKE 1
 #define BOARD_HAS_LPM_RATE       1
+#define BOARD_IS_EPAPER          0
 #define BOARD_RADAR_RV_KB        2048 /* RainViewer's frames held and the one coming: its hour fits 8 MB of PSRAM */
 #endif

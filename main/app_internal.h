@@ -62,6 +62,7 @@ typedef struct {
     time_t night_until;   /* night sleep ends here (UTC, on a minute); 0 = no night (spec §9.1) */
     time_t sched_checked; /* schedule entries up to this time have run (spec §5.4) */
     time_t cold_boot_at;  /* for Info > Uptime; 0 while the clock is unset */
+    time_t shown_at;      /* the time the frame on the panel was drawn for (T5 spec §5.5) */
     bool critical;        /* the critical-battery screen is up (spec §8) */
     bool first_run;       /* settings.json didn't exist at boot: the first-run screen (spec §5.5) */
     app_sync_state_t sync;
@@ -85,8 +86,15 @@ void app_ui_apply_settings(void);
 /* Draws what the screen shows now (the menu, the critical screen or the dashboard, and a toast
  * over it) and pushes it. */
 void app_ui_render(void);
+/* What app_ui_render() draws (critical, setup, first run or the dashboard), into `fb`, without the flights' poll,
+ * the toast or the commit. */
+void app_ui_draw(gfx_fb_t *fb, const ui_context_t *ctx);
+/* After a warm wake on e-paper: the frame the panel shows, drawn again for the time it was drawn for, for the
+ * display to adopt (T5 spec §5.5). Nothing on the RLCD. */
+void app_ui_restore_shown(void);
 /* The context a render uses right now (also for the `field` command). */
 void app_ui_context(ui_context_t *ctx);
+void app_ui_context_at(ui_context_t *ctx, time_t now); /* as at `now` */
 void app_ui_sample(time_t now); /* SHTC3 and battery into the datastore */
 /* Makes preset `index` active and renders it. `persist` saves presets.json (manual switches). */
 void app_ui_select(int index, bool persist);

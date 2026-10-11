@@ -184,6 +184,7 @@ void app_ui_apply_settings(void)
     /* Spec §5.1: stale after 15 min, but never before the next reading is due. */
     uint32_t ttl = (uint32_t)s.settings.sensors_every_min * 120u;
     ttl = ttl < 900 ? 900 : ttl;
+    display_set_clean_after(s.settings.clean_after); /* T5 spec §5.3; nothing on the RLCD */
     for (int f = 0; f < DS_FIELD_COUNT; f++) {
         ds_set_ttl(&s.ds, (ds_field_t)f, ttl);
     }
@@ -212,7 +213,11 @@ static int32_t local_day(const struct tm *local)
 
 void app_ui_context(ui_context_t *ctx)
 {
-    time_t now = time(NULL);
+    app_ui_context_at(ctx, time(NULL));
+}
+
+void app_ui_context_at(ui_context_t *ctx, time_t now)
+{
     *ctx = (ui_context_t){ .now = now, .time_valid = timekeeping_valid(), .ds = &s.ds,
                            .lang = lang_get(s.settings.language), .clock_24h = s.settings.clock_24h,
                            .fahrenheit = s.settings.fahrenheit,
@@ -249,22 +254,45 @@ void app_ui_render(void)
     app_radar_prepare(active);
     ui_context_t ctx;
     app_ui_context(&ctx);
-    if (s.critical) {
-        ui_draw_critical(fb, &ctx);
-    } else if (app_config_shows_setup()) { /* while a phone is logged in, the dashboard (D20) */
-        app_config_draw(fb, ctx.lang);
-    } else if (s.first_run) {
-        ui_draw_first_run(fb, &ctx);
-    } else {
-        ui_draw_dashboard(fb, &ctx, &s.presets.presets[s.presets.active]);
-    }
+    app_ui_draw(fb, &ctx);
     if (app_ui_toast_active()) {
         ui_draw_toast(fb, s_toast);
     }
     esp_err_t err = display_commit(false);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "display: %s", esp_err_to_name(err));
+    } else {
+        s.shown_at = ctx.now; /* the snapshot carries it: a wake draws this frame again (T5 spec §5.5) */
     }
+}
+
+void app_ui_draw(gfx_fb_t *fb, const ui_context_t *ctx)
+{
+    if (s.critical) {
+        ui_draw_critical(fb, ctx);
+    } else if (app_config_shows_setup()) { /* while a phone is logged in, the dashboard (D20) */
+        app_config_draw(fb, ctx->lang);
+    } else if (s.first_run) {
+        ui_draw_first_run(fb, ctx);
+    } else {
+        ui_draw_dashboard(fb, ctx, &s.presets.presets[s.presets.active]);
+    }
+}
+
+void app_ui_restore_shown(void)
+{
+    gfx_fb_t *fb = display_fb();
+    if (fb == NULL || !display_wants_shown() || app_menu_is_open()) {
+        return;
+    }
+    int64_t start = app_uptime_ms();
+    app_radar_prepare(&s.presets.presets[s.presets.active]); /* its frame from its file: PSRAM lost it */
+    ui_context_t ctx;
+    app_ui_context_at(&ctx, s.shown_at);
+    app_ui_draw(fb, &ctx);
+    bool matched = display_adopt_shown();
+    ESP_LOGI(TAG, "shown frame drawn again in %lld ms: %s", (long long)(app_uptime_ms() - start),
+             matched ? "fast updates go on" : "the next update is clean");
 }
 
 void app_ui_toast(const char *text)
@@ -521,6 +549,7 @@ void app_ui_select(int index, bool persist)
     if (index < 0 || index >= s.presets.count) {
         return;
     }
+    display_clean_next(); /* a preset switch flashes clean on e-paper (T5 spec §5.3) */
     s.presets.active = (uint8_t)index;
     if (s.presets.cycle_enabled) {
         s.cycle_at = time(NULL) + s.presets.cycle_interval_s; /* a switch restarts the interval */
