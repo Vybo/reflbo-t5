@@ -107,6 +107,7 @@ const ui_profile_t ui_profile_t547 = {
     .height = 540,
     .status_h = 34,
     .caps = UI_CAPS_T547,
+    .buttons = 4,
     .format = GFX_FMT_4BPP,
     .px_num = 17,
     .px_den = 10,

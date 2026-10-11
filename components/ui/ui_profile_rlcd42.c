@@ -143,6 +143,7 @@ const ui_profile_t ui_profile_rlcd42 = {
     .height = 300,
     .status_h = 20,
     .caps = UI_CAPS_RLCD42,
+    .buttons = 2,
     .format = GFX_FMT_1BPP,
     .px_num = 1,
     .px_den = 1,

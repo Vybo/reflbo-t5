@@ -65,6 +65,7 @@ typedef struct {
     int16_t width, height;
     int16_t status_h; /* the status bar; its line is the row below it */
     uint32_t caps;    /* UI_CAP_* */
+    uint8_t buttons;  /* the buttons the UI is driven by: 2 on the RLCD (KEY, BOOT), 4 on the T5 (T5 spec §8.3) */
     uint8_t format;   /* gfx_format_t: the panel's frame, 1 bpp on the RLCD, 4 bpp on the T5 */
     uint8_t px_num, px_den;                            /* UI_PX(): n × num / den rounded; 1/1 on the RLCD */
     const gfx_font_t *const *fonts;                    /* [UI_F_COUNT] */
