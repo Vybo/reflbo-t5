@@ -94,6 +94,13 @@ static void buttons_task(void *arg)
             board_button_t b = (board_button_t)msg.button;
             switch (msg.kind) {
             case MSG_EDGE:
+#ifdef BOARD_PIN_SPARE
+                if (msg.button == BOARD_BUTTON_COUNT) { /* the spare button: logged only, for the owner's layout */
+                    ESP_LOGI(TAG, "IO%d %s", BOARD_PIN_SPARE, gpio_get_level(BOARD_PIN_SPARE) == 0 ? "pressed" : "released");
+                    break;
+                }
+                ESP_LOGI(TAG, "IO%d %s", k_pins[b], board_buttons_pressed(b) ? "pressed" : "released");
+#endif
                 report(b, gesture_update(&s_rec[b], board_buttons_pressed(b), now_ms()));
                 break;
             case MSG_INJECT:
@@ -157,6 +164,18 @@ esp_err_t board_buttons_start(board_button_cb_t cb, const gesture_config_t confi
         ESP_RETURN_ON_ERROR(gpio_config(&io), TAG, "button pin");
         ESP_RETURN_ON_ERROR(gpio_isr_handler_add(k_pins[b], on_edge, (void *)(uintptr_t)b), TAG, "button ISR");
     }
+#ifdef BOARD_PIN_SPARE
+    /* The T5's third side button: its presses are logged with the others' (`buttons: IO39 pressed`), so the owner's
+     * presses map the GPIOs to their places on the board's edge. It wakes nothing. */
+    gpio_config_t spare = {
+        .pin_bit_mask = 1ULL << BOARD_PIN_SPARE,
+        .mode = GPIO_MODE_INPUT,
+        .intr_type = GPIO_INTR_ANYEDGE, /* an external pull-up */
+    };
+    ESP_RETURN_ON_ERROR(gpio_config(&spare), TAG, "spare pin");
+    ESP_RETURN_ON_ERROR(gpio_isr_handler_add(BOARD_PIN_SPARE, on_edge, (void *)(uintptr_t)BOARD_BUTTON_COUNT), TAG,
+                        "spare ISR");
+#endif
     BaseType_t ok = xTaskCreatePinnedToCore(buttons_task, "buttons", TASK_STACK, NULL, TASK_PRIORITY, NULL,
                                             tskNO_AFFINITY);
     ESP_RETURN_ON_FALSE(ok == pdPASS, ESP_ERR_NO_MEM, TAG, "task");
