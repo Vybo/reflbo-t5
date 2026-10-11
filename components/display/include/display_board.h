@@ -15,13 +15,16 @@ typedef struct {
     uint32_t last_crc;    /* CRC of the frame last committed */
     bool pushed;
     uint16_t since_clean; /* counted updates since the last clean one (T4) */
+    uint32_t fast, clean, failed; /* since the cold boot, through deep sleep: `panel status` after a `sleep test` */
+    uint16_t matched, missed;     /* wakes whose shown frame was drawn again and matched, or didn't */
 } display_state_t;
 
 /* `panel status` (T5 spec §9). */
 typedef struct {
     uint32_t updates;        /* since boot, that ran */
-    uint32_t fast, clean;    /* of them (T4) */
-    uint32_t failed;         /* refused by epdiy's RAM budget or a draw error */
+    uint32_t fast, clean;    /* since the cold boot, through deep sleep (T4) */
+    uint32_t failed;         /* refused by epdiy's RAM budget or a draw error, since the cold boot */
+    uint16_t matched, missed; /* wakes whose shown frame matched, or didn't, since the cold boot */
     uint32_t last_ms;        /* the last update, from epdiy's start to its end */
     uint32_t min_internal;   /* the least free internal RAM seen with epdiy up, bytes; 0 before the first */
     uint16_t since_clean;    /* counted updates since the last clean one */

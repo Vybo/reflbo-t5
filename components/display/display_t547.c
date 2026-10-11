@@ -174,6 +174,11 @@ esp_err_t display_init_warm(const display_state_t *state)
     s_pushed = state->pushed;
     s_policy.known = false;
     s_policy.since_clean = state->since_clean;
+    s_stats.fast = state->fast;
+    s_stats.clean = state->clean;
+    s_stats.failed = state->failed;
+    s_stats.matched = state->matched;
+    s_stats.missed = state->missed;
     return ESP_OK;
 }
 
@@ -185,7 +190,9 @@ esp_err_t display_init_lost(void)
 
 void display_export(display_state_t *out)
 {
-    *out = (display_state_t){ .last_crc = s_last_crc, .pushed = s_pushed, .since_clean = s_policy.since_clean };
+    *out = (display_state_t){ .last_crc = s_last_crc, .pushed = s_pushed, .since_clean = s_policy.since_clean,
+                              .fast = s_stats.fast, .clean = s_stats.clean, .failed = s_stats.failed,
+                              .matched = s_stats.matched, .missed = s_stats.missed };
 }
 
 bool display_wants_shown(void)
@@ -200,10 +207,12 @@ bool display_adopt_shown(void)
     }
     if (util_crc32(0, s_fb.buf, FRAME_SIZE) != s_last_crc) {
         ESP_LOGI(TAG, "shown frame: unknown, the next update is clean");
+        s_stats.missed++;
         return false;
     }
     memcpy(s_hl.back_fb, s_fb.buf, FRAME_SIZE);
     s_policy.known = true;
+    s_stats.matched++;
     ESP_LOGI(TAG, "shown frame: matched");
     return true;
 }

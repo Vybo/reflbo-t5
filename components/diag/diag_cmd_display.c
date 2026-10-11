@@ -112,8 +112,10 @@ static int print_status(void)
     printf("panel e-paper: %lu updates since boot, the last %lu ms (%s); internal RAM at least %lu free with epdiy up\n",
            (unsigned long)st.updates, (unsigned long)st.last_ms, k_modes[st.last_mode < 4 ? st.last_mode : 0],
            (unsigned long)st.min_internal);
-    printf("  fast %lu, clean %lu, failed %lu since boot; %u since the last clean, every %u; last area %d,%d %dx%d\n",
-           (unsigned long)st.fast, (unsigned long)st.clean, (unsigned long)st.failed, (unsigned)st.since_clean,
+    printf("  since the cold boot: fast %lu, clean %lu, failed %lu; wakes' frames matched %u, missed %u\n",
+           (unsigned long)st.fast, (unsigned long)st.clean, (unsigned long)st.failed, (unsigned)st.matched,
+           (unsigned)st.missed);
+    printf("  %u since the last clean, every %u; last area %d,%d %dx%d\n", (unsigned)st.since_clean,
            (unsigned)st.clean_after, st.last_x, st.last_y, st.last_w, st.last_h);
     return 0;
 }
