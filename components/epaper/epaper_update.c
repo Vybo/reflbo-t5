@@ -57,12 +57,12 @@ epaper_mode_t epaper_choose(const epaper_policy_t *p, const epaper_change_t *c)
     return c->bw_only ? EPAPER_DU : EPAPER_GL16;
 }
 
-void epaper_after(epaper_policy_t *p, epaper_mode_t mode, bool ok)
+void epaper_after(epaper_policy_t *p, epaper_mode_t mode, epaper_result_t result)
 {
-    if (mode == EPAPER_NONE) {
-        return;
+    if (mode == EPAPER_NONE || result == EPAPER_REFUSED) {
+        return; /* nothing reached the panel */
     }
-    if (!ok) {
+    if (result == EPAPER_FAILED) {
         p->known = false; /* the panel may show anything between the two frames: the next is clean */
         return;
     }

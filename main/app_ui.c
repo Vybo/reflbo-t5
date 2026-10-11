@@ -550,7 +550,9 @@ void app_ui_select(int index, bool persist)
     if (index < 0 || index >= s.presets.count) {
         return;
     }
-    display_clean_next(); /* a preset switch flashes clean on e-paper (T5 spec §5.3) */
+    if (index != s.presets.active && !app_menu_is_open()) {
+        display_clean_next(); /* a preset switch flashes clean on e-paper; in the menu, leaving it does (T5 spec §5.3) */
+    }
     s.presets.active = (uint8_t)index;
     if (s.presets.cycle_enabled) {
         s.cycle_at = time(NULL) + s.presets.cycle_interval_s; /* a switch restarts the interval */
@@ -636,7 +638,7 @@ void app_ui_tick(bool force)
     }
     time_t slot = now - now % 60;
     bool new_slot = slot != s.done_slot;
-    bool render = force || (!BOARD_IS_EPAPER && s.presets.presets[s.presets.active].seconds); /* T5 spec §5.3 */
+    bool render = force || ui_preset_every_second(&s.presets.presets[s.presets.active]); /* T5 spec §5.3 */
     if (force || (new_slot && scheduler_is_slot(slot, s.settings.sensors_every_min))) {
         app_ui_sample(now);
         render = true;
@@ -668,7 +670,7 @@ sched_wake_t app_ui_next_wake(time_t now)
         .display_every_min = s.settings.display_every_min,
         .sensors_every_min = s.settings.sensors_every_min,
         .cycle_at = s.presets.cycle_enabled ? s.cycle_at : 0,
-        .every_second = s.presets.presets[s.presets.active].seconds,
+        .every_second = ui_preset_every_second(&s.presets.presets[s.presets.active]), /* no 1 s wakes on e-paper */
         .schedule_at = schedule_runs() ? ui_schedule_next(&s.presets.schedule, now, &index) : 0,
         .sync_at = s.critical || s.night_until != 0 ? 0 : app_sync_due(),
     };

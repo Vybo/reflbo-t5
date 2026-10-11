@@ -125,6 +125,20 @@ static void test_no_t5_screen_has_a_1_px_rule(void)
     }
 }
 
+/* T4's review: the T5 still woke every second for a seconds preset (the scheduler's input), though it drew none. */
+static void test_a_seconds_preset_is_drawn_every_second_only_off_e_paper(void)
+{
+    ui_context_t ctx;
+    ui_preset_t preset;
+    TEST_ASSERT_TRUE(fixture_dashboard("focus_seconds", &ctx, &preset));
+    TEST_ASSERT_TRUE(ui_preset_every_second(&preset));
+    ui_profile_use(&ui_profile_t547);
+    TEST_ASSERT_FALSE(ui_preset_every_second(&preset));
+    preset.seconds = false;
+    ui_profile_use(NULL);
+    TEST_ASSERT_FALSE(ui_preset_every_second(&preset));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -133,5 +147,6 @@ int main(void)
     RUN_TEST(test_a_night_puts_a_moon_and_its_end_in_the_t5_status_bar);
     RUN_TEST(test_the_t5_moon_has_a_2_px_outline);
     RUN_TEST(test_no_t5_screen_has_a_1_px_rule);
+    RUN_TEST(test_a_seconds_preset_is_drawn_every_second_only_off_e_paper);
     return UNITY_END();
 }

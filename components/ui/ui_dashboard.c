@@ -70,7 +70,7 @@ void ui_draw_dashboard(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t 
     if (preset->clock != UI_CLOCK_DEFAULT) {
         c.clock_24h = preset->clock == UI_CLOCK_24H;
     }
-    c.seconds = preset->seconds && !(ui_profile()->caps & UI_CAP_EPAPER); /* e-paper: hours and minutes (T5 spec §5.3) */
+    c.seconds = ui_preset_every_second(preset); /* e-paper: hours and minutes (T5 spec §5.3) */
 
     gfx_reset_clip(fb);
     gfx_clear(fb, GFX_WHITE);
@@ -101,4 +101,9 @@ void ui_draw_dashboard(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t 
     if (preset->invert) {
         gfx_clear(fb, GFX_INVERT);
     }
+}
+
+bool ui_preset_every_second(const ui_preset_t *preset)
+{
+    return preset->seconds && !(ui_profile()->caps & UI_CAP_EPAPER);
 }

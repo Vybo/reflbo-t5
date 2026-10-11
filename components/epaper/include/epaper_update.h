@@ -28,6 +28,12 @@ typedef struct {
 /* An unknown frame or a clean request: clean, even unchanged. Otherwise nothing for no change; clean for the
  * clean_after-th counted update; DU for a black-and-white change, GL16 for any other. */
 epaper_mode_t epaper_choose(const epaper_policy_t *p, const epaper_change_t *c);
-/* After an update of `mode` ran: a clean one restarts the count, a counted fast one adds to it; a failed one leaves
- * the panel's frame unknown (the next is clean) and the count as it was. */
-void epaper_after(epaper_policy_t *p, epaper_mode_t mode, bool ok);
+typedef enum {
+    EPAPER_DONE,    /* it ran */
+    EPAPER_FAILED,  /* it started and failed: the panel may show part of it */
+    EPAPER_REFUSED, /* refused before it drew (epdiy's RAM budget): the panel still shows its frame */
+} epaper_result_t;
+
+/* After an update of `mode`: a clean one restarts the count, a counted fast one adds to it; a failed one leaves the
+ * panel's frame unknown (the next is clean) and the count as it was; a refused one changes nothing. */
+void epaper_after(epaper_policy_t *p, epaper_mode_t mode, epaper_result_t result);

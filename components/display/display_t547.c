@@ -301,9 +301,11 @@ esp_err_t display_commit(bool force)
         return ESP_OK;
     }
     esp_err_t err = mode == EPAPER_CLEAN ? clean_update() : fast_update(mode, &change);
-    epaper_after(&s_policy, mode, err == ESP_OK);
+    /* panel_up() refuses with ESP_ERR_NO_MEM before anything reaches the panel (epdiy's RAM budget, routine in a
+     * sync): the frame there stays known. Anything else failed on the way and may have left part of it. */
+    epaper_after(&s_policy, mode, err == ESP_OK ? EPAPER_DONE : err == ESP_ERR_NO_MEM ? EPAPER_REFUSED : EPAPER_FAILED);
     if (err != ESP_OK) {
-        s_pushed = false; /* the panel may show part of it: the next commit draws, clean (T3a review) */
+        s_pushed = false; /* the next commit tries again (T3a review) */
         s_stats.failed++;
         return err;
     }
