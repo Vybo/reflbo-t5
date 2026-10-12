@@ -500,7 +500,7 @@ static const char *const k_dashboard_fixtures[] = { "home", "indoor", "weather",
                                                     "weather_solar", "focus_solar", "solar", "solar_actual",
                                                     "solar_cs", "solar_none", "energy", "energy_battery",
                                                     "energy_night_cs", "energy_none", "energy_low",
-                                                    "grid_solar_low", "solar_evening" };
+                                                    "grid_solar_low", "solar_evening", "split_titles" };
 
 /* The fixtures with a T5 golden (test/host/golden/t5/dash_<name>.pgm.gz), NULL-terminated: each joins once the
  * owner has approved its render (T5 spec DT2). */
@@ -517,5 +517,5 @@ static const char *const k_t5_dashboard_fixtures[] = {
     "solar_evening", "energy", "energy_battery", "energy_night_cs", "energy_none", "energy_low",
     "grid_rain_map", "weather_rain_map", "grid_solar", "weather_solar", "focus_solar", "grid_solar_low",
     "split_weather", "split_eight", "split_compact", "split_compact_cs", "split_xs_rows", "split_xs_grid",
-    "split_xs_narrow", "night", NULL
+    "split_xs_narrow", "night", "split_titles", NULL
 };
