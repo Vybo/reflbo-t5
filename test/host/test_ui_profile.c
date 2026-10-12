@@ -279,7 +279,7 @@ static void test_a_scale_of_three_thirds_draws_every_rlcd_golden(void)
         ui_preset_t preset;
         TEST_ASSERT_TRUE_MESSAGE(fixture_dashboard(k_dashboard_fixtures[i], &ctx, &preset), k_dashboard_fixtures[i]);
         gfx_fb_init(&fb, s_fb_buf, 400, 300);
-        ui_draw_dashboard(&fb, &ctx, &preset, NULL);
+        ui_draw_dashboard(&fb, &ctx, &preset, fixture_titles(k_dashboard_fixtures[i]));
         snprintf(path, sizeof(path), "%s/dash_%s.pbm", GOLDEN_DIR, k_dashboard_fixtures[i]);
         expect_golden(&fb, path);
     }
