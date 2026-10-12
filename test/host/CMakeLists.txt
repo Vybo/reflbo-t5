@@ -286,6 +286,8 @@ target_compile_definitions(test_ui_profile PRIVATE GOLDEN_DIR="${CMAKE_CURRENT_S
 reflbo_host_test(test_ui_schedule ui)
 reflbo_host_test(test_ui_widget_fit ui)
 target_include_directories(test_ui_widget_fit PRIVATE ${REPO_ROOT}/components/ui) # ui_widget_draw(), fresh and stale
+reflbo_host_test(test_ui_titles ui)
+target_include_directories(test_ui_titles PRIVATE ${REPO_ROOT}/components/ui) # ui_widget_labelled() (T4c)
 reflbo_host_test(test_ui_menu ui)
 reflbo_host_test(test_ui_config ui)
 reflbo_host_test(test_ui_catalog ui cjson)

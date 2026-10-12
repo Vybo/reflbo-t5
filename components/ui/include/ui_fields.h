@@ -160,7 +160,8 @@ typedef struct {
     ui_field_kind_t kind;
     ui_value_state_t state;
     uint32_t age_s;    /* how old a stale value is */
-    const char *label; /* from the language pack */
+    const char *label; /* from the language pack, or the slot's own title (T5 spec §7.5) */
+    bool *label_shown; /* T4c: set where a widget draws `label` (ui_label()); NULL: nobody asks */
     char text[48];     /* the value: "23.4", "20:48", "Friday 25 September", a name */
     char unit[8];      /* "°C", "%", "d", or the AM/PM suffix of a time */
     char extra[24];    /* secondary text: the seconds, the medium date, the illumination, the voltage */

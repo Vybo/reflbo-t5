@@ -429,7 +429,7 @@ static void draw_chart_widget(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const 
     int pen = gfx_text(fb, tf, r.x + UI_PX(26), top + UI_PX(13), t, GFX_BLACK);
     const gfx_font_t *lf = size == UI_SIZE_M ? UI_FONT(UI_F_SANS_12) : UI_FONT(UI_F_SANS_16);
     if (pen + UI_PX(8) + gfx_text_width(lf, v->label) <= r.x + r.w - UI_PX(6)) {
-        gfx_text(fb, lf, r.x + r.w - UI_PX(6) - gfx_text_width(lf, v->label), top + UI_PX(13), v->label, GFX_BLACK);
+        gfx_text(fb, lf, r.x + r.w - UI_PX(6) - gfx_text_width(lf, v->label), top + UI_PX(13), ui_label(v), GFX_BLACK);
     }
     top += UI_PX(20);
     draw_chart(fb, (gfx_rect_t){ (int16_t)(r.x + UI_PX(2)), (int16_t)top, (int16_t)(r.w - UI_PX(4)), (int16_t)(r.y + r.h - top - UI_PX(2)) },
@@ -605,7 +605,7 @@ static void draw_flow_widget(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const u
 {
     const gfx_font_t *lf = size == UI_SIZE_M ? UI_FONT(UI_F_SANS_12) : UI_FONT(UI_F_SANS_16);
     bool watts = flow_in_watts(v->solar->reading);
-    int top = heading(fb, r, lf, v->label, watts ? "W" : "kW");
+    int top = heading(fb, r, lf, ui_label(v), watts ? "W" : "kW");
     if (r.y + r.h - top >= UI_PX(76)) {
         flow_diagram(fb, r, top, v->solar, lang, watts);
     } else {
