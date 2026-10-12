@@ -276,7 +276,9 @@ void app_ui_draw(gfx_fb_t *fb, const ui_context_t *ctx)
     } else if (s.first_run) {
         ui_draw_first_run(fb, ctx);
     } else {
-        ui_draw_dashboard(fb, ctx, &s.presets.presets[s.presets.active]);
+        ui_titles_t titles; /* the preset's own (T5 spec §7.5) */
+        ui_presets_titles(&s.presets, s.presets.active, &titles);
+        ui_draw_dashboard(fb, ctx, &s.presets.presets[s.presets.active], &titles);
     }
 }
 

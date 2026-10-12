@@ -47,7 +47,7 @@ int main(int argc, char **argv)
     const ui_profile_t *p = ui_profile();
     gfx_fb_t fb;
     gfx_fb_init_fmt(&fb, buf, p->width, p->height, p->format);
-    ui_draw_dashboard(&fb, &ctx, &preset);
+    ui_draw_dashboard(&fb, &ctx, &preset, fixture_titles(argv[argc - 2]));
     size_t n = t5 ? gfx_pgm_encode(&fb, img, sizeof(img)) : gfx_pbm_encode(&fb, img, sizeof(img));
     return golden_write(argv[argc - 1], img, n) ? 0 : 1;
 }

@@ -30,7 +30,7 @@ static void render(const char *name, bool seconds, time_t night_until, uint8_t *
     ctx.night_until = night_until;
     const ui_profile_t *p = ui_profile();
     gfx_fb_init_fmt(fb, buf, p->width, p->height, (gfx_format_t)p->format);
-    ui_draw_dashboard(fb, &ctx, &preset);
+    ui_draw_dashboard(fb, &ctx, &preset, NULL);
 }
 
 static void test_epaper_is_a_t5_capability(void)

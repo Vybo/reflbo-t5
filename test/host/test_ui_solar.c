@@ -225,14 +225,14 @@ static void draw_preset(const char *fixture)
     TEST_ASSERT_TRUE(fixture_dashboard(fixture, &ctx, &preset));
     s_ctx = ctx;
     gfx_fb_init(&s_fb, s_buf, 400, 300);
-    ui_draw_dashboard(&s_fb, &s_ctx, &preset);
+    ui_draw_dashboard(&s_fb, &s_ctx, &preset, NULL);
 }
 
 static void redraw(const char *preset_id)
 {
     ui_preset_t preset = fixture_preset(preset_id);
     gfx_fb_init(&s_fb, s_buf, 400, 300);
-    ui_draw_dashboard(&s_fb, &s_ctx, &preset);
+    ui_draw_dashboard(&s_fb, &s_ctx, &preset, NULL);
 }
 
 #define EM_DASH 0x2014
@@ -311,7 +311,7 @@ static void render_t5(const char *name, gfx_fb_t *fb)
     ui_preset_t preset;
     TEST_ASSERT_TRUE_MESSAGE(fixture_dashboard(name, &ctx, &preset), name);
     gfx_fb_init_fmt(fb, s_buf4, 960, 540, GFX_FMT_4BPP);
-    ui_draw_dashboard(fb, &ctx, &preset);
+    ui_draw_dashboard(fb, &ctx, &preset, NULL);
 }
 
 static int last_ink_row(const gfx_fb_t *fb, int y0)

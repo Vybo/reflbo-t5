@@ -30,7 +30,7 @@ static void check(const char *name, const char *dir, const char *prefix, const c
     const ui_profile_t *p = ui_profile();
     gfx_fb_t fb;
     gfx_fb_init_fmt(&fb, s_buf, p->width, p->height, p->format);
-    ui_draw_dashboard(&fb, &ctx, &preset);
+    ui_draw_dashboard(&fb, &ctx, &preset, fixture_titles(name));
     size_t n = p->format == GFX_FMT_4BPP ? gfx_pgm_encode(&fb, s_img, sizeof(s_img))
                                          : gfx_pbm_encode(&fb, s_img, sizeof(s_img));
 

@@ -279,7 +279,7 @@ static void test_a_scale_of_three_thirds_draws_every_rlcd_golden(void)
         ui_preset_t preset;
         TEST_ASSERT_TRUE_MESSAGE(fixture_dashboard(k_dashboard_fixtures[i], &ctx, &preset), k_dashboard_fixtures[i]);
         gfx_fb_init(&fb, s_fb_buf, 400, 300);
-        ui_draw_dashboard(&fb, &ctx, &preset);
+        ui_draw_dashboard(&fb, &ctx, &preset, NULL);
         snprintf(path, sizeof(path), "%s/dash_%s.pbm", GOLDEN_DIR, k_dashboard_fixtures[i]);
         expect_golden(&fb, path);
     }
@@ -374,7 +374,7 @@ static void test_the_t5_sun_in_a_narrow_cell_stacks_from_the_top_in_a_larger_fac
     gfx_rect_t r = ui_layout(UI_LAYOUT_CLASSIC)->slots[4].rect;
     gfx_fb_t fb;
     gfx_fb_init_fmt(&fb, buf, 960, 540, GFX_FMT_4BPP);
-    ui_draw_dashboard(&fb, &ctx, &preset);
+    ui_draw_dashboard(&fb, &ctx, &preset, NULL);
     int top = -1, bottom = -1, left = r.x + r.w, right = -1;
     for (int y = r.y; y < r.y + r.h; y++) {
         for (int x = r.x + 2; x < r.x + r.w - 2; x++) { /* clear of the separators at the cell's edges */
@@ -444,12 +444,12 @@ static void test_the_status_line_is_gray_on_the_t5(void)
     gfx_fb_t fb;
     TEST_ASSERT_TRUE(fixture_dashboard("home", &ctx, &preset));
     gfx_fb_init(&fb, buf, 400, 300);
-    ui_draw_dashboard(&fb, &ctx, &preset);
+    ui_draw_dashboard(&fb, &ctx, &preset, NULL);
     TEST_ASSERT_TRUE(gfx_get_pixel(&fb, 200, 20));
     ui_profile_use(&ui_profile_t547);
     TEST_ASSERT_TRUE(fixture_dashboard("home", &ctx, &preset));
     gfx_fb_init_fmt(&fb, buf, 960, 540, GFX_FMT_4BPP);
-    ui_draw_dashboard(&fb, &ctx, &preset);
+    ui_draw_dashboard(&fb, &ctx, &preset, NULL);
     TEST_ASSERT_EQUAL_UINT8_MESSAGE(2, gfx_get_level(&fb, 480, 34), "a dark gray (board check)");
     TEST_ASSERT_EQUAL_UINT8_MESSAGE(2, gfx_get_level(&fb, 480, 33), "2 px wide: 1 px hardly shows on the panel");
     TEST_ASSERT_EQUAL_UINT8_MESSAGE(15, gfx_get_level(&fb, 480, 35), "the content's first row stays clear");
