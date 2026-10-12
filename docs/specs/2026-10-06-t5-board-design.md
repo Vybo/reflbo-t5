@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3); r14 designs titles and shared presets (DT14, §7.5)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -46,12 +46,13 @@ Fork decisions are numbered DT1, DT2, … so they don't collide with upstream's 
 | DT11 | 2026-10-07: the T5's console is UART0 through the CH9102. A PC can't be detected on it, so console input keeps the board awake for 5 minutes instead (§9) |
 | DT12 | Owner, 2026-10-07 (T1 bring-up): if the ESP32's clock drifts too much, one NTP sync a day is acceptable (upstream's default schedule); a trim from sync to sync stays a proposal (§8.1, §12) |
 | DT13 | 2026-10-11, the owner at the board (T4b): the T5's buttons follow their order on the board's edge, RESET, IO0, IO35, IO34, IO39 (found by logging the owner's presses): **Back** on IO0, **Up** on IO35, **Enter** on IO34, **Down** on IO39. Up and Enter wake the board, as BOOT's and KEY's pins did. IO0 is read only between panel updates, at the owner's choice with its risks (§2.5 gotcha 2). The RLCD keeps its two buttons as they are |
+| DT14 | Owner, 2026-10-12: a preset can be exported from the web page to a file and imported on another device of either board; every slot and split cell can carry its own title in place of its field's label; a split cell can show its title always, whatever its size (§7.5). Shared code, backported upstream, where it is proposed as a decision of its own |
 
 ### 1.3 Out of scope
 
 - Touch (the owner's board has none), an RTC module (DT10), audio, the SHTC3's fields, the RTC trim, the microSD (upstream's M9).
 - The T5-ePaper-S3 (§12).
-- A new feature for either board. Anything beyond porting is a proposal for the owner, as upstream (upstream D10).
+- A new feature for either board. Anything beyond porting is a proposal for the owner, as upstream (upstream D10). The owner asked for one so far, DT14 (§7.5), built for both boards and backported upstream.
 
 ## 2. The LilyGo T5-4.7 (ESP32, revision V2.3)
 
@@ -388,6 +389,28 @@ As built (T3c):
 - A radar zoom's kilometres are the Radar layout's map at the zoom plus the board's step: at Brno, zoom 6.5 spans about 452 km on the RLCD and 645 km on the T5.
 - `has(cap)` hides what the board lacks: the Status page's temperature and humidity, the Device page's offsets and refresh rate (its save then leaves them as they are in the file), the Sync page's clock-chip trim.
 
+### 7.5 Titles and shared presets (T4c, DT14)
+
+Both boards; the same code goes upstream.
+
+**Titles.** A slot of a fixed layout and a cell of a split preset can carry a title of their own, at most 23 bytes of UTF-8 (a preset name's limit), that the widget shows in place of its field's label wherever it shows one. Control characters in a title become spaces. A split cell can also show its title always ("force title"):
+- if the size its field draws at shows a label already, nothing changes;
+- otherwise the title takes a line above the value, in the M size's label font, when the cell's height under that line still fits the field at some size; the field then draws at the size that height allows;
+- otherwise it goes beside the value, in the 16 px role's font when the cell is tall enough for it (else the 12 px role's), cut to at most half the cell's width, when the width left still fits the field;
+- otherwise the value shows alone: the cell has no room for both.
+A slot or cell the stale policy leaves empty shows no title either.
+
+Every preset's titles live together in the deep-sleep snapshot (the presets do, upstream gotcha 11): a pool of 768 bytes in `ui_presets_t`, each title taking its text, its terminator and two bytes, about 60 titles of ten letters in all. A file whose titles don't fit is refused, with the reason. The pool and the force bits (a 32-bit mask a preset) raise the snapshot's limit from 6 KB to 7 KB (both chips have 8 KB of RTC slow memory; before T4c the T5 used 6.0 KB of it, the RLCD 6.0 KB).
+
+In `presets.json` (older firmware ignores both, and drops them when it saves):
+- a split cell: `{"field": "env.temp", "title": "Obývák", "force_title": true}`, each key left out when unset;
+- a fixed layout's slots: `"titles": {"main": "Obývák"}` beside `"slots"`.
+
+**Export and import** live on the web page's Presets page, with no new API:
+- Export downloads the preset as the editor holds it, as `<id>.json`: `{"reflbo": "preset", "version": 1, "preset": {…}}`.
+- Import reads such a file (or a bare preset object with a `layout`), gives it an id no preset has, puts it in the cycle and after the selected preset, and asks the device to render it (`POST /api/preview.bmp`). The device checks it as it checks a save: a preset the board can't show (a split part under the board's least cell, a field a cell can't hold, an unknown layout or field) is refused with the device's reason, and nothing is added. Keys the board doesn't know (another firmware's, as upstream's cycle windows on the T5) are dropped at the next save. As for any change, Save stores it.
+- A preset exported on one board imports on the other when it fits: a split tree is ratios, so the T5's larger panel takes every RLCD tree; the RLCD can refuse a T5 tree whose small cells are under its 40×20.
+
 ## 8. Time, wake, buttons, battery and power on the T5
 
 ### 8.1 Time without an RTC (DT10)
@@ -504,6 +527,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | T3c | The web page: the panel's size and aspect from `/api/layouts`, the split editor's grid, the gray preview; the T5's gray BMPs fetched over Wi-Fi | The page edits a T5 preset and its preview matches the panel (done 2026-10-10) |
 | T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured (built 2026-10-11; the owner's checks on battery and the current open) |
 | T4b | The T5's four buttons (DT13): Back, Up, Enter, Down in the board's order, the controls table, the menu's up, down and escape, the T5's hint lines, IO0 between updates | The owner uses the four buttons on the dashboard and in the menu; the press logs agree (done 2026-10-11) |
+| T4c | Titles and shared presets (DT14, §7.5): a slot's or cell's own title, a split cell's forced title, export and import on the Presets page; both boards; backported upstream | The owner approves the renders; a titled split preset on the panel; a preset exported from the page imports again |
 
 ## 12. Risks and open items
 
@@ -542,3 +566,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r11 | 2026-10-11 | T4b as built (§8.3); gotcha 22, the serial port's press on IO0 (§2.5); T4b done (§11) |
 | r12 | 2026-10-11 | On battery (the owner's check): IO0's pull-up, gotcha 23; the switched battery divider, gotchas 18 and 24, §8.4; the 5 s follow (§8.3); the meter's T4b figures (§8.5); gotcha 3 and §5.4 without the strobe's pull-up |
 | r13 | 2026-10-11 | The T5's questions answer No or Yes, No first (§8.3) |
+| r14 | 2026-10-12 | DT14: titles and shared presets (§1.2, §1.3, §7.5, §11) |
