@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3); r14 designs titles and shared presets (DT14, §7.5)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3); r14 designs titles and shared presets (DT14, §7.5); r15 records them as built
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -411,6 +411,8 @@ In `presets.json` (older firmware ignores both, and drops them when it saves):
 - Import reads such a file (or a bare preset object with a `layout`), gives it an id no preset has, puts it in the cycle and after the selected preset, and asks the device to render it (`POST /api/preview.bmp`). The device checks it as it checks a save: a preset the board can't show (a split part under the board's least cell, a field a cell can't hold, an unknown layout or field) is refused with the device's reason, and nothing is added. Keys the board doesn't know (another firmware's, as upstream's cycle windows on the T5) are dropped at the next save. As for any change, Save stores it.
 - A preset exported on one board imports on the other when it fits: a split tree is ratios, so the T5's larger panel takes every RLCD tree; the RLCD can refuse a T5 tree whose small cells are under its 40×20.
 
+**As built (T4c, 2026-10-12).** The pool's records are sorted by preset and slot and end at an empty text, so a zeroed pool holds none. Whether a widget shows its label is a dry run of `ui_widget_draw()` with an empty clip: the widgets mark the label where they draw it (`ui_label()`), so the answer is exact for every widget and size (the host test compares it with the pixels of 2178 cases on both boards). A title over the pool's room is refused as "titles: 768 bytes at most in all presets, each title taking 3 more". The snapshot is 6712 bytes on the T5 (RTC slow memory 7024 of 8168) and 6832 on the RLCD (6984 of 8192, with M6e's windows); upstream's M7 as planned adds about 180 bytes there, past the 7 KB limit, so its refresh moves the quarter-hour readings out of RTC RAM or the pool into RTC fast memory (upstream spec §6, D42). The largest `presets.json` the parser takes is 47006 bytes on the T5 and 48030 on the RLCD (limit 49152). Upstream has the same code as D42 (branch `feat/titles-share`). The owner checked the panel, a titled split preset with a forced title, and an export imported again on 2026-10-12.
+
 ## 8. Time, wake, buttons, battery and power on the T5
 
 ### 8.1 Time without an RTC (DT10)
@@ -527,7 +529,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | T3c | The web page: the panel's size and aspect from `/api/layouts`, the split editor's grid, the gray preview; the T5's gray BMPs fetched over Wi-Fi | The page edits a T5 preset and its preview matches the panel (done 2026-10-10) |
 | T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured (built 2026-10-11; the owner's checks on battery and the current open) |
 | T4b | The T5's four buttons (DT13): Back, Up, Enter, Down in the board's order, the controls table, the menu's up, down and escape, the T5's hint lines, IO0 between updates | The owner uses the four buttons on the dashboard and in the menu; the press logs agree (done 2026-10-11) |
-| T4c | Titles and shared presets (DT14, §7.5): a slot's or cell's own title, a split cell's forced title, export and import on the Presets page; both boards; backported upstream | The owner approves the renders; a titled split preset on the panel; a preset exported from the page imports again |
+| T4c | Titles and shared presets (DT14, §7.5): a slot's or cell's own title, a split cell's forced title, export and import on the Presets page; both boards; backported upstream | The owner approves the renders; a titled split preset on the panel; a preset exported from the page imports again (done 2026-10-12) |
 
 ## 12. Risks and open items
 
@@ -567,3 +569,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r12 | 2026-10-11 | On battery (the owner's check): IO0's pull-up, gotcha 23; the switched battery divider, gotchas 18 and 24, §8.4; the 5 s follow (§8.3); the meter's T4b figures (§8.5); gotcha 3 and §5.4 without the strobe's pull-up |
 | r13 | 2026-10-11 | The T5's questions answer No or Yes, No first (§8.3) |
 | r14 | 2026-10-12 | DT14: titles and shared presets (§1.2, §1.3, §7.5, §11) |
+| r15 | 2026-10-12 | T4c as built: the pool, the label's dry run, the sizes (§7.5); T4c done (§11) |
