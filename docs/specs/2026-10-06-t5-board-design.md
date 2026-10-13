@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3); r14 designs titles and shared presets (DT14, §7.5); r15 records them as built
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3); r14 designs titles and shared presets (DT14, §7.5); r15 records them as built; r16 designs the last sync's time in the status bar (DT15, §7.6)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -47,12 +47,13 @@ Fork decisions are numbered DT1, DT2, … so they don't collide with upstream's 
 | DT12 | Owner, 2026-10-07 (T1 bring-up): if the ESP32's clock drifts too much, one NTP sync a day is acceptable (upstream's default schedule); a trim from sync to sync stays a proposal (§8.1, §12) |
 | DT13 | 2026-10-11, the owner at the board (T4b): the T5's buttons follow their order on the board's edge, RESET, IO0, IO35, IO34, IO39 (found by logging the owner's presses): **Back** on IO0, **Up** on IO35, **Enter** on IO34, **Down** on IO39. Up and Enter wake the board, as BOOT's and KEY's pins did. IO0 is read only between panel updates, at the owner's choice with its risks (§2.5 gotcha 2). The RLCD keeps its two buttons as they are |
 | DT14 | Owner, 2026-10-12: a preset can be exported from the web page to a file and imported on another device of either board; every slot and split cell can carry its own title in place of its field's label; a split cell can show its title always, whatever its size (§7.5). Shared code, backported upstream, where it is proposed as a decision of its own |
+| DT15 | Owner, 2026-10-13: a preset can show the last good sync's time in the status bar, on the left after the marks; today's time, an earlier day's weekday and time, a date after a week (§7.6). Both boards, backported upstream as for DT14 |
 
 ### 1.3 Out of scope
 
 - Touch (the owner's board has none), an RTC module (DT10), audio, the SHTC3's fields, the RTC trim, the microSD (upstream's M9).
 - The T5-ePaper-S3 (§12).
-- A new feature for either board. Anything beyond porting is a proposal for the owner, as upstream (upstream D10). The owner asked for one so far, DT14 (§7.5), built for both boards and backported upstream.
+- A new feature for either board. Anything beyond porting is a proposal for the owner, as upstream (upstream D10). The owner asked for two so far, DT14 (§7.5) and DT15 (§7.6), each built for both boards and backported upstream.
 
 ## 2. The LilyGo T5-4.7 (ESP32, revision V2.3)
 
@@ -413,6 +414,16 @@ In `presets.json` (older firmware ignores both, and drops them when it saves):
 
 **As built (T4c, 2026-10-12).** The pool's records are sorted by preset and slot and end at an empty text, so a zeroed pool holds none. Whether a widget shows its label is a dry run of `ui_widget_draw()` with an empty clip: the widgets mark the label where they draw it (`ui_label()`), so the answer is exact for every widget and size (the host test compares it with the pixels of 2178 cases on both boards). A title over the pool's room is refused as "titles: 768 bytes at most in all presets, each title taking 3 more". The snapshot is 6712 bytes on the T5 (RTC slow memory 7024 of 8168) and 6832 on the RLCD (6984 of 8192, with M6e's windows); upstream's M7 as planned adds about 180 bytes there, past the 7 KB limit, so its refresh moves the quarter-hour readings out of RTC RAM or the pool into RTC fast memory (upstream spec §6, D42). The largest `presets.json` the parser takes is 47006 bytes on the T5 and 48030 on the RLCD (limit 49152). Upstream has the same code as D42 (branch `feat/titles-share`). The owner checked the panel, a titled split preset with a forced title, and an export imported again on 2026-10-12.
 
+### 7.6 The last sync's time in the status bar (T4d, DT15)
+
+Both boards; the same code goes upstream.
+
+- **Option:** a preset's `"status_sync": true` in its options, written only when on (older firmware ignores it and drops it at its next save). The Presets page has "Last sync time" under Status bar, beside "A small clock". Off by default, in the built-in presets too.
+- **Which time:** when the last sync that succeeded started, the verdict that also clears the failed-sync mark (the house's energy doesn't count, upstream D36); the time Menu ▸ Info ▸ Last sync gives for it. It is kept through deep sleep with the syncs' state, not through a cold boot: after a power-on or a restart nothing shows until a sync succeeds. Nothing shows while the clock is unset either.
+- **How it reads,** in the 12 px role's font, the 12- or 24-hour form as the device is set: today `14:05`; one to six days before `Mon 14:05`; a week or more before, or a later day (the clock went back), the language's short date (`18 Sep`, `18. 9.`).
+- **Where:** on the left after the marks (stale or Set time, web, sync, Wi-Fi, and the T5's night with its end time), up to the clock in the middle when the preset shows it, else to the battery's text. If it doesn't fit, an earlier day shows its weekday alone (`Mon`); if that doesn't fit either, nothing.
+- **Cost:** 4 bytes in the snapshot's sync state (`SNAP_VERSION` 14) and 19 bytes a preset in `presets.json` when on; no wake of its own: it changes with a sync, or at midnight with the minute's update.
+
 ## 8. Time, wake, buttons, battery and power on the T5
 
 ### 8.1 Time without an RTC (DT10)
@@ -530,6 +541,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured (built 2026-10-11; the owner's checks on battery and the current open) |
 | T4b | The T5's four buttons (DT13): Back, Up, Enter, Down in the board's order, the controls table, the menu's up, down and escape, the T5's hint lines, IO0 between updates | The owner uses the four buttons on the dashboard and in the menu; the press logs agree (done 2026-10-11) |
 | T4c | Titles and shared presets (DT14, §7.5): a slot's or cell's own title, a split cell's forced title, export and import on the Presets page; both boards; backported upstream | The owner approves the renders; a titled split preset on the panel; a preset exported from the page imports again (done 2026-10-12) |
+| T4d | The last sync's time in the status bar (DT15, §7.6): a preset's option, both boards, backported upstream | The owner approves the renders; the time on the panel after a sync |
 
 ## 12. Risks and open items
 
@@ -570,3 +582,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r13 | 2026-10-11 | The T5's questions answer No or Yes, No first (§8.3) |
 | r14 | 2026-10-12 | DT14: titles and shared presets (§1.2, §1.3, §7.5, §11) |
 | r15 | 2026-10-12 | T4c as built: the pool, the label's dry run, the sizes (§7.5); T4c done (§11) |
+| r16 | 2026-10-13 | DT15: the last sync's time in the status bar (§1.2, §1.3, §7.6, §11) |
