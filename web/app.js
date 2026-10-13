@@ -1465,6 +1465,11 @@ function renderPresets(ed) {
         : null,
     check('invert', 'White on black'), field('Old or missing data', stale),
     h('label', {}, 'Status bar'), check('status_clock', 'A small clock'),
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!o.status_sync, onchange: (ev) => {
+      if (ev.target.checked) o.status_sync = true;
+      else delete o.status_sync; /* the device writes it only when on (T5 spec §7.6) */
+      changed(ed, false);
+    } }), 'Last sync time'),
     part('percent', 'Battery level'), part('voltage', 'Battery voltage'), part('days', 'Days of battery left'),
     actions(
       button('Export', () => download(new Blob([JSON.stringify({ reflbo: 'preset', version: 1, preset: p }, null, 2)],

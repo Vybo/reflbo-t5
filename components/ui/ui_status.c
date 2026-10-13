@@ -5,10 +5,39 @@
 #include "gfx_icons.h"
 #include "ui_internal.h"
 #include "ui_profile.h"
+#include "util_time.h"
+
+void ui_sync_time_text(const ui_context_t *ctx, time_t at, bool brief, char *out, size_t size)
+{
+    struct tm local;
+    localtime_r(&at, &local);
+    int64_t days = ctx->local_day - util_days_from_civil(local.tm_year + 1900, local.tm_mon + 1, local.tm_mday);
+    char hm[16];
+    ui_clock_text(ctx, at, hm, sizeof(hm));
+    if (days == 0) {
+        snprintf(out, size, "%s", hm);
+    } else if (days > 0 && days < 7) {
+        snprintf(out, size, "%s%s%s", ctx->lang->weekdays_short[local.tm_wday], brief ? "" : " ", brief ? "" : hm);
+    } else { /* a week or more ago, or a later day: the clock went back since */
+        lang_format_date(ctx->lang, &local, LANG_DATE_SHORT, out, size);
+    }
+}
+
+bool ui_sync_time_fit(const ui_context_t *ctx, time_t at, const gfx_font_t *font, int room, char *out, size_t size)
+{
+    for (int brief = 0; brief < 2; brief++) {
+        ui_sync_time_text(ctx, at, brief != 0, out, size);
+        if (gfx_text_width(font, out) <= room) {
+            return true;
+        }
+    }
+    snprintf(out, size, "%s", "");
+    return false;
+}
 
 /* Status bar (spec §5.2): "Set time" or a stale warning on the left, then a globe while a phone is
- * logged in to the web UI (D20), the sync state and in sync mode `always` the Wi-Fi state; an
- * optional clock in the middle, the battery on the right with its level, voltage or days left as
+ * logged in to the web UI (D20), the sync state and in sync mode `always` the Wi-Fi state, the T5's night, and
+ * the last good sync's time if the preset asks (T5 spec §7.6); an optional clock in the middle, the battery on the right with its level, voltage or days left as
  * the preset asks. */
 void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *preset, bool any_stale)
 {
@@ -57,6 +86,7 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
         gfx_text_in_rect(fb, UI_FONT(UI_F_BOLD_16),
                          (gfx_rect_t){ (int16_t)(left + d + UI_PX(4)), 0, (int16_t)UI_PX(120), UI_STATUS_H },
                          GFX_ALIGN_LEFT, until, GFX_BLACK);
+        left += d + UI_PX(4) + gfx_text_width(UI_FONT(UI_F_BOLD_16), until) + UI_PX(8);
     }
 
     if (preset->status_clock && ctx->time_valid) {
@@ -100,6 +130,15 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
     gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12),
                      (gfx_rect_t){ (int16_t)(x - UI_PX(124)), 0, (int16_t)UI_PX(120), UI_STATUS_H }, GFX_ALIGN_RIGHT,
                      fit, GFX_BLACK);
+    if (preset->status_sync && ctx->time_valid && ctx->sync_ok_at != 0) { /* T5 spec §7.6: after the marks */
+        int right = preset->status_clock ? (fb->width - UI_PX(160)) / 2 : x - UI_PX(124); /* the clock, or the text */
+        char when[48];
+        if (ui_sync_time_fit(ctx, ctx->sync_ok_at, UI_FONT(UI_F_SANS_12), right - UI_PX(4) - left, when, sizeof(when))) {
+            gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12),
+                             (gfx_rect_t){ (int16_t)left, 0, (int16_t)(right - left), UI_STATUS_H }, GFX_ALIGN_LEFT,
+                             when, GFX_BLACK);
+        }
+    }
     for (int i = 0; i < UI_PX(1); i++) { /* the T5's 2 px, its upper row inside the bar (owner, board check) */
         gfx_hline(fb, 0, UI_STATUS_H - i, fb->width, fb->format == GFX_FMT_4BPP ? GFX_GRAY(2) : GFX_BLACK);
     }

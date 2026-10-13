@@ -57,6 +57,7 @@ typedef struct {
     uint8_t stale_policy;   /* ui_stale_policy_t */
     bool status_clock;      /* a small clock in the middle of the status bar */
     uint8_t status_battery; /* UI_STATUS_BAT_* bits */
+    bool status_sync;       /* the last good sync's time on the status bar's left (T5 spec §7.6, DT15) */
     uint32_t force_title;   /* split cells (bit = cell) whose title shows whatever their size (T5 spec §7.5) */
 } ui_preset_t;
 
