@@ -37,8 +37,8 @@ bool ui_sync_time_fit(const ui_context_t *ctx, time_t at, const gfx_font_t *font
 
 /* Status bar (spec §5.2): "Set time" or a stale warning on the left, then a globe while a phone is
  * logged in to the web UI (D20), the sync state and in sync mode `always` the Wi-Fi state, the T5's night, and
- * the last good sync's time if the preset asks (T5 spec §7.6); an optional clock in the middle, the battery on the right with its level, voltage or days left as
- * the preset asks. */
+ * the last good sync's time if the preset asks, with a cloud before it when it stands alone (T5 spec §7.6); an
+ * optional clock in the middle, the battery on the right with its level, voltage or days left as the preset asks. */
 void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *preset, bool any_stale)
 {
     ui_value_t bat, days;
@@ -132,6 +132,10 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
                      fit, GFX_BLACK);
     if (preset->status_sync && ctx->time_valid && ctx->sync_ok_at != 0) { /* T5 spec §7.6: after the marks */
         int right = preset->status_clock ? (fb->width - UI_PX(160)) / 2 : x - UI_PX(124); /* the clock, or the text */
+        if (left == UI_PX(4)) { /* no mark before it: alone, the time could pass for the clock */
+            gfx_bitmap(fb, left, mark_y, ui_icon(UI_ICON_synced, UI_IC16), GFX_BLACK);
+            left += step;
+        }
         char when[48];
         if (ui_sync_time_fit(ctx, ctx->sync_ok_at, UI_FONT(UI_F_SANS_12), right - UI_PX(4) - left, when, sizeof(when))) {
             gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12),

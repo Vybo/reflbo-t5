@@ -14,6 +14,7 @@ t5_cloud                    cloud                        26 40 80
 t5_web                      language                     26 40 80
 t5_sync                     sync                         26 40 80
 t5_sync_failed              cloud_off                    26 40 80
+t5_synced                   cloud_done                   26 40 80
 t5_wifi                     wifi                         26 40 80
 t5_wifi_off                 wifi_off                     26 40 80
 t5_air                      air                          26 40 80

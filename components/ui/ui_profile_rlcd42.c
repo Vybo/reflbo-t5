@@ -38,6 +38,7 @@ static const gfx_bitmap_t *const k_icons[UI_ICON_COUNT][UI_IC_CLASSES] = {
     I1(web)
     I1(sync)
     I1(sync_failed)
+    I1(synced)
     I1(wifi)
     I1(wifi_off)
     I3(air)
