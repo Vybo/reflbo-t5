@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3); r14 designs titles and shared presets (DT14, §7.5); r15 records them as built; r16 designs the last sync's time in the status bar (DT15, §7.6)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3); r14 designs titles and shared presets (DT14, §7.5); r15 records them as built; r16 designs the last sync's time in the status bar (DT15, §7.6); r17 records it as built (T4d), the owner's renders approved on 2026-10-14
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
