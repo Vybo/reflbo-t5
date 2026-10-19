@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3); r14 designs titles and shared presets (DT14, §7.5); r15 records them as built; r16 designs the last sync's time in the status bar (DT15, §7.6); r17 records it as built (T4d), the owner's renders approved on 2026-10-14
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3); r14 designs titles and shared presets (DT14, §7.5); r15 records them as built; r16 designs the last sync's time in the status bar (DT15, §7.6); r17 records it as built (T4d), the owner's renders approved on 2026-10-14; r18 records its board check (T4d done, 2026-10-19)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -541,7 +541,7 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | T4 | E-paper behaviour: fast and clean updates, the setting and its sentence, the previous frame across deep sleep, the radar's loop, night sleep; power | Fast updates without artifacts across wakes; the average current measured (built 2026-10-11; the owner's checks on battery and the current open) |
 | T4b | The T5's four buttons (DT13): Back, Up, Enter, Down in the board's order, the controls table, the menu's up, down and escape, the T5's hint lines, IO0 between updates | The owner uses the four buttons on the dashboard and in the menu; the press logs agree (done 2026-10-11) |
 | T4c | Titles and shared presets (DT14, §7.5): a slot's or cell's own title, a split cell's forced title, export and import on the Presets page; both boards; backported upstream | The owner approves the renders; a titled split preset on the panel; a preset exported from the page imports again (done 2026-10-12) |
-| T4d | The last sync's time in the status bar (DT15, §7.6): a preset's option, both boards, backported upstream | The owner approves the renders; the time on the panel after a sync |
+| T4d | The last sync's time in the status bar (DT15, §7.6): a preset's option, both boards, backported upstream | The owner approves the renders; the time on the panel after a sync (done 2026-10-19) |
 
 ## 12. Risks and open items
 
@@ -583,3 +583,5 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r14 | 2026-10-12 | DT14: titles and shared presets (§1.2, §1.3, §7.5, §11) |
 | r15 | 2026-10-12 | T4c as built: the pool, the label's dry run, the sizes (§7.5); T4c done (§11) |
 | r16 | 2026-10-13 | DT15: the last sync's time in the status bar (§1.2, §1.3, §7.6, §11) |
+| r17 | 2026-10-14 | T4d as built: the cloud with a check before a time that stands alone, the owner's renders approved (§7.6) |
+| r18 | 2026-10-19 | T4d's board check: the option set on the Presets page, the time after a sync on the panel, after the globe while logged in and after the cloud alone; T4d done (§11) |
