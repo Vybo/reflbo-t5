@@ -388,9 +388,10 @@ Use the cheapest level that proves the change. Any UI change needs at least leve
 
 **Licence**
 
-- Open source with credit: Apache-2.0 (confirmed by the owner, 2026-09-25). `LICENSE`, `NOTICE` and `THIRD_PARTY.md` land in M0.
+- Open source with credit: GPL-3.0-only (owner, 2026-10-21, D46; Apache-2.0 until `b7d0fb5` here and `c1cf153` upstream, D8). `LICENSE` holds the GPL's text unchanged, `NOTICE` the copyright, the grant of version 3 only and an additional permission (GPL §7) to link with the libraries ESP-IDF ships in object form only (Wi-Fi, PHY, Bluetooth); `THIRD_PARTY.md` lists everything from elsewhere.
+- Code from elsewhere needs a licence GPL-3.0 can take in: Apache-2.0, MIT, ISC, BSD, LGPL-3.0 or GPL-3.0, not GPL-2.0-only; data CC BY 4.0 or public domain. When its licence asks for its text to travel with it, keep a copy beside it (`components/st7305/LICENSE-Waveshare.txt`).
 - Adapted third-party code keeps its licence header. Credit it in `THIRD_PARTY.md`, and in `NOTICE` where its licence requires it.
-- Fonts, icons and other assets need licences that allow redistribution in this repository.
+- Fonts, icons and other assets need licences that allow redistribution in this repository and bundling with any software, as the fonts' licences (OFL included) do.
 
 **Git**
 
@@ -413,7 +414,7 @@ Recorded 2026-09-25. Rationale is in spec §1.2.
 | D5 | Home Assistant over MQTT |
 | D6 | Power is best effort; an average below 2 mA is the stretch goal |
 | D7 | Data from other local devices arrives over MQTT |
-| D8 | Open source with credit: Apache-2.0 (confirmed) |
+| D8 | Open source with credit: Apache-2.0 (confirmed); GPL-3.0-only since 2026-10-21 (D46) |
 | D9 | No RTC backup cell is fitted now (one can be added later); firmware must work without it |
 | D10 | Extra features are discussed at the relevant milestone before they are built |
 | D11 | The sync schedule (`times` / `interval` / `always` / `manual`) and the display update interval are both configurable |
@@ -446,6 +447,7 @@ Recorded 2026-09-25. Rationale is in spec §1.2.
 | D38 | Owner, 2026-10-06 (M6d acceptance): powers under 1 kW show in whole watts, as the SolaX app does, everywhere; the flow shows W while all its powers are under 1 kW; Solcast's check with the owner's key waits |
 | D39 | Owner, 2026-10-06 (M6d acceptance): the Developer API's solar is the app's figure, what the panels give through the inverter (its output with a battery's charge, at most the panels' DC); past bars from SolaX's 5-minute history are a later option (spec §19); roof checked; the power measurement and Solcast wait for the project's end; this build is `stable-m6d` |
 | D40 | Owner, 2026-10-06 (M7 refresh, D33): M7 also brings an MQTT source for the house's energy beside SolaX's two (spec §12.11); state labels for text fields and a time kind for timestamps, so any HA entity reads well (spec §12.5); HA's `unknown`/`unavailable` are no value; no `pv.*`/`energy.*` published to HA; HA checks still wait for the owner's broker; the plan runs Native |
+| D46 | Owner, 2026-10-21: reflbo, the PC app (`reflbo-stats-win`) and the T5 fork (`reflbo-t5`) are GPL-3.0-only from then on, in place of Apache-2.0 (D8); versions up to the switch stay Apache-2.0 (reflbo `c1cf153`, the app `fef9fa7`, the fork `b7d0fb5`). The firmware repositories' `NOTICE` adds a permission (GPL §7) to link with the libraries ESP-IDF ships in object form only (Wi-Fi, PHY, Bluetooth); the app needs none. Third-party material keeps its own licence (`THIRD_PARTY.md`), Waveshare's init sequences now listed there with their licence's text (spec r55) |
 
 ## 10. The T5-4.7 fork
 

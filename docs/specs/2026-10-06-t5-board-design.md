@@ -48,6 +48,7 @@ Fork decisions are numbered DT1, DT2, … so they don't collide with upstream's 
 | DT13 | 2026-10-11, the owner at the board (T4b): the T5's buttons follow their order on the board's edge, RESET, IO0, IO35, IO34, IO39 (found by logging the owner's presses): **Back** on IO0, **Up** on IO35, **Enter** on IO34, **Down** on IO39. Up and Enter wake the board, as BOOT's and KEY's pins did. IO0 is read only between panel updates, at the owner's choice with its risks (§2.5 gotcha 2). The RLCD keeps its two buttons as they are |
 | DT14 | Owner, 2026-10-12: a preset can be exported from the web page to a file and imported on another device of either board; every slot and split cell can carry its own title in place of its field's label; a split cell can show its title always, whatever its size (§7.5). Shared code, backported upstream, where it is proposed as a decision of its own |
 | DT15 | Owner, 2026-10-13: a preset can show the last good sync's time in the status bar, on the left after the marks; today's time, an earlier day's weekday and time, a date after a week (§7.6). Both boards, backported upstream as for DT14 |
+| DT16 | Owner, 2026-10-21 (upstream D46): the fork is GPL-3.0-only from then on, in place of Apache-2.0 (D8), with upstream's permission under GPL §7 to link with the libraries ESP-IDF ships in object form only (`NOTICE`); versions up to `b7d0fb5` stay Apache-2.0. epdiy stays LGPL-3.0-or-later, which combines with it (§5.1). The firmware spec's copy here carries D46 and the new D8 ahead of upstream's merge |
 
 ### 1.3 Out of scope
 
@@ -190,11 +191,11 @@ The SHTC3 code is built only with `BOARD_HAS_ENV_SENSOR`. The battery reading ta
 - **One patch, P5:** the conversion LUT (64 KB) goes to PSRAM when internal RAM is short, or always with the Kconfig option `EPD_LUT_IN_PSRAM`, instead of `abort()`. The ESP32's internal RAM is tight with Wi-Fi up (§2.5).
 - **The LUT stays in internal RAM** (T1): in PSRAM a full-panel GL16 took 1767 ms against 1101 ms (60 % slower) and a clean update 2.64 s against 2.22 s, so `EPD_LUT_IN_PSRAM` is off. Internal RAM free with epdiy up: about 126 KB with Wi-Fi off, about 58 KB in config mode with the AP up (30 KB the lowest since boot); the LUT fit both times, and P5's fallback covers a shorter day.
 - **epdiy's other allocations have no fallback** (its line queues, feed buffers, task stacks and DMA buffers, about 25 KB, assert). An update starts only with at least 40 KB of internal RAM free and an 8 KB block (`epaper_budget.h`); short of that it's skipped, logged, and the next commit tries again (T1's final review).
-- `components/epdiy/PATCHES.md` records the base and every change; `THIRD_PARTY.md` credits epdiy. The fork's own files stay Apache-2.0.
+- `components/epdiy/PATCHES.md` records the base and every change; `THIRD_PARTY.md` credits epdiy. The fork's own files are GPL-3.0-only (DT16), which epdiy's licence allows.
 
 ### 5.2 The `epaper` component
 
-Our code, Apache-2.0, built only for the T5:
+Our code, GPL-3.0-only (DT16), built only for the T5:
 
 - **The shift register's "all off" word** (`epaper_sr.c`, pure, host-tested) and the functions that use it outside epdiy: rest at boot (the register powers up random), and the deep-sleep holds (§5.4).
 - **The frame blit** (`epaper_frame.c`, pure, host-tested): the 1 bpp 400×300 frame into epdiy's 4 bpp framebuffer, in the panel's middle, until T3.
@@ -585,3 +586,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r16 | 2026-10-13 | DT15: the last sync's time in the status bar (§1.2, §1.3, §7.6, §11) |
 | r17 | 2026-10-14 | T4d as built: the cloud with a check before a time that stands alone, the owner's renders approved (§7.6) |
 | r18 | 2026-10-19 | T4d's board check: the option set on the Presets page, the time after a sync on the panel, after the globe while logged in and after the cloud alone; T4d done (§11) |
+| r19 | 2026-10-21 | The licence: GPL-3.0-only with upstream's permission for ESP-IDF's object-only libraries (DT16, §5.1, §5.2) |
