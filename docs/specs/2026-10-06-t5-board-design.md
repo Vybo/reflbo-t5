@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3); r14 designs titles and shared presets (DT14, §7.5); r15 records them as built; r16 designs the last sync's time in the status bar (DT15, §7.6); r17 records it as built (T4d), the owner's renders approved on 2026-10-14; r18 records its board check (T4d done, 2026-10-19)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3); r14 designs titles and shared presets (DT14, §7.5); r15 records them as built; r16 designs the last sync's time in the status bar (DT15, §7.6); r17 records it as built (T4d), the owner's renders approved on 2026-10-14; r18 records its board check (T4d done, 2026-10-19); r19 the licence (DT16); r20 designs T5a and T5b, upstream's M6e and M7 in the fork (DT17, §7.7)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -49,6 +49,7 @@ Fork decisions are numbered DT1, DT2, … so they don't collide with upstream's 
 | DT14 | Owner, 2026-10-12: a preset can be exported from the web page to a file and imported on another device of either board; every slot and split cell can carry its own title in place of its field's label; a split cell can show its title always, whatever its size (§7.5). Shared code, backported upstream, where it is proposed as a decision of its own |
 | DT15 | Owner, 2026-10-13: a preset can show the last good sync's time in the status bar, on the left after the marks; today's time, an earlier day's weekday and time, a date after a week (§7.6). Both boards, backported upstream as for DT14 |
 | DT16 | Owner, 2026-10-21 (upstream D46): the fork is GPL-3.0-only from then on, in place of Apache-2.0 (D8), with upstream's permission under GPL §7 to link with the libraries ESP-IDF ships in object form only (`NOTICE`); versions up to `b7d0fb5` stay Apache-2.0. epdiy stays LGPL-3.0-or-later, which combines with it (§5.1). The firmware spec's copy here carries D46 and the new D8 ahead of upstream's merge |
+| DT17 | Owner, 2026-10-29: on the T5 the app task runs on core 0, so upstream M7's presets block stays in RTC FAST memory as upstream has it: on the ESP32 only the PRO CPU (core 0) reaches that memory, and ESP-IDF keeps it powered through deep sleep where it isn't heap. Sync, the flight radar's task and the place search move to core 1, beside the app's former place. Fork-only: the RLCD keeps its app task on core 1 (`BOARD_APP_CORE`, `BOARD_NET_CORE`) |
 
 ### 1.3 Out of scope
 
@@ -425,6 +426,24 @@ Both boards; the same code goes upstream.
 - **Where:** on the left after the marks (stale or Set time, web, sync, Wi-Fi, and the T5's night with its end time), up to the clock in the middle when the preset shows it, else to the battery's text. With no mark before it, a cloud with a check (Material `cloud_done`, the icon `synced`) goes first, so a lone time doesn't pass for the clock; the running sync's arrows would say a sync runs (owner, 2026-10-14). If it doesn't fit, an earlier day shows its weekday alone (`Mon`); if that doesn't fit either, nothing.
 - **Cost:** 4 bytes in the snapshot's sync state (`SNAP_VERSION` 14) and 19 bytes a preset in `presets.json` when on; no wake of its own: it changes with a sync, or at midnight with the minute's update.
 
+### 7.7 The PC's sensors on the T5 (T5b, upstream M7)
+
+Upstream's M7 (D44, D45) as it is, drawn at the T5's size; nothing new for either board.
+
+- **The PC layout,** rescaled below the status bar, with the RLCD's slots and sizes and no lines:
+
+| Slot | T5 | Size |
+|---|---|---|
+| c1, c2 | 0, 35 and 482, 35; 478×178 | M |
+| c3, c4 | 0, 217 and 482, 217; 478×178 | M |
+| b1, b2, b3 | 0, 399; 321, 399; 643, 399; 317×141, 318×141, 317×141 | S |
+
+  The owner may ask at the renders for a denser one, as Grid's 4×2.
+- **The visuals** (a history chart, a bar, a ring, a gauge): fonts by role, every size and threshold `UI_PX()` of the RLCD's, lines `UI_PX(1)` (§6.4, §7.1); no new gray uses unless the owner asks at the renders. "PC asleep" stays centred as on the RLCD.
+- **Cores:** the app task on core 0 (DT17), as the presets' block in RTC FAST memory needs; the PC's WebSocket client keeps upstream's task, with no core of its own.
+- **E-paper at a session's rate:** each message redraws with a fast update (about 0.4 s, T4), which is the panel's frame time for D44's warning; a clean one follows the setting (every 60th by default, so once a minute at 1 s).
+- **Checks** (T5b): the owner approves the renders before their goldens; a session from the PC app's demo on this Mac shows on the panel with its charts moving; the presets come back from RTC FAST after a deep-sleep wake; `tasks` shows the cores and core 0's load in sync mode `always` with the radar.
+
 ## 8. Time, wake, buttons, battery and power on the T5
 
 ### 8.1 Time without an RTC (DT10)
@@ -543,6 +562,8 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | T4b | The T5's four buttons (DT13): Back, Up, Enter, Down in the board's order, the controls table, the menu's up, down and escape, the T5's hint lines, IO0 between updates | The owner uses the four buttons on the dashboard and in the menu; the press logs agree (done 2026-10-11) |
 | T4c | Titles and shared presets (DT14, §7.5): a slot's or cell's own title, a split cell's forced title, export and import on the Presets page; both boards; backported upstream | The owner approves the renders; a titled split preset on the panel; a preset exported from the page imports again (done 2026-10-12) |
 | T4d | The last sync's time in the status bar (DT15, §7.6): a preset's option, both boards, backported upstream | The owner approves the renders; the time on the panel after a sync (done 2026-10-19) |
+| T5a | Upstream to `60dccab`: M6e's cycle windows (D41) and the solar gaps fix (r50) | Both boards build; the RLCD's goldens identical to upstream's; a window set from the console closes on the T5 and the cycle skips its preset |
+| T5b | Upstream to `14593da`: M7's PC sensors (D44, D45) and the GPL (D46); DT17's cores; M7's visuals and PC layout at 960×540 (§7.7) | The owner approves the renders; a PC session from the app's demo on the panel; the presets kept through deep sleep; core 0's load checked |
 
 ## 12. Risks and open items
 
@@ -559,6 +580,8 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 - **Lines 1 px wide vanish on the panel** (owner, 2026-10-10): T5 drawing takes lines `UI_PX(1)` (2 px) wide and grays from level 6 down (§6.4).
 - **The task watchdog at boot:** a boot to the radar ran two clean updates and the map's render back to back on the app task and starved IDLE1 (found at T3b); `clean_update()` yields a tick after each update.
 - **Merge conflicts** with upstream's M7 in `components/ui`, mostly from `UI_PX()`. Merging `upstream/main` into the fork after each upstream milestone keeps them small.
+- **Internal RAM in a PC session** (T5b): the WebSocket client and its task join Wi-Fi, the radar's TLS and epdiy's update on the ESP32's internal RAM; T5b's board check records the lowest free.
+- **E-paper at a PC session's rate** (§7.7): a fast update every second, ghosting between clean ones; the owner judges it at the board.
 - **The T5-ePaper-S3** (LilyGo's newer board) would be a third board choice. Its V2.3 needs the S3 output patch from the fork's history (commit `7232440`); its V2.4 runs stock epdiy. Not planned.
 - **Buttons:** the owner found KEY and BOOT out of the board's order (2026-10-11): DT13 maps four buttons; IO0's use as Back carries gotcha 2's risk, by the owner's choice.
 - **The menu's items for missing hardware** are hidden since T4 (§9).
@@ -587,3 +610,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r17 | 2026-10-14 | T4d as built: the cloud with a check before a time that stands alone, the owner's renders approved (§7.6) |
 | r18 | 2026-10-19 | T4d's board check: the option set on the Presets page, the time after a sync on the panel, after the globe while logged in and after the cloud alone; T4d done (§11) |
 | r19 | 2026-10-21 | The licence: GPL-3.0-only with upstream's permission for ESP-IDF's object-only libraries (DT16, §5.1, §5.2) |
+| r20 | 2026-11-18 | T5a and T5b: upstream's M6e and M7 in the fork; DT17, the app task on core 0; the PC's sensors on the T5 (§1.2, §7.7, §11, §12) |
