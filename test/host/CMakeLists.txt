@@ -342,7 +342,7 @@ target_compile_definitions(test_ui_visual_golden PRIVATE GOLDEN_DIR="${CMAKE_CUR
 
 add_executable(render_visual render_visual.c)
 target_compile_options(render_visual PRIVATE ${REFLBO_WARNINGS})
-target_link_libraries(render_visual PRIVATE ui)
+target_link_libraries(render_visual PRIVATE ui ZLIB::ZLIB)
 
 add_executable(render_screen render_screen.c)
 target_compile_options(render_screen PRIVATE ${REFLBO_WARNINGS})

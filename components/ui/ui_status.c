@@ -66,13 +66,16 @@ void ui_status_draw(gfx_fb_t *fb, const ui_context_t *ctx, const ui_preset_t *pr
         gfx_bitmap(fb, left, mark_y, ui_icon(UI_ICON_web, UI_IC16), GFX_BLACK);
         left += step;
     }
-    if (ctx->pc != NULL && ctx->pc->session) { /* M7 (D44): a small monitor, the spike's */
-        gfx_rect(fb, (gfx_rect_t){ (int16_t)left, 4, 14, 10 }, GFX_BLACK);
-        gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(left + 2), 6, 10, 6 }, GFX_BLACK);
-        gfx_hline(fb, left + 4, 15, 6, GFX_BLACK);
-        gfx_vline(fb, left + 6, 14, 1, GFX_BLACK);
-        gfx_vline(fb, left + 7, 14, 1, GFX_BLACK);
-        left += 20;
+    if (ctx->pc != NULL && ctx->pc->session) { /* M7 (D44): a small monitor, the spike's, at the board's scale */
+        int k = UI_PX(1);
+        ui_frame(fb, (gfx_rect_t){ (int16_t)left, (int16_t)UI_PX(4), (int16_t)UI_PX(14), (int16_t)UI_PX(10) }, GFX_BLACK);
+        gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(left + UI_PX(2)), (int16_t)UI_PX(6), (int16_t)UI_PX(10), (int16_t)UI_PX(6) },
+                      GFX_BLACK);
+        gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(left + UI_PX(4)), (int16_t)UI_PX(15), (int16_t)UI_PX(6), (int16_t)k },
+                      GFX_BLACK); /* the stand's foot */
+        gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(left + UI_PX(6)), (int16_t)UI_PX(14), (int16_t)(2 * k), (int16_t)k },
+                      GFX_BLACK); /* its neck */
+        left += step;
     }
     if (ctx->sync != UI_SYNC_IDLE) { /* spec §5.2: a sync running, or the last one failed */
         gfx_bitmap(fb, left, mark_y,

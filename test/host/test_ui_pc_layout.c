@@ -11,6 +11,7 @@
 #include "ui_layout.h"
 #include "ui_pc.h"
 #include "ui_preset.h"
+#include "ui_profile.h"
 #include "unity.h"
 
 /* The PC layout and preset (spec §5.2, §5.4, M7, D44): four charts and three bars, the built-in PC preset filled
@@ -25,11 +26,45 @@ static uint8_t s_buf[400 * 300 / 8], s_other[400 * 300 / 8];
 
 void setUp(void)
 {
+    ui_profile_use(&ui_profile_rlcd42); /* the T5's own test sets its profile and can fail before it puts this back */
     ui_presets_defaults(&s_p);
     ui_pc_demo(&s_cat, &s_vals);
 }
 
 void tearDown(void) {}
+
+/* The T5's PC layout (T5 spec §7.7): the RLCD's slots and sizes rescaled below its status bar, a chart and a bar
+ * room for their visuals, and the lines between them 2 px wide, 14 px short of the cells' ends. */
+static void test_the_t5_pc_layout_rescales_the_rlcds(void)
+{
+    ui_profile_use(&ui_profile_t547);
+    const ui_layout_t *l = ui_layout(UI_LAYOUT_PC);
+    static const struct {
+        const char *name;
+        gfx_rect_t rect;
+        ui_size_t size;
+    } k_slots[] = {
+        { "c1", { 0, 35, 478, 178 }, UI_SIZE_M },   { "c2", { 482, 35, 478, 178 }, UI_SIZE_M },
+        { "c3", { 0, 217, 478, 178 }, UI_SIZE_M },  { "c4", { 482, 217, 478, 178 }, UI_SIZE_M },
+        { "b1", { 0, 399, 317, 141 }, UI_SIZE_S },  { "b2", { 321, 399, 318, 141 }, UI_SIZE_S },
+        { "b3", { 643, 399, 317, 141 }, UI_SIZE_S },
+    };
+    TEST_ASSERT_EQUAL_INT(7, l->slot_count);
+    for (int i = 0; i < 7; i++) {
+        const ui_slot_t *s = &l->slots[i];
+        TEST_ASSERT_EQUAL_STRING(k_slots[i].name, s->name);
+        TEST_ASSERT_EQUAL_MEMORY_MESSAGE(&k_slots[i].rect, &s->rect, sizeof(gfx_rect_t), s->name);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(k_slots[i].size, s->size, s->name);
+        TEST_ASSERT_TRUE(s->rect.y >= 35 && s->rect.y + s->rect.h <= 540 && s->rect.x + s->rect.w <= 960);
+    }
+    TEST_ASSERT_TRUE(ui_visual_fits(UI_VIS_CHART, l->slots[0].rect.w, l->slots[0].rect.h));
+    TEST_ASSERT_TRUE(ui_visual_fits(UI_VIS_BAR, l->slots[4].rect.w, l->slots[4].rect.h));
+    const ui_sep_t seps[] = { { 479, 49, 150, 1 }, { 479, 231, 150, 1 }, { 14, 214, 932, 0 },
+                              { 14, 396, 932, 0 }, { 318, 413, 113, 1 }, { 640, 413, 113, 1 } };
+    TEST_ASSERT_EQUAL_INT(6, l->sep_count);
+    TEST_ASSERT_EQUAL_MEMORY(seps, l->seps, sizeof(seps));
+    ui_profile_use(&ui_profile_rlcd42);
+}
 
 static void test_the_pc_layout_has_four_charts_and_three_bars(void)
 {
@@ -167,6 +202,7 @@ int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_the_pc_layout_has_four_charts_and_three_bars);
+    RUN_TEST(test_the_t5_pc_layout_rescales_the_rlcds);
     RUN_TEST(test_the_built_in_pc_preset_waits_for_the_first_catalogue);
     RUN_TEST(test_the_first_catalogue_fills_its_charts_and_bars);
     RUN_TEST(test_a_short_catalogue_fills_what_it_has);

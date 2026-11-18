@@ -89,6 +89,19 @@ static const ui_sep_t k_focus_seps[] = {
     { 640, 395, 130, 1 },
 };
 
+/* M7's PC layout (T5 spec §7.7): the RLCD's slots rescaled below the status bar, its lines 14 short of the ends. */
+static const ui_slot_t k_pc[] = {
+    { "c1", { 0, 35, 478, 178 }, UI_SIZE_M, UI_KINDS_M },   { "c2", { 482, 35, 478, 178 }, UI_SIZE_M, UI_KINDS_M },
+    { "c3", { 0, 217, 478, 178 }, UI_SIZE_M, UI_KINDS_M },  { "c4", { 482, 217, 478, 178 }, UI_SIZE_M, UI_KINDS_M },
+    { "b1", { 0, 399, 317, 141 }, UI_SIZE_S, UI_KINDS_S },  { "b2", { 321, 399, 318, 141 }, UI_SIZE_S, UI_KINDS_S },
+    { "b3", { 643, 399, 317, 141 }, UI_SIZE_S, UI_KINDS_S },
+};
+
+static const ui_sep_t k_pc_seps[] = {
+    { 479, 49, 150, 1 }, { 479, 231, 150, 1 }, { 14, 214, 932, 0 },
+    { 14, 396, 932, 0 }, { 318, 413, 113, 1 }, { 640, 413, 113, 1 },
+};
+
 static const ui_layout_t k_layouts[UI_LAYOUT_COUNT] = {
     [UI_LAYOUT_CLASSIC] = { "classic", k_classic, COUNT(k_classic), k_classic_seps, COUNT(k_classic_seps) },
     [UI_LAYOUT_WEATHER] = { "weather", k_weather, COUNT(k_weather), k_weather_seps, COUNT(k_weather_seps) },
@@ -99,7 +112,7 @@ static const ui_layout_t k_layouts[UI_LAYOUT_COUNT] = {
     [UI_LAYOUT_SPLIT] = { "split", NULL, 0, NULL, 0 },
     [UI_LAYOUT_SOLAR] = { "solar", NULL, 0, NULL, 0 },
     [UI_LAYOUT_ENERGY] = { "energy", NULL, 0, NULL, 0 },
-    [UI_LAYOUT_PC] = { "pc", NULL, 0, NULL, 0 }, /* T5b Task 6: §7.7 */
+    [UI_LAYOUT_PC] = { "pc", k_pc, COUNT(k_pc), k_pc_seps, COUNT(k_pc_seps) },
 };
 
 const ui_profile_t ui_profile_t547 = {

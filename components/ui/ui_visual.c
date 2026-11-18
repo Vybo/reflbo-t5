@@ -21,13 +21,13 @@ bool ui_visual_fits(ui_vis_as_t as, int w, int h)
     case UI_VIS_VALUE:
         return true;
     case UI_VIS_CHART:
-        return w >= 80 && h >= 40;
+        return w >= UI_PX(80) && h >= UI_PX(40);
     case UI_VIS_GAUGE:
-        return w >= 60 && h >= 40;
+        return w >= UI_PX(60) && h >= UI_PX(40);
     case UI_VIS_RING:
-        return w >= 40 && h >= 40;
+        return w >= UI_PX(40) && h >= UI_PX(40);
     case UI_VIS_BAR:
-        return w >= 60 && h >= 16;
+        return w >= UI_PX(60) && h >= UI_PX(16);
     default:
         return false;
     }
@@ -112,12 +112,13 @@ static bool face_has(const gfx_font_t *f, const char *s)
     return true;
 }
 
-/* Text with a 1 px white halo, so it reads over a chart. Returns where it ends. */
+/* Text with a white halo, UI_PX(1) wide, so it reads over a chart. Returns where it ends. */
 static int text_halo(gfx_fb_t *fb, const gfx_font_t *f, int x, int base, const char *s, bool halo)
 {
     if (halo) {
-        for (int dy = -1; dy <= 1; dy++) {
-            for (int dx = -1; dx <= 1; dx++) {
+        int k = UI_PX(1);
+        for (int dy = -k; dy <= k; dy++) {
+            for (int dx = -k; dx <= k; dx++) {
                 if (dx != 0 || dy != 0) {
                     gfx_text(fb, f, x + dx, base + dy, s, GFX_WHITE);
                 }
@@ -156,8 +157,8 @@ static int number_fit(gfx_fb_t *fb, int x, int y, int w, int h, const number_t *
             if (!face_has(f, num) || ascent(f) > h || (u[0] && f == UI_FONT(UI_F_SANS_12))) {
                 continue;
             }
-            const gfx_font_t *uf = ascent(f) >= 28 ? UI_FONT(UI_F_SANS_16) : UI_FONT(UI_F_SANS_12);
-            int nw = gfx_text_width(f, num), uw = u[0] ? gfx_text_width(uf, u) + 3 : 0;
+            const gfx_font_t *uf = ascent(f) >= UI_PX(28) ? UI_FONT(UI_F_SANS_16) : UI_FONT(UI_F_SANS_12);
+            int nw = gfx_text_width(f, num), uw = u[0] ? gfx_text_width(uf, u) + UI_PX(3) : 0;
             if (nw + uw > w) {
                 continue;
             }
@@ -168,7 +169,7 @@ static int number_fit(gfx_fb_t *fb, int x, int y, int w, int h, const number_t *
                 int base = y + (h + ascent(f)) / 2;
                 int end = text_halo(fb, f, x0, base, num, halo);
                 if (u[0]) {
-                    text_halo(fb, uf, end + 3, base, u, halo);
+                    text_halo(fb, uf, end + UI_PX(3), base, u, halo);
                 }
             }
             return nw + uw;
@@ -186,7 +187,7 @@ static void label(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const gfx_fon
         return;
     }
     ui_label(v);
-    gfx_text(fb, f, r.x + 4, r.y + 2 + ascent(f), fit, GFX_BLACK);
+    gfx_text(fb, f, r.x + UI_PX(4), r.y + UI_PX(2) + ascent(f), fit, GFX_BLACK);
 }
 
 /* A bound as the visuals write it: whole, else with the decimals it needs (up to two). */
@@ -219,27 +220,54 @@ static int y_of(gfx_rect_t p, float v, float lo, float hi)
     return y > p.y + p.h - 1 ? p.y + p.h - 1 : y < p.y ? p.y : y;
 }
 
-/* One column of the line at `y`, with the light fill under it, joined to the column before (`line_y`, -1: none). */
-static void plot(gfx_fb_t *fb, gfx_rect_t p, int x, int y, int *line_y)
+/* The light fill under a column's line at `y`: a sparse dither on the RLCD, gray 6 on the T5 (T5 spec §6.4). */
+static void fill_under(gfx_fb_t *fb, gfx_rect_t p, int x, int y)
 {
+    if (fb->format == GFX_FMT_4BPP) {
+        gfx_vline(fb, x, y + 1, p.y + p.h - (y + 1), GFX_GRAY(6));
+        return;
+    }
     for (int fy = y + 1; fy < p.y + p.h; fy++) {
         if (x % 2 == 0 && fy % 2 == 0) {
             gfx_pixel(fb, x, fy, GFX_BLACK);
         }
     }
+}
+
+/* A column's spread from y0 to y1: half its pixels on the RLCD, gray 3 on the T5. */
+static void spread(gfx_fb_t *fb, int x, int y0, int y1)
+{
+    if (fb->format == GFX_FMT_4BPP) {
+        if (y1 >= y0) {
+            gfx_vline(fb, x, y0, y1 - y0 + 1, GFX_GRAY(3));
+        }
+        return;
+    }
+    for (int y = y0; y <= y1; y++) {
+        if ((x + y) % 2 == 0) {
+            gfx_pixel(fb, x, y, GFX_BLACK);
+        }
+    }
+}
+
+/* One column of the line at `y`, joined to the column before (`line_y`, -1: none), UI_PX(1) wide and tall and
+ * ending at `x`, so the next column's fill doesn't cover it. */
+static void plot(gfx_fb_t *fb, int x, int y, int *line_y)
+{
     int a = *line_y >= 0 && *line_y < y ? *line_y : y, b = *line_y > y ? *line_y : y;
-    gfx_vline(fb, x, a, b - a + 1, GFX_BLACK);
+    ui_vline(fb, x - UI_PX(1) + 1, a, b - a + UI_PX(1), GFX_BLACK);
     *line_y = y;
 }
 
 static void chart(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const ui_visual_t *vis, const ui_series_t *series,
                   uint32_t now_ms, const lang_t *lang)
 {
-    const gfx_font_t *lf = r.h >= 80 ? UI_FONT(UI_F_SANS_16) : UI_FONT(UI_F_SANS_12);
+    const gfx_font_t *lf = r.h >= UI_PX(80) ? UI_FONT(UI_F_SANS_16) : UI_FONT(UI_F_SANS_12);
     const gfx_font_t *sf = UI_FONT(UI_F_SANS_12);
     number_t n = number_of(v);
-    int top = r.y + 2 + ascent(lf) + 6; /* the label's line stays clear of the chart */
-    gfx_rect_t p = { (int16_t)(r.x + 4), (int16_t)top, (int16_t)(r.w - 8), (int16_t)(r.y + r.h - 3 - top) };
+    int top = r.y + UI_PX(2) + ascent(lf) + UI_PX(6); /* the label's line stays clear of the chart */
+    gfx_rect_t p = { (int16_t)(r.x + UI_PX(4)), (int16_t)top, (int16_t)(r.w - UI_PX(8)),
+                     (int16_t)(r.y + r.h - UI_PX(3) - top) };
     uint32_t span_ms = (ui_visual_span_ok(vis->span_s) ? vis->span_s : UI_SPAN_DEFAULT_S) * 1000u;
     ui_hist_column_t cols[CHUNK];
     bool have = false;
@@ -256,8 +284,8 @@ static void chart(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const ui_visu
         }
     }
     if (!have && (v->state == UI_VALUE_MISSING || !v->text[0])) { /* nothing to show yet: the label and the baseline */
-        label(fb, r, v, lf, r.w - 8);
-        gfx_hline(fb, p.x, p.y + p.h, p.w, GFX_BLACK);
+        label(fb, r, v, lf, r.w - UI_PX(8));
+        ui_hline(fb, p.x, p.y + p.h, p.w, GFX_BLACK);
         return;
     }
     float lo, hi;
@@ -265,14 +293,16 @@ static void chart(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const ui_visu
     char lo_s[16], hi_s[16];
     bound_text(lang, lo, lo_s, sizeof(lo_s));
     bound_text(lang, hi, hi_s, sizeof(hi_s));
-    int right = vis->numbers ? gfx_text_width(sf, hi_s) + 8 /* the range's top */
-                             : number_fit(fb, 0, 0, r.w / 2, ascent(lf) + 4, &n, false, GFX_ALIGN_RIGHT, false) + 8;
-    label(fb, r, v, lf, r.w - 8 - right);
+    int right = vis->numbers ? gfx_text_width(sf, hi_s) + UI_PX(8) /* the range's top */
+                             : number_fit(fb, 0, 0, r.w / 2, ascent(lf) + UI_PX(4), &n, false, GFX_ALIGN_RIGHT, false) +
+                                   UI_PX(8);
+    label(fb, r, v, lf, r.w - UI_PX(8) - right);
     if (vis->numbers) {
-        gfx_text(fb, sf, r.x + r.w - 4 - gfx_text_width(sf, hi_s), r.y + 2 + ascent(lf), hi_s, GFX_BLACK);
+        gfx_text(fb, sf, r.x + r.w - UI_PX(4) - gfx_text_width(sf, hi_s), r.y + UI_PX(2) + ascent(lf), hi_s, GFX_BLACK);
     } else { /* the value on the label's line, at the right */
-        int hw = right - 8;
-        number_fit(fb, r.x + r.w - 4 - hw, r.y + 1, hw, ascent(lf) + 4, &n, true, GFX_ALIGN_RIGHT, false);
+        int hw = right - UI_PX(8);
+        number_fit(fb, r.x + r.w - UI_PX(4) - hw, r.y + UI_PX(1), hw, ascent(lf) + UI_PX(4), &n, true, GFX_ALIGN_RIGHT,
+                   false);
     }
     int prev_x = -1, prev_y = 0, line_y = -1;
     for (int first = 0; series != NULL && first < p.w; first += CHUNK) {
@@ -289,34 +319,29 @@ static void chart(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, const ui_visu
                 line_y = -1; /* the line starts again */
             } else if (prev_x >= 0) {
                 for (int x = prev_x + 1; x < px; x++) { /* across the columns without a value, straight */
-                    plot(fb, p, x, prev_y + (ym - prev_y) * (x - prev_x) / (px - prev_x), &line_y);
+                    int y = prev_y + (ym - prev_y) * (x - prev_x) / (px - prev_x);
+                    fill_under(fb, p, x, y);
+                    plot(fb, x, y, &line_y);
                 }
             }
-            for (int y = yhi; y < ym; y++) { /* the column's range above the mean, half grey */
-                if ((px + y) % 2 == 0) {
-                    gfx_pixel(fb, px, y, GFX_BLACK);
-                }
-            }
-            for (int y = ym + 1; y <= ylo; y++) { /* and below it */
-                if ((px + y) % 2 == 0) {
-                    gfx_pixel(fb, px, y, GFX_BLACK);
-                }
-            }
-            plot(fb, p, px, ym, &line_y);
+            fill_under(fb, p, px, ym);
+            spread(fb, px, yhi, ym - 1); /* the column's range above the mean, half grey */
+            spread(fb, px, ym + 1, ylo); /* and below it */
+            plot(fb, px, ym, &line_y);
             prev_x = px;
             prev_y = ym;
         }
     }
-    gfx_hline(fb, p.x, p.y + p.h, p.w, GFX_BLACK); /* the baseline */
+    ui_hline(fb, p.x, p.y + p.h, p.w, GFX_BLACK); /* the baseline */
     if (vis->numbers) { /* the latest value over the chart's top left, the range's bottom at the right */
-        int nh = p.h >= 130 ? 52 : p.h >= 60 ? 30 : p.h >= 40 ? 22 : 18;
-        number_fit(fb, p.x + 1, p.y + 1, p.w * 2 / 3, nh, &n, true, GFX_ALIGN_LEFT, true);
-        text_halo(fb, sf, p.x + p.w - gfx_text_width(sf, lo_s) - 1, p.y + p.h - 2, lo_s, true);
+        int nh = p.h >= UI_PX(130) ? UI_PX(52) : p.h >= UI_PX(60) ? UI_PX(30) : p.h >= UI_PX(40) ? UI_PX(22) : UI_PX(18);
+        number_fit(fb, p.x + UI_PX(1), p.y + UI_PX(1), p.w * 2 / 3, nh, &n, true, GFX_ALIGN_LEFT, true);
+        text_halo(fb, sf, p.x + p.w - gfx_text_width(sf, lo_s) - UI_PX(1), p.y + p.h - UI_PX(2), lo_s, true);
     }
-    if (p.h >= 40) { /* the span, small, at the bottom left */
+    if (p.h >= UI_PX(40)) { /* the span, small, at the bottom left */
         char span[16];
         ui_visual_span_text(span_ms / 1000u, span, sizeof(span));
-        text_halo(fb, sf, p.x + 1, p.y + p.h - 2, span, true);
+        text_halo(fb, sf, p.x + UI_PX(1), p.y + p.h - UI_PX(2), span, true);
     }
 }
 
@@ -326,40 +351,43 @@ static void bar(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, float lo, float
 {
     number_t n = number_of(v);
     float f = frac(v, lo, hi);
+    int k = UI_PX(1); /* the outline's width */
     if (r.h > r.w * 3 / 2) { /* upright in a tall cell: the value under it */
-        label(fb, r, v, UI_FONT(UI_F_SANS_12), r.w - 8);
-        int nh = 22, top = r.y + 4 + ascent(UI_FONT(UI_F_SANS_12)) + 2;
-        gfx_rect_t b = { (int16_t)(r.x + r.w / 2 - 10), (int16_t)top, 20, (int16_t)(r.y + r.h - nh - 4 - top) };
-        gfx_rect(fb, b, GFX_BLACK);
-        int fill = (int)lroundf(f * (float)(b.h - 2));
-        gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(b.x + 1), (int16_t)(b.y + b.h - 1 - fill), (int16_t)(b.w - 2),
+        label(fb, r, v, UI_FONT(UI_F_SANS_12), r.w - UI_PX(8));
+        int nh = UI_PX(22), top = r.y + UI_PX(4) + ascent(UI_FONT(UI_F_SANS_12)) + UI_PX(2);
+        gfx_rect_t b = { (int16_t)(r.x + r.w / 2 - UI_PX(10)), (int16_t)top, (int16_t)UI_PX(20),
+                         (int16_t)(r.y + r.h - nh - UI_PX(4) - top) };
+        ui_frame(fb, b, GFX_BLACK);
+        int fill = (int)lroundf(f * (float)(b.h - 2 * k));
+        gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(b.x + k), (int16_t)(b.y + b.h - k - fill), (int16_t)(b.w - 2 * k),
                                         (int16_t)fill },
                       GFX_BLACK);
-        number_fit(fb, r.x + 2, r.y + r.h - nh - 2, r.w - 4, nh, &n, true, GFX_ALIGN_CENTER, false);
+        number_fit(fb, r.x + UI_PX(2), r.y + r.h - nh - UI_PX(2), r.w - UI_PX(4), nh, &n, true, GFX_ALIGN_CENTER, false);
         return;
     }
     gfx_rect_t b;
-    if (r.h < 44) { /* one line: the bar, then the value */
-        int nw = number_fit(fb, 0, 0, r.w / 2, r.h - 4, &n, false, GFX_ALIGN_LEFT, false);
-        int bh = r.h - 8 > 12 ? 12 : r.h - 8;
-        b = (gfx_rect_t){ (int16_t)(r.x + 4), (int16_t)(r.y + (r.h - bh) / 2), (int16_t)(r.w - 12 - nw), (int16_t)bh };
-        number_fit(fb, b.x + b.w + 4, r.y + 2, nw, r.h - 4, &n, true, GFX_ALIGN_LEFT, false);
+    if (r.h < UI_PX(44)) { /* one line: the bar, then the value */
+        int nw = number_fit(fb, 0, 0, r.w / 2, r.h - UI_PX(4), &n, false, GFX_ALIGN_LEFT, false);
+        int bh = r.h - UI_PX(8) > UI_PX(12) ? UI_PX(12) : r.h - UI_PX(8);
+        b = (gfx_rect_t){ (int16_t)(r.x + UI_PX(4)), (int16_t)(r.y + (r.h - bh) / 2), (int16_t)(r.w - UI_PX(12) - nw),
+                          (int16_t)bh };
+        number_fit(fb, b.x + b.w + UI_PX(4), r.y + UI_PX(2), nw, r.h - UI_PX(4), &n, true, GFX_ALIGN_LEFT, false);
     } else { /* the label and the value on a line, the bar under them */
-        const gfx_font_t *lf = r.h >= 70 ? UI_FONT(UI_F_SANS_16) : UI_FONT(UI_F_SANS_12);
-        int hh = r.h >= 70 ? 32 : 22;
+        const gfx_font_t *lf = r.h >= UI_PX(70) ? UI_FONT(UI_F_SANS_16) : UI_FONT(UI_F_SANS_12);
+        int hh = r.h >= UI_PX(70) ? UI_PX(32) : UI_PX(22);
         int lw = v->label != NULL ? gfx_text_width(lf, v->label) : 0; /* the label first, the value in the rest */
-        lw = lw > (r.w - 8) * 3 / 4 ? (r.w - 8) * 3 / 4 : lw;
-        label(fb, (gfx_rect_t){ r.x, (int16_t)(r.y + hh - ascent(lf) - 4), r.w, r.h }, v, lf, lw);
-        lw += lw > 0 ? 12 : 0;
-        number_fit(fb, r.x + lw, r.y + 2, r.w - 4 - lw, hh, &n, true, GFX_ALIGN_RIGHT, false);
-        int bh = r.y + r.h - 6 - (r.y + hh + 4);
-        bh = bh > 18 ? 18 : bh;
-        b = (gfx_rect_t){ (int16_t)(r.x + 4), (int16_t)(r.y + hh + 4 + (r.y + r.h - 6 - (r.y + hh + 4) - bh) / 2),
-                          (int16_t)(r.w - 8), (int16_t)bh };
+        lw = lw > (r.w - UI_PX(8)) * 3 / 4 ? (r.w - UI_PX(8)) * 3 / 4 : lw;
+        label(fb, (gfx_rect_t){ r.x, (int16_t)(r.y + hh - ascent(lf) - UI_PX(4)), r.w, r.h }, v, lf, lw);
+        lw += lw > 0 ? UI_PX(12) : 0;
+        number_fit(fb, r.x + lw, r.y + UI_PX(2), r.w - UI_PX(4) - lw, hh, &n, true, GFX_ALIGN_RIGHT, false);
+        int room = r.y + r.h - UI_PX(6) - (r.y + hh + UI_PX(4));
+        int bh = room > UI_PX(18) ? UI_PX(18) : room;
+        b = (gfx_rect_t){ (int16_t)(r.x + UI_PX(4)), (int16_t)(r.y + hh + UI_PX(4) + (room - bh) / 2),
+                          (int16_t)(r.w - UI_PX(8)), (int16_t)bh };
     }
-    gfx_rect(fb, b, GFX_BLACK);
-    int fill = (int)lroundf(f * (float)(b.w - 2));
-    gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(b.x + 1), (int16_t)(b.y + 1), (int16_t)fill, (int16_t)(b.h - 2) },
+    ui_frame(fb, b, GFX_BLACK);
+    int fill = (int)lroundf(f * (float)(b.w - 2 * k));
+    gfx_fill_rect(fb, (gfx_rect_t){ (int16_t)(b.x + k), (int16_t)(b.y + k), (int16_t)fill, (int16_t)(b.h - 2 * k) },
                   GFX_BLACK);
 }
 
@@ -383,7 +411,7 @@ static void arc_band(gfx_fb_t *fb, int cx, int cy, float ro, float ri, float a0,
             } else if (a < 0.0f) {
                 a += 360.0f;
             }
-            bool edge = d > ro - 1.0f || d < ri + 1.0f;
+            bool edge = d > ro - (float)UI_PX(1) || d < ri + (float)UI_PX(1); /* the outline, UI_PX(1) wide */
             if (a <= filled_to || edge) {
                 gfx_pixel(fb, x, y, GFX_BLACK);
             }
@@ -395,12 +423,13 @@ static void ring(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, float lo, floa
 {
     number_t n = number_of(v);
     float f = frac(v, lo, hi);
-    const gfx_font_t *lf = r.h >= 80 ? UI_FONT(UI_F_SANS_16) : UI_FONT(UI_F_SANS_12);
-    int lh = ascent(lf) + 4;
-    label(fb, r, v, lf, r.w - 8);
-    int ah = r.h - lh - 4, aw = r.w - 8, ay = r.y + lh + 2;
+    const gfx_font_t *lf = r.h >= UI_PX(80) ? UI_FONT(UI_F_SANS_16) : UI_FONT(UI_F_SANS_12);
+    int lh = ascent(lf) + UI_PX(4);
+    label(fb, r, v, lf, r.w - UI_PX(8));
+    int ah = r.h - lh - UI_PX(4), aw = r.w - UI_PX(8), ay = r.y + lh + UI_PX(2);
     int d = ah < aw ? ah : aw;
-    float ro = (float)d / 2.0f, t = ro / 5.0f < 4.0f ? 4.0f : ro / 5.0f;
+    float t_min = (float)UI_PX(4);
+    float ro = (float)d / 2.0f, t = ro / 5.0f < t_min ? t_min : ro / 5.0f;
     int inner = (int)((ro - t) * 1.35f);
     if (number_fit(fb, 0, 0, inner, inner * 2 / 3, &n, false, GFX_ALIGN_CENTER, false) > 0) {
         int cx = r.x + r.w / 2, cy = ay + ah / 2;
@@ -411,48 +440,50 @@ static void ring(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, float lo, floa
     /* beside: a smaller ring at the left (a pie under 30 px), the value right of it */
     d = ah < aw / 2 ? ah : aw / 2;
     ro = (float)d / 2.0f;
-    int cx = r.x + 4 + d / 2, cy = ay + ah / 2;
-    if (d < 30) {
-        gfx_circle(fb, cx, cy, d / 2, GFX_BLACK);
+    int cx = r.x + UI_PX(4) + d / 2, cy = ay + ah / 2;
+    if (d < UI_PX(30)) {
+        ui_ring(fb, cx, cy, d / 2, GFX_BLACK);
         arc_band(fb, cx, cy, ro, 0.0f, -999.0f, 999.0f, f * 360.0f);
     } else {
-        t = ro / 4.0f < 4.0f ? 4.0f : ro / 4.0f;
+        t = ro / 4.0f < t_min ? t_min : ro / 4.0f;
         arc_band(fb, cx, cy, ro, ro - t, -999.0f, 999.0f, f * 360.0f);
     }
-    number_fit(fb, cx + d / 2 + 4, cy - 15, r.x + r.w - (cx + d / 2 + 4) - 2, 30, &n, true, GFX_ALIGN_LEFT, false);
+    int nx = cx + d / 2 + UI_PX(4);
+    number_fit(fb, nx, cy - UI_PX(15), r.x + r.w - nx - UI_PX(2), UI_PX(30), &n, true, GFX_ALIGN_LEFT, false);
 }
 
 static void gauge(gfx_fb_t *fb, gfx_rect_t r, const ui_value_t *v, float lo, float hi, const lang_t *lang)
 {
     number_t n = number_of(v);
     float f = frac(v, lo, hi);
-    const gfx_font_t *lf = r.h >= 80 ? UI_FONT(UI_F_SANS_16) : UI_FONT(UI_F_SANS_12);
+    const gfx_font_t *lf = r.h >= UI_PX(80) ? UI_FONT(UI_F_SANS_16) : UI_FONT(UI_F_SANS_12);
     const gfx_font_t *sf = UI_FONT(UI_F_SANS_12);
-    int lh = ascent(lf) + 4;
-    label(fb, r, v, lf, r.w - 8);
-    bool ends = r.h >= 70;
-    int ah = r.h - lh - 4 - (ends ? 4 : 0), aw = r.w - 8;
+    int lh = ascent(lf) + UI_PX(4);
+    label(fb, r, v, lf, r.w - UI_PX(8));
+    bool ends = r.h >= UI_PX(70);
+    int ah = r.h - lh - UI_PX(4) - (ends ? UI_PX(4) : 0), aw = r.w - UI_PX(8);
     float ro = (float)aw / 2.0f;
     ro = ro * 1.5f > (float)ah ? (float)ah / 1.5f : ro;
-    float t = ro / 5.0f < 4.0f ? 4.0f : ro / 5.0f;
+    float t_min = (float)UI_PX(4);
+    float t = ro / 5.0f < t_min ? t_min : ro / 5.0f;
     int spare = ah - (int)(ro * 1.5f); /* a tall cell: the arc in its middle */
-    int cx = r.x + r.w / 2, cy = r.y + lh + 2 + (spare > 0 ? spare / 2 : 0) + (int)ro + 1;
+    int cx = r.x + r.w / 2, cy = r.y + lh + UI_PX(2) + (spare > 0 ? spare / 2 : 0) + (int)ro + UI_PX(1);
     arc_band(fb, cx, cy, ro, ro - t, -120.0f, 120.0f, -120.0f + f * 240.0f);
     int iw = (int)((ro - t) * 1.6f), ih = (int)(ro * 0.85f);
     if (number_fit(fb, cx - iw / 2, cy - ih / 2, iw, ih, &n, true, GFX_ALIGN_CENTER, false) == 0) {
-        number_fit(fb, cx - (int)ro, cy + (int)(ro * 0.5f) - 18, (int)(2.0f * ro), 18, &n, true, GFX_ALIGN_CENTER,
-                   false);
+        number_fit(fb, cx - (int)ro, cy + (int)(ro * 0.5f) - UI_PX(18), (int)(2.0f * ro), UI_PX(18), &n, true,
+                   GFX_ALIGN_CENTER, false);
     }
     if (ends) { /* the range's ends under the arc's ends */
         char lo_s[16], hi_s[16];
         bound_text(lang, lo, lo_s, sizeof(lo_s));
         bound_text(lang, hi, hi_s, sizeof(hi_s));
-        int ey = cy + (int)(ro * 0.5f) + ascent(sf) + 1;
-        ey = ey > r.y + r.h - 2 ? r.y + r.h - 2 : ey;
+        int ey = cy + (int)(ro * 0.5f) + ascent(sf) + UI_PX(1);
+        ey = ey > r.y + r.h - UI_PX(2) ? r.y + r.h - UI_PX(2) : ey;
         int lw = gfx_text_width(sf, lo_s), hw = gfx_text_width(sf, hi_s);
         int lx = cx - (int)(ro * 0.87f) - lw / 2, hx = cx + (int)(ro * 0.87f) - hw / 2;
-        lx = lx < r.x + 1 ? r.x + 1 : lx; /* inside the cell, beside the arc's ends */
-        hx = hx + hw > r.x + r.w - 1 ? r.x + r.w - 1 - hw : hx;
+        lx = lx < r.x + UI_PX(1) ? r.x + UI_PX(1) : lx; /* inside the cell, beside the arc's ends */
+        hx = hx + hw > r.x + r.w - UI_PX(1) ? r.x + r.w - UI_PX(1) - hw : hx;
         gfx_text(fb, sf, lx, ey, lo_s, GFX_BLACK);
         gfx_text(fb, sf, hx, ey, hi_s, GFX_BLACK);
     }

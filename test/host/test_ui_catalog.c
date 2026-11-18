@@ -260,6 +260,25 @@ static void test_layouts_publish_the_visuals_rules(void)
     TEST_ASSERT_EQUAL_INT(UI_SPAN_MAX_S, num(spans, "max_s"));
 }
 
+/* The T5 publishes its own least room for each visual, UI_PX() of the RLCD's (T5 spec §7.7): the page offers by it. */
+static void test_the_t5_publishes_its_visuals_least_room(void)
+{
+    ui_profile_use(&ui_profile_t547);
+    TEST_ASSERT_TRUE(ui_catalog_layouts_json(s_out, sizeof(s_out)) > 0);
+    ui_profile_use(&ui_profile_rlcd42);
+    s_root = cJSON_Parse(s_out);
+    const cJSON *visuals = cJSON_GetObjectItemCaseSensitive(s_root, "visuals");
+    static const struct {
+        const char *name;
+        int w, h;
+    } k_least[] = { { "chart", 136, 68 }, { "bar", 102, 27 }, { "ring", 68, 68 }, { "gauge", 102, 68 } };
+    for (int i = 0; i < 4; i++) {
+        const cJSON *v = cJSON_GetObjectItemCaseSensitive(visuals, k_least[i].name);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(k_least[i].w, num(v, "min_w"), k_least[i].name);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(k_least[i].h, num(v, "min_h"), k_least[i].name);
+    }
+}
+
 static void test_a_buffer_too_small_gives_nothing(void)
 {
     TEST_ASSERT_EQUAL_UINT(0, ui_catalog_layouts_json(s_out, 64));
@@ -371,6 +390,7 @@ int main(void)
     RUN_TEST(test_fields_leave_out_what_the_board_cannot_fill);
     RUN_TEST(test_fields_say_which_are_numbers_and_list_the_pcs_readings);
     RUN_TEST(test_layouts_publish_the_visuals_rules);
+    RUN_TEST(test_the_t5_publishes_its_visuals_least_room);
     RUN_TEST(test_a_buffer_too_small_gives_nothing);
     return UNITY_END();
 }

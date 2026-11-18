@@ -73,11 +73,13 @@ void ui_pc_since_text(const ui_context_t *ctx, time_t since, char *out, size_t s
 void ui_pc_draw_asleep(gfx_fb_t *fb, const ui_context_t *ctx)
 {
     const ui_pc_t *pc = ctx->pc;
-    gfx_rect_t box = { 100, 140, 200, 60 };
+    int w = UI_PX(200), h = UI_PX(60); /* centred a little low, as the RLCD's 100, 140 (T5 spec §7.7) */
+    gfx_rect_t box = { (int16_t)((fb->width - w) / 2), (int16_t)((fb->height - h) / 2 + UI_PX(20)), (int16_t)w,
+                       (int16_t)h };
     gfx_fill_rect(fb, box, GFX_WHITE);
-    gfx_rect(fb, box, GFX_BLACK);
-    gfx_text_in_rect(fb, UI_FONT(UI_F_BOLD_28), (gfx_rect_t){ 100, 142, 200, 34 }, GFX_ALIGN_CENTER,
-                     lang_str(ctx->lang, LS_PC_ASLEEP), GFX_BLACK);
+    ui_frame(fb, box, GFX_BLACK);
+    gfx_text_in_rect(fb, UI_FONT(UI_F_BOLD_28), (gfx_rect_t){ box.x, (int16_t)(box.y + UI_PX(2)), box.w, (int16_t)UI_PX(34) },
+                     GFX_ALIGN_CENTER, lang_str(ctx->lang, LS_PC_ASLEEP), GFX_BLACK);
     char since[32] = "", line[80];
     if (pc != NULL && pc->since != 0 && ctx->time_valid) {
         ui_pc_since_text(ctx, pc->since, since, sizeof(since));
@@ -85,8 +87,10 @@ void ui_pc_draw_asleep(gfx_fb_t *fb, const ui_context_t *ctx)
     const char *name = pc != NULL ? pc->name : "";
     snprintf(line, sizeof(line), "%s%s%s", since, since[0] && name[0] ? " · " : "", name);
     char fit[80];
-    if (line[0] && gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), line, box.w - 8, fit, sizeof(fit)) > 0) {
-        gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12), (gfx_rect_t){ 100, 176, 200, 20 }, GFX_ALIGN_CENTER, fit, GFX_BLACK);
+    if (line[0] && gfx_text_ellipsize(UI_FONT(UI_F_SANS_12), line, box.w - UI_PX(8), fit, sizeof(fit)) > 0) {
+        gfx_text_in_rect(fb, UI_FONT(UI_F_SANS_12),
+                         (gfx_rect_t){ box.x, (int16_t)(box.y + UI_PX(36)), box.w, (int16_t)UI_PX(20) }, GFX_ALIGN_CENTER,
+                         fit, GFX_BLACK);
     }
 }
 

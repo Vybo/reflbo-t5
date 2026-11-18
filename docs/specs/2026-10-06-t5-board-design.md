@@ -294,6 +294,7 @@ As built at T3b, after the owner's photos and checks at the panel (2026-10-10: "
 | The status bar's line | 2 | 2 px |
 | The solar chart's forecast still to come, inside its black outline | 6 | — |
 | The fixed layouts' separators, the split's lines, the flights' rings, home's ⊙ ring | 0 | 2 px |
+| The history chart's fill under its line; a column's spread around its mean (M7, §7.7) | 6; 3 | — |
 | Every other line the UI draws: the Solar and Energy layouts' lines, the chart's axis, ticks, now line and gridline dots, the Flights panel's line and the nearest aircraft's ring, the radar's no-frame box and loop dots, the battery symbol's outline (`ui_hline()`, `ui_vline()`, `ui_frame()`, `ui_ring()`; T3b review) | 0 | 2 px |
 
 The map's land stays white. Only outlines around a gray fill stay 1 px (the legend's swatches, the chart's bars still to come). The RLCD keeps its 1 px black lines and its dithered rain. Where T3b's first levels (rain 8/4/0, lines 6, chart 8) were too pale on the panel, these are the owner's.
@@ -430,7 +431,7 @@ Both boards; the same code goes upstream.
 
 Upstream's M7 (D44, D45) as it is, drawn at the T5's size; nothing new for either board.
 
-- **The PC layout,** rescaled below the status bar, with the RLCD's slots and sizes and no lines:
+- **The PC layout,** rescaled below the status bar, with the RLCD's slots, sizes and lines:
 
 | Slot | T5 | Size |
 |---|---|---|
@@ -438,8 +439,8 @@ Upstream's M7 (D44, D45) as it is, drawn at the T5's size; nothing new for eithe
 | c3, c4 | 0, 217 and 482, 217; 478×178 | M |
 | b1, b2, b3 | 0, 399; 321, 399; 643, 399; 317×141, 318×141, 317×141 | S |
 
-  The owner may ask at the renders for a denser one, as Grid's 4×2.
-- **The visuals** (a history chart, a bar, a ring, a gauge): fonts by role, every size and threshold `UI_PX()` of the RLCD's, lines `UI_PX(1)` (§6.4, §7.1); no new gray uses unless the owner asks at the renders. "PC asleep" stays centred as on the RLCD.
+  Its lines, 2 px wide and 14 px short of the cells' ends: down at 479 from 49 and from 231, 150 long; across at 214 and 396 from 14, 932 long; down at 318 and 640 from 413, 113 long. The owner may ask at the renders for a denser one, as Grid's 4×2.
+- **The visuals** (a history chart, a bar, a ring, a gauge): fonts by role, every size and threshold `UI_PX()` of the RLCD's (the least room the board publishes to the page too), lines and outlines `UI_PX(1)`, the chart's line `UI_PX(1)` wide and tall (§6.4, §7.1). Where the RLCD dithers, the T5 draws gray: the chart's fill under its line at 6, a column's spread around its mean at 3. "PC asleep" stays centred as on the RLCD; the status bar's monitor is drawn at `UI_PX()`.
 - **Cores:** the app task on core 0 (DT17), as the presets' block in RTC FAST memory needs; the PC's WebSocket client keeps upstream's task, with no core of its own.
 - **E-paper at a session's rate:** each message redraws with a fast update (about 0.4 s, T4), which is the panel's frame time for D44's warning; a clean one follows the setting (every 60th by default, so once a minute at 1 s).
 - **Checks** (T5b): the owner approves the renders before their goldens; a session from the PC app's demo on this Mac shows on the panel with its charts moving; the presets come back from RTC FAST after a deep-sleep wake; `tasks` shows the cores and core 0's load in sync mode `always` with the radar.
