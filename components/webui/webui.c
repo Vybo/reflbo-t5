@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "board_caps.h"
 #include "cJSON.h"
 #include "esp_app_desc.h"
 #include "esp_attr.h"
@@ -626,7 +627,7 @@ static esp_err_t geocode(httpd_req_t *req, const char *query)
     }
     weather_geocode_url(job.url, sizeof(job.url), decoded, lang);
     job.done = xSemaphoreCreateBinary();
-    if (job.done == NULL || xTaskCreatePinnedToCore(geocode_task, "geocode", GEOCODE_STACK, &job, 3, NULL, 0) != pdPASS) {
+    if (job.done == NULL || xTaskCreatePinnedToCore(geocode_task, "geocode", GEOCODE_STACK, &job, 3, NULL, BOARD_NET_CORE) != pdPASS) {
         if (job.done != NULL) {
             vSemaphoreDelete(job.done);
         }

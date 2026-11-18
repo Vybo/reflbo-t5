@@ -19,6 +19,8 @@
 #define BOARD_IS_EPAPER          1 /* the panel keeps its image unpowered; fast and clean updates (T4) */
 #define BOARD_BUTTON_FOLLOW_MS   5000 /* awake after a press: Down and Back can't wake the board (DT13; 5 s, the owner) */
 #define BOARD_RADAR_RV_KB        768 /* RainViewer's frames held and the one coming: 4 MB of PSRAM mapped (T3c) */
+#define BOARD_APP_CORE           0 /* the app task: only the ESP32's PRO CPU reaches RTC FAST memory (DT17) */
+#define BOARD_NET_CORE           1 /* sync, the flight radar's polls and the place search (DT17) */
 #else
 #define BOARD_NAME               "rlcd42"
 #define BOARD_HAS_ENV_SENSOR     1
@@ -31,4 +33,6 @@
 #define BOARD_IS_EPAPER          0
 #define BOARD_BUTTON_FOLLOW_MS   0
 #define BOARD_RADAR_RV_KB        2048 /* RainViewer's frames held and the one coming: its hour fits 8 MB of PSRAM */
+#define BOARD_APP_CORE           1 /* the app task, as upstream (T5 spec DT17) */
+#define BOARD_NET_CORE           0 /* sync, the flight radar's polls and the place search */
 #endif

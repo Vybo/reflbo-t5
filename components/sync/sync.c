@@ -5,6 +5,7 @@
 #include <sys/time.h>
 #include <time.h>
 
+#include "board_caps.h"
 #include "energy_dev.h"
 #include "esp_attr.h"
 #include "esp_check.h"
@@ -721,7 +722,7 @@ esp_err_t sync_start(const sync_request_t *req, void (*done)(sync_report_t *repo
     s_done = done;
     memset(&s_report, 0, sizeof(s_report)); /* the last report's frames were the app's */
     s_report.kind = req->kind;
-    BaseType_t ok = xTaskCreatePinnedToCore(sync_task, "sync", TASK_STACK, NULL, TASK_PRIORITY, NULL, 0);
+    BaseType_t ok = xTaskCreatePinnedToCore(sync_task, "sync", TASK_STACK, NULL, TASK_PRIORITY, NULL, BOARD_NET_CORE);
     if (ok != pdPASS) {
         s_running = false;
         return ESP_ERR_NO_MEM;

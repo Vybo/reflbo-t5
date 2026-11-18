@@ -3,4 +3,4 @@
 idf_component_register(SRCS "sync_plan.c" "sync_ntp.c" "sync.c"
                        INCLUDE_DIRS "include"
                        REQUIRES scheduler datastore storage esp_common radar solar energy pcstats
-                       PRIV_REQUIRES netmgr weather fetch lwip esp_timer util)
+                       PRIV_REQUIRES board netmgr weather fetch lwip esp_timer util)

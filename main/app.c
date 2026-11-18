@@ -44,7 +44,7 @@
 
 #define APP_STACK         8192 /* internal RAM: deep-sleep entry requires it */
 #define APP_PRIORITY      5
-#define APP_CORE          1
+#define APP_CORE          BOARD_APP_CORE /* core 0 on the T5 (T5 spec DT17) */
 #define QUEUE_DEPTH       16
 #define BACKUP_S          5    /* wake anyway this long after a missed RTC alarm (spec §9.2) */
 /* On a board without the RTC alarm's wake (T5 spec §8.2) the timer is the tick itself, not its backup. */
@@ -138,6 +138,9 @@ typedef struct {
 _Static_assert(sizeof(app_presets_snapshot_t) <= 4608,
                "the presets' block leaves RTC FAST memory 3.5 KB of heap at least (spec §6, M7)");
 static RTC_FAST_ATTR app_presets_snapshot_t s_presets_snap;
+#if CONFIG_IDF_TARGET_ESP32 && !CONFIG_FREERTOS_UNICORE
+_Static_assert(APP_CORE == 0, "on the ESP32 only the PRO CPU reaches RTC FAST memory, where the presets sleep (T5 DT17)");
+#endif
 static QueueHandle_t s_queue;
 static time_t s_next_alarm; /* the RTC alarm: the next minute slot */
 static time_t s_wake_at;    /* the earliest wake: the alarm, or a cycle switch or seconds tick before it */

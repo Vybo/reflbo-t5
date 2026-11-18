@@ -4,6 +4,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "board_caps.h"
 #include "esp_attr.h"
 #include "esp_check.h"
 #include "esp_heap_caps.h"
@@ -148,7 +149,7 @@ esp_err_t adsb_task_start(const adsb_task_req_t *req, void (*done)(adsb_report_t
     esp_err_t err = ESP_OK;
     if (s_running) {
         xTaskNotifyGive(s_task); /* a poll for the new request now */
-    } else if (xTaskCreatePinnedToCore(adsb_task, "adsb", TASK_STACK, NULL, TASK_PRIORITY, &s_task, 0) == pdPASS) {
+    } else if (xTaskCreatePinnedToCore(adsb_task, "adsb", TASK_STACK, NULL, TASK_PRIORITY, &s_task, BOARD_NET_CORE) == pdPASS) {
         s_running = true;
         ESP_LOGI(TAG, "polling");
     } else {

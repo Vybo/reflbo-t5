@@ -3,4 +3,4 @@
 idf_component_register(SRCS "adsb_parse.c" "adsb_route.c" "adsb_task.c"
                        INCLUDE_DIRS "include"
                        REQUIRES map esp_common
-                       PRIV_REQUIRES json util fetch heap log freertos)
+                       PRIV_REQUIRES board json util fetch heap log freertos)
