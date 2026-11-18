@@ -50,6 +50,7 @@ static const gfx_bitmap_t *const k_icons[UI_ICON_COUNT][UI_IC_CLASSES] = {
     I3(house)
     I3(grid)
     I3(self_use)
+    I3(pc)
     I3(wx_clear_day)
     I3(wx_clear_night)
     I3(wx_mainly_day)
@@ -126,6 +127,23 @@ static const ui_sep_t k_focus_seps[] = {
     { 200, 220, 72, 1 },
 };
 
+/* M7 (D44): the spike's, approved on 2026-10-19. */
+static const ui_slot_t k_pc[] = {
+    { "c1", { 0, 21, 199, 99 }, UI_SIZE_M, UI_KINDS_M },    { "c2", { 201, 21, 199, 99 }, UI_SIZE_M, UI_KINDS_M },
+    { "c3", { 0, 122, 199, 99 }, UI_SIZE_M, UI_KINDS_M },   { "c4", { 201, 122, 199, 99 }, UI_SIZE_M, UI_KINDS_M },
+    { "b1", { 0, 223, 132, 77 }, UI_SIZE_S, UI_KINDS_S },   { "b2", { 134, 223, 132, 77 }, UI_SIZE_S, UI_KINDS_S },
+    { "b3", { 268, 223, 132, 77 }, UI_SIZE_S, UI_KINDS_S },
+};
+
+static const ui_sep_t k_pc_seps[] = {
+    { 200, 29, 84, 1 },
+    { 200, 130, 84, 1 },
+    { 8, 121, 384, 0 },
+    { 8, 222, 384, 0 },
+    { 133, 231, 61, 1 },
+    { 267, 231, 61, 1 },
+};
+
 static const ui_layout_t k_layouts[UI_LAYOUT_COUNT] = {
     [UI_LAYOUT_CLASSIC] = { "classic", k_classic, COUNT(k_classic), k_classic_seps, COUNT(k_classic_seps) },
     [UI_LAYOUT_WEATHER] = { "weather", k_weather, COUNT(k_weather), k_weather_seps, COUNT(k_weather_seps) },
@@ -136,6 +154,7 @@ static const ui_layout_t k_layouts[UI_LAYOUT_COUNT] = {
     [UI_LAYOUT_SPLIT] = { "split", NULL, 0, NULL, 0 },
     [UI_LAYOUT_SOLAR] = { "solar", NULL, 0, NULL, 0 },
     [UI_LAYOUT_ENERGY] = { "energy", NULL, 0, NULL, 0 },
+    [UI_LAYOUT_PC] = { "pc", k_pc, COUNT(k_pc), k_pc_seps, COUNT(k_pc_seps) },
 };
 
 const ui_profile_t ui_profile_rlcd42 = {

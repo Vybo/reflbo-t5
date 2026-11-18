@@ -147,6 +147,9 @@ static bool always_wanted(time_t now)
     if (app_ui_night()) {
         return false;
     }
+    if (app_pc_keeps_wifi()) {
+        return true; /* M7: quiet hours don't end a PC session (spec §12a.4) */
+    }
     sync_schedule_t s;
     schedule_from_settings(&s);
     return sync_wifi_wanted(&s, now);
@@ -227,6 +230,7 @@ static void apply_refresh(sync_report_t *r)
 {
     apply_radar(r);
     apply_solar(r);
+    app_pc_feed(false); /* M7: the house's reading every 5 min in `always` */
     s_active = false;
     s_refresh = false;
     if (s_manual_waiting) {
@@ -244,7 +248,10 @@ static void apply(void *arg)
 {
     sync_report_t *r = arg;
     if (r->kind != SYNC_KIND_SYNC) {
-        if (r->kind == SYNC_KIND_CHECK) {
+        if (r->kind == SYNC_KIND_PC) {
+            app_pc_tested(r); /* M7: a session may start, which keeps Wi-Fi */
+        }
+        if (r->kind == SYNC_KIND_CHECK || r->kind == SYNC_KIND_PC) {
             release_wifi(); /* as a sync does: config mode or `always` keep it */
         }
         apply_refresh(r);
@@ -275,6 +282,7 @@ static void apply(void *arg)
     }
     apply_radar(r);
     apply_solar(r);
+    app_pc_feed(false); /* M7: the charts of the fields a sync brings */
     time_t started = now - (time_t)((esp_timer_get_time() - s_started_mono) / 1000000);
     save_summary(r, started);
     bool ok = !app_sync_failed();
@@ -284,6 +292,7 @@ static void apply(void *arg)
     }
     ESP_LOGI(TAG, "sync %s%s%s", ok ? "done" : "failed at ", ok ? "" : sync_step_name(st()->last_failed_step),
              ok ? "" : st()->last_detail[st()->last_failed_step]);
+    app_pc_report(r); /* M7: a PC found may start a session, which keeps Wi-Fi; before a new sync may start */
     s_active = false; /* the report is applied: the next sync may overwrite it */
     release_wifi();
     app_sync_schedule();
@@ -319,6 +328,9 @@ static esp_err_t start(bool manual, sync_due_t due)
     memcpy(req.ntp, set->ntp, sizeof(req.ntp));
     app_radar_request(&req.radar);
     app_solar_request(&req.solar, &req.energy);
+    req.pc = (sync_pc_req_t){ .enabled = set->pc_enabled, .port = set->pc_port }; /* M7: the PC step */
+    snprintf(req.pc.host, sizeof(req.pc.host), "%s", set->pc_host);
+    app_secret_get(SETTINGS_SECRET_PC_TOKEN, req.pc.token, sizeof(req.pc.token));
     esp_err_t err = sync_start(&req, done);
     if (err == ESP_OK) {
         s_active = true;
@@ -393,6 +405,40 @@ esp_err_t app_sync_now(void)
         return ESP_OK;
     }
     return start(true, (sync_due_t){ 0 });
+}
+
+esp_err_t app_sync_pc_test(void)
+{
+    const settings_t *set = app_settings();
+    if (app_state()->critical || s_active) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (!set->pc_enabled || set->pc_host[0] == '\0') {
+        return ESP_ERR_INVALID_ARG; /* nothing to ask */
+    }
+    if (!networks_saved()) {
+        return ESP_ERR_NOT_FOUND;
+    }
+    if (app_config_active()) {
+        netmgr_status_t ns;
+        netmgr_status(&ns);
+        if (ns.state != NETMGR_STATION) {
+            return ESP_ERR_INVALID_STATE; /* only the device's own network: nothing to reach */
+        }
+    }
+    EXT_RAM_BSS_ATTR static sync_request_t req;
+    req = (sync_request_t){ .kind = SYNC_KIND_PC, .steps = SETTINGS_STEPS_ALL,
+                            .pc = { .enabled = true, .port = set->pc_port } };
+    snprintf(req.pc.host, sizeof(req.pc.host), "%s", set->pc_host);
+    app_secret_get(SETTINGS_SECRET_PC_TOKEN, req.pc.token, sizeof(req.pc.token));
+    esp_err_t err = sync_start(&req, done);
+    if (err == ESP_OK) {
+        s_active = true;
+        s_refresh = true; /* not a sync: no mark in the status bar, no history */
+        s_manual = false;
+        ESP_LOGI(TAG, "PC test starts");
+    }
+    return err;
 }
 
 esp_err_t app_sync_check(void)
@@ -549,7 +595,7 @@ void app_sync_summary(char *out, size_t size)
     lang_format_time(local.tm_hour, local.tm_min, 0, app_settings()->clock_24h, false, when, sizeof(when), &suffix);
     static const lang_str_t k_steps[SYNC_STEP_COUNT] = { LS_SYNC_STEP_WIFI,  LS_SYNC_STEP_TIME,  LS_SYNC_STEP_WEATHER,
                                                          LS_SYNC_STEP_AIR,   LS_SYNC_STEP_RADAR, LS_SYNC_STEP_SOLAR,
-                                                         LS_SYNC_STEP_ENERGY };
+                                                         LS_SYNC_STEP_ENERGY, LS_SYNC_STEP_PC };
     if (s->last_failed_step >= SYNC_STEP_COUNT) {
         snprintf(out, size, "%s%s%s OK", when, suffix[0] ? " " : "", suffix);
     } else {

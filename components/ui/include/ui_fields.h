@@ -7,6 +7,7 @@
 #include "datastore.h"
 #include "gfx.h"
 #include "lang.h"
+#include "pc_msg.h"
 #include "util_calendar.h"
 
 /*
@@ -87,20 +88,35 @@ typedef enum {
     UI_FIELD_COUNT,
 } ui_field_id_t;
 
+/* The PC's readings (M7, D44): `pc.<id>` fields are UI_FIELD_PC_FIRST + n, n an entry in the presets' own table of
+ * reading ids (ui_presets_t.pc_ids), so a reading keeps its slots whatever the catalogue's order. */
+#define UI_FIELD_PC_FIRST 128
+#define UI_PC_FIELDS PC_READINGS_MAX
+
+static inline bool ui_field_is_pc(ui_field_id_t field)
+{
+    return (int)field >= UI_FIELD_PC_FIRST && (int)field < UI_FIELD_PC_FIRST + UI_PC_FIELDS;
+}
+
 typedef struct {
-    const char *id; /* as in presets.json: "env.temp" */
+    const char *id; /* as in presets.json: "env.temp"; "pc" for every PC reading */
     ui_field_kind_t kind;
     lang_str_t label;
     int ds_field; /* ds_field_t, or -1 for a field computed from the clock */
 } ui_field_info_t;
 
-/* NULL for UI_FIELD_NONE and out-of-range values. */
+/* NULL for UI_FIELD_NONE and out-of-range values; one entry for every PC reading (a number). */
 const ui_field_info_t *ui_field_info(ui_field_id_t field);
 /* UI_FIELD_NONE for an unknown id. */
 ui_field_id_t ui_field_by_name(const char *id);
 /* Whether this board can fill the field (T5 spec §4.3): env.* need the temperature and humidity sensor. The web
  * page offers only these; a preset that names another draws its placeholder. */
 bool ui_field_on_board(ui_field_id_t field);
+/* A field's name in presets.json into `out`: "env.temp", or "pc.<id>" with its id from `pc_ids` (NULL: none). Its
+ * length, or 0 (and "") for none. */
+size_t ui_field_name(const char (*pc_ids)[PC_ID_LEN], ui_field_id_t field, char *out, size_t size);
+/* Whether a field is a number, which a visual can show (spec §5.3): numbers, the battery and the levels. */
+bool ui_field_numeric(ui_field_id_t field);
 
 typedef enum {
     UI_SYNC_IDLE,
@@ -128,6 +144,8 @@ typedef struct {
 
 typedef struct ui_radar ui_radar_t; /* ui_radar.h */
 typedef struct ui_solar ui_solar_t; /* ui_solar.h */
+typedef struct ui_pc ui_pc_t;       /* ui_pc.h */
+typedef struct ui_history ui_history_t; /* ui_history.h */
 
 /* Everything the dashboard reads, gathered by the app for one render. */
 typedef struct {
@@ -148,6 +166,10 @@ typedef struct {
     const ui_radar_t *radar; /* M6: the radars' map, frames and settings; NULL for none */
     const ui_solar_t *solar; /* M6d: the PV forecast and the house's energy; NULL for none */
     time_t night_until;      /* night sleep ends here (UTC); 0 outside a night (T5 spec §5.6) */
+    const ui_pc_t *pc;       /* M7: the PC's catalogue and last readings; NULL for none */
+    const char (*pc_ids)[PC_ID_LEN]; /* the rendered presets' PC reading ids (ui_presets_t.pc_ids); NULL: none */
+    const ui_history_t *history;     /* M7: the charts' history; NULL for none */
+    uint32_t now_ms;                 /* the history's clock now */
 } ui_context_t;
 
 typedef enum {
@@ -186,6 +208,13 @@ typedef struct {
     int quarter, minute;     /* pv.chart: the local quarter hour now and the minute */
     const uint16_t *chart_q;    /* pv.chart: today's forecast by quarter hour, in tens of W */
     const uint16_t *chart_read; /* and the readings' means (0xFFFF where none came); NULL without readings */
+    /* M7 (D44): the value as a number, for the visuals (spec §5.3): in the field's base unit (°C or °F as set,
+     * %, kW for a power and kWh for an energy whatever `unit` says, µg/m³), signed (a power to the grid is
+     * negative); and the field's own range where it has one (0-100 for a %) */
+    bool has_num;
+    float num;
+    bool has_range;
+    float range_min, range_max;
 } ui_value_t;
 
 void ui_resolve(const ui_context_t *ctx, ui_field_id_t field, ui_value_t *out);

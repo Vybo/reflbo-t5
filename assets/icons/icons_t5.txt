@@ -26,6 +26,7 @@ t5_solar                    solar_power                  26 40 80
 t5_house                    house                        26 40 80
 t5_grid                     electric_meter               26 40 80
 t5_self_use                 energy_savings_leaf          26 40 80
+t5_pc                       computer                     26 40 80
 t5_wx_clear_day             wi:day-sunny                 26 40 80
 t5_wx_clear_night           wi:night-clear               26 40 80
 t5_wx_mainly_day            wi:day-sunny-overcast        26 40 80

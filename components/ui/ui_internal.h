@@ -21,6 +21,8 @@ bool ui_resolve_radar(const ui_context_t *ctx, ui_field_id_t field, ui_value_t *
 bool ui_radar_widget(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_value_t *v);
 /* pv.* and energy.* (ui_solar.c, M6d); false for any other field. */
 bool ui_resolve_solar(const ui_context_t *ctx, ui_field_id_t field, ui_value_t *out);
+/* pc.<id> (ui_pc.c, M7); false for any other field. */
+bool ui_resolve_pc(const ui_context_t *ctx, ui_field_id_t field, ui_value_t *out);
 /* pv.chart and energy.flow in an M or L slot (ui_solar.c); false for any other kind. */
 bool ui_solar_widget(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_value_t *v, const lang_t *lang);
 
@@ -48,6 +50,20 @@ bool ui_widget_labelled(gfx_fb_t *fb, gfx_rect_t r, ui_size_t size, const ui_val
                         const lang_t *lang);
 /* Whether the stale policy leaves the slot empty: nothing drawn, not even a title. */
 bool ui_widget_hidden(const ui_value_t *v, ui_stale_policy_t policy);
+/* M7: a numeric value's number, and its own range (spec §5.3). */
+static inline void ui_set_num(ui_value_t *v, float num)
+{
+    v->has_num = true;
+    v->num = num;
+}
+
+static inline void ui_set_range(ui_value_t *v, float lo, float hi)
+{
+    v->has_range = true;
+    v->range_min = lo;
+    v->range_max = hi;
+}
+
 /* A widget's label, where it draws it: notes it for ui_widget_labelled() (T4c). */
 static inline const char *ui_label(const ui_value_t *v)
 {

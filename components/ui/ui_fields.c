@@ -58,8 +58,13 @@ static const ui_field_info_t k_fields[UI_FIELD_COUNT] = {
     [UI_FIELD_EN_FLOW] = { "energy.flow", UI_FK_FLOW, LS_EN_FLOW, -1 },
 };
 
+static const ui_field_info_t k_pc_info = { "pc", UI_FK_NUMBER, LS_PC, -1 }; /* M7: the label is the PC app's */
+
 const ui_field_info_t *ui_field_info(ui_field_id_t field)
 {
+    if (ui_field_is_pc(field)) {
+        return &k_pc_info;
+    }
     if (field <= UI_FIELD_NONE || field >= UI_FIELD_COUNT) {
         return NULL;
     }
@@ -88,6 +93,25 @@ ui_field_id_t ui_field_by_name(const char *id)
         }
     }
     return UI_FIELD_NONE;
+}
+
+size_t ui_field_name(const char (*pc_ids)[PC_ID_LEN], ui_field_id_t field, char *out, size_t size)
+{
+    int n;
+    if (ui_field_is_pc(field)) {
+        const char *id = pc_ids != NULL ? pc_ids[field - UI_FIELD_PC_FIRST] : "";
+        n = id[0] ? snprintf(out, size, "pc.%s", id) : snprintf(out, size, "%s", "");
+    } else {
+        const ui_field_info_t *info = ui_field_info(field);
+        n = snprintf(out, size, "%s", info != NULL ? info->id : "");
+    }
+    return n > 0 && (size_t)n < size ? (size_t)n : 0;
+}
+
+bool ui_field_numeric(ui_field_id_t field)
+{
+    const ui_field_info_t *info = ui_field_info(field);
+    return info != NULL && (info->kind == UI_FK_NUMBER || info->kind == UI_FK_BATTERY || info->kind == UI_FK_LEVEL);
 }
 
 static int trend_sign(int32_t trend, int32_t threshold)
@@ -123,6 +147,7 @@ static void resolve_temperature(const ui_context_t *ctx, ds_field_t f, ui_value_
         return;
     }
     long tenths = temp_tenths(ctx, e.value);
+    ui_set_num(out, (float)tenths / 10.0f);
     lang_format_decimal(ctx->lang, tenths, 1, out->text, sizeof(out->text));
     lang_format_decimal(ctx->lang, (tenths + (tenths >= 0 ? 5 : -5)) / 10, 0, out->short_text, sizeof(out->short_text));
     snprintf(out->unit, sizeof(out->unit), "%s", ctx->fahrenheit ? "°F" : "°C");
@@ -144,12 +169,16 @@ static void resolve_store(const ui_context_t *ctx, ui_field_id_t field, ui_value
             snprintf(out->text, sizeof(out->text), "%ld", (long)(e.value + 50) / 100);
             snprintf(out->unit, sizeof(out->unit), "%%");
             out->trend = trend_sign(e.trend, HUM_TREND_PCT100);
+            ui_set_num(out, (float)e.value / 100.0f);
+            ui_set_range(out, 0.0f, 100.0f);
         }
         break;
     case UI_FIELD_BAT_LEVEL:
         if (from_store(ctx, DS_BAT_LEVEL, out, &e)) {
             out->percent = e.value;
             out->battery = (ds_bat_state_t)e.bat_state;
+            ui_set_num(out, (float)e.value);
+            ui_set_range(out, 0.0f, 100.0f);
             snprintf(out->text, sizeof(out->text), "%ld", (long)e.value);
             snprintf(out->unit, sizeof(out->unit), "%%");
             char volts[12];
@@ -159,6 +188,7 @@ static void resolve_store(const ui_context_t *ctx, ui_field_id_t field, ui_value
         break;
     case UI_FIELD_BAT_DAYS:
         if (from_store(ctx, DS_BAT_DAYS, out, &e)) {
+            ui_set_num(out, (float)e.value / 10.0f);
             if (e.value >= 100) { /* whole days from 10 on */
                 snprintf(out->text, sizeof(out->text), "%ld", (long)(e.value + 5) / 10);
             } else {
@@ -204,6 +234,7 @@ static void resolve_clock(const ui_context_t *ctx, ui_field_id_t field, ui_value
         break;
     case UI_FIELD_DATE_WEEK:
         snprintf(out->text, sizeof(out->text), "%d", util_iso_week(year, month, day));
+        ui_set_num(out, (float)util_iso_week(year, month, day));
         out->state = UI_VALUE_FRESH;
         break;
     case UI_FIELD_MOON_PHASE:
@@ -245,7 +276,7 @@ void ui_resolve(const ui_context_t *ctx, ui_field_id_t field, ui_value_t *out)
     out->label = lang_str(ctx->lang, info->label);
     if (info->ds_field >= 0) {
         resolve_store(ctx, field, out);
-    } else if (!ui_resolve_forecast(ctx, field, out) && !ui_resolve_radar(ctx, field, out) &&
+    } else if (!ui_resolve_pc(ctx, field, out) && !ui_resolve_forecast(ctx, field, out) && !ui_resolve_radar(ctx, field, out) &&
                !ui_resolve_solar(ctx, field, out)) {
         resolve_clock(ctx, field, out);
     }

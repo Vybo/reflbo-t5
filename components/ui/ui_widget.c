@@ -60,9 +60,17 @@ static int digit_height(const gfx_font_t *f)
 
 /* The field's icon in the class of a `size` px symbol on the RLCD (16, 24, 48; the profile's on the T5), NULL for
  * none. */
-static const gfx_bitmap_t *field_icon(ui_field_id_t field, int size)
+static const gfx_bitmap_t *field_icon(const ui_value_t *v, int size)
 {
     int id = -1;
+    ui_field_id_t field = v->field;
+    if (ui_field_is_pc(field)) { /* M7: a temperature by its unit, the rest a computer */
+        bool temp = strcmp(v->unit, "°C") == 0 || strcmp(v->unit, "°F") == 0;
+        field = temp ? UI_FIELD_ENV_TEMP : UI_FIELD_NONE;
+        if (!temp) {
+            id = UI_ICON_pc;
+        }
+    }
     switch (field) {
     case UI_FIELD_ENV_TEMP:
     case UI_FIELD_ENV_TEMP_MIN:
@@ -386,7 +394,7 @@ static int draw_symbol(gfx_fb_t *fb, const ui_value_t *v, int x, int y, int size
         }
         return px;
     }
-    const gfx_bitmap_t *icon = field_icon(v->field, size);
+    const gfx_bitmap_t *icon = field_icon(v, size);
     if (icon == NULL) {
         return 0;
     }
@@ -405,7 +413,7 @@ static int symbol_width(const ui_value_t *v, int size, bool bolt)
     if (v->kind == UI_FK_MOON) {
         return symbol_px(size);
     }
-    const gfx_bitmap_t *icon = field_icon(v->field, size);
+    const gfx_bitmap_t *icon = field_icon(v, size);
     return icon != NULL ? icon->width : 0;
 }
 
@@ -700,7 +708,7 @@ static void tiny_symbol_size(const ui_value_t *v, int sym, int *w, int *h)
     } else if (v->kind == UI_FK_MOON) {
         *w = *h = px;
     } else if (v->kind != UI_FK_TIME) {
-        const gfx_bitmap_t *icon = field_icon(v->field, sym);
+        const gfx_bitmap_t *icon = field_icon(v, sym);
         if (icon != NULL) {
             const char *mark = tiny_mark(v);
             *w = icon->width + (mark != NULL ? 1 + gfx_text_width(UI_FONT(UI_F_SANS_12), mark) : 0), *h = icon->height;
@@ -728,7 +736,7 @@ static void draw_tiny_symbol(gfx_fb_t *fb, const ui_value_t *v, int x, int y, in
             ui_draw_moon(fb, x + px / 2, cy, px / 2 - 1, v->moon.age);
         }
     } else if (v->kind != UI_FK_TIME) {
-        const gfx_bitmap_t *icon = field_icon(v->field, sym);
+        const gfx_bitmap_t *icon = field_icon(v, sym);
         if (icon != NULL) {
             gfx_bitmap(fb, x, cy - icon->height / 2, icon, GFX_BLACK);
             const char *mark = tiny_mark(v);

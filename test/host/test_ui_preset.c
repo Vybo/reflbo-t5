@@ -27,9 +27,9 @@ void tearDown(void)
     ui_profile_use(NULL);
 }
 
-static void test_defaults_are_the_eight_built_ins(void)
+static void test_defaults_are_the_nine_built_ins(void)
 {
-    TEST_ASSERT_EQUAL_INT(8, s_p.count);
+    TEST_ASSERT_EQUAL_INT(9, s_p.count);
     TEST_ASSERT_EQUAL_STRING("home", s_p.presets[s_p.active].id);
     TEST_ASSERT_EQUAL(UI_LAYOUT_CLASSIC, s_p.presets[0].layout);
     TEST_ASSERT_EQUAL(UI_FIELD_TIME_CLOCK, s_p.presets[0].slots[0]);
@@ -51,6 +51,9 @@ static void test_defaults_are_the_eight_built_ins(void)
     TEST_ASSERT_EQUAL_STRING("Energy", s_p.presets[7].name);
     TEST_ASSERT_FALSE(s_p.presets[6].in_cycle || s_p.presets[7].in_cycle); /* outside the cycle */
     TEST_ASSERT_TRUE(s_p.presets[6].status_clock && s_p.presets[7].status_clock);
+    TEST_ASSERT_EQUAL_INT(8, ui_presets_find(&s_p, "pc")); /* M7 (D44), outside the cycle */
+    TEST_ASSERT_EQUAL(UI_LAYOUT_PC, s_p.presets[8].layout);
+    TEST_ASSERT_FALSE(s_p.presets[8].in_cycle);
     TEST_ASSERT_EQUAL_UINT8(UI_OFFERED_ALL, s_p.offered); /* nothing left to add */
     TEST_ASSERT_EQUAL_INT(-1, ui_presets_find(&s_p, "nope"));
 }
@@ -240,7 +243,7 @@ static void test_a_file_from_before_m6_gains_the_radars_once(void)
     TEST_ASSERT_TRUE_MESSAGE(ui_presets_from_json(k_m5_file, &s_p, s_err, sizeof(s_err)), s_err);
     TEST_ASSERT_EQUAL_UINT8(0, s_p.offered);
     TEST_ASSERT_TRUE(ui_presets_offer_builtins(&s_p)); /* changed: save it */
-    TEST_ASSERT_EQUAL_INT(8, s_p.count);
+    TEST_ASSERT_EQUAL_INT(9, s_p.count); /* M7's PC too */
     TEST_ASSERT_EQUAL_INT(4, ui_presets_find(&s_p, "rain"));
     TEST_ASSERT_EQUAL_INT(5, ui_presets_find(&s_p, "flights"));
     TEST_ASSERT_EQUAL_INT(6, ui_presets_find(&s_p, "solar")); /* and M6d's */
@@ -248,9 +251,9 @@ static void test_a_file_from_before_m6_gains_the_radars_once(void)
     TEST_ASSERT_FALSE(ui_presets_offer_builtins(&s_p));
 
     TEST_ASSERT_TRUE(ui_presets_to_json(&s_p, s_json, sizeof(s_json)) > 0);
-    TEST_ASSERT_NOT_NULL(strstr(s_json, "\"offered\":[\"rain\",\"flights\",\"solar\",\"energy\"]"));
-    memmove(&s_p.presets[5], &s_p.presets[6], 2 * sizeof(s_p.presets[0])); /* the owner deletes Flights */
-    s_p.count = 7;
+    TEST_ASSERT_NOT_NULL(strstr(s_json, "\"offered\":[\"rain\",\"flights\",\"solar\",\"energy\",\"pc\"]"));
+    memmove(&s_p.presets[5], &s_p.presets[6], 3 * sizeof(s_p.presets[0])); /* the owner deletes Flights */
+    s_p.count = 8;
     TEST_ASSERT_TRUE(ui_presets_to_json(&s_p, s_json, sizeof(s_json)) > 0);
     TEST_ASSERT_TRUE_MESSAGE(ui_presets_from_json(s_json, &s_p, s_err, sizeof(s_err)), s_err);
     TEST_ASSERT_FALSE(ui_presets_offer_builtins(&s_p)); /* and it stays deleted */
@@ -268,18 +271,20 @@ static void test_a_file_from_m6c_gains_solar_and_energy_once(void)
     TEST_ASSERT_TRUE_MESSAGE(ui_presets_from_json(k_m6c_file, &s_p, s_err, sizeof(s_err)), s_err);
     TEST_ASSERT_EQUAL_UINT8(UI_OFFERED_RAIN | UI_OFFERED_FLIGHTS, s_p.offered);
     TEST_ASSERT_TRUE(ui_presets_offer_builtins(&s_p));
-    TEST_ASSERT_EQUAL_INT(5, s_p.count); /* Flights was deleted under M6c: it stays deleted */
+    TEST_ASSERT_EQUAL_INT(6, s_p.count); /* Flights was deleted under M6c: it stays deleted; M7's PC joins */
     TEST_ASSERT_EQUAL_INT(-1, ui_presets_find(&s_p, "flights"));
     TEST_ASSERT_EQUAL_INT(3, ui_presets_find(&s_p, "solar"));
     TEST_ASSERT_EQUAL_INT(4, ui_presets_find(&s_p, "energy"));
     TEST_ASSERT_FALSE(s_p.presets[3].in_cycle || s_p.presets[4].in_cycle);
     TEST_ASSERT_EQUAL_STRING("weather", s_p.presets[s_p.active].id);
     TEST_ASSERT_FALSE(ui_presets_offer_builtins(&s_p));
-    s_p.count = 4; /* the owner deletes Energy */
+    s_p.presets[4] = s_p.presets[5]; /* the owner deletes Energy */
+    s_p.count = 5;
     TEST_ASSERT_TRUE(ui_presets_to_json(&s_p, s_json, sizeof(s_json)) > 0);
     TEST_ASSERT_TRUE_MESSAGE(ui_presets_from_json(s_json, &s_p, s_err, sizeof(s_err)), s_err);
     TEST_ASSERT_FALSE(ui_presets_offer_builtins(&s_p)); /* and it stays deleted */
     TEST_ASSERT_EQUAL_INT(-1, ui_presets_find(&s_p, "energy"));
+    TEST_ASSERT_EQUAL_INT(4, ui_presets_find(&s_p, "pc"));
 }
 
 static void test_the_radars_need_room_and_a_free_id(void)
@@ -298,7 +303,7 @@ static void test_the_radars_need_room_and_a_free_id(void)
     s_p.presets[0].layout = UI_LAYOUT_GRID;
     s_p.count = 1;
     TEST_ASSERT_TRUE(ui_presets_offer_builtins(&s_p));
-    TEST_ASSERT_EQUAL_INT(4, s_p.count); /* Flights, Solar and Energy */
+    TEST_ASSERT_EQUAL_INT(5, s_p.count); /* Flights, Solar, Energy and PC */
     TEST_ASSERT_EQUAL(UI_LAYOUT_GRID, s_p.presets[0].layout);
     TEST_ASSERT_EQUAL_STRING("flights", s_p.presets[1].id);
     TEST_ASSERT_EQUAL_STRING("energy", s_p.presets[3].id);
@@ -715,9 +720,10 @@ static void test_bad_split_trees_are_rejected_with_a_reason(void)
 #define EIGHT_COLUMNS C, C, C, 0, 0, C, 0, 0, C, C, 0, 0, C, 0, 0
 
 /* The largest presets.json there can be (M6c, T4c): 16 split presets of 24 cells, three rows of eight columns, the
- * most columns a tree can have, with every line hidden; the longest field ids a cell takes; names of control
+ * most columns a tree can have, with every line hidden; the longest field ids a cell takes, a PC reading's with
+ * 15 characters (M7); names of control
  * characters, which cJSON writes as six bytes each ("\u0001"); every option at its longest; 8 schedule entries
- * that switch to a preset; every cell's title forced, and the pool full of one-quote titles. */
+ * that switch to a preset; every cell's title forced, and the pool full of one-quote titles; 48 visuals (M7). */
 static void test_a_full_set_of_split_presets_fits_the_save_buffer(void)
 {
     static const uint8_t k_tree[UI_SPLIT_NODES] = { UI_RATIO_1_3 | UI_SPLIT_NO_LINE, EIGHT_COLUMNS,
@@ -729,8 +735,11 @@ static void test_a_full_set_of_split_presets_fits_the_save_buffer(void)
         memset(p->name, 0x01, UI_PRESET_NAME_LEN - 1);
         p->layout = UI_LAYOUT_SPLIT;
         memcpy(p->split, k_tree, sizeof(k_tree));
-        for (int k = 0; k < UI_SPLIT_CELLS; k++) {
-            p->slots[k] = (uint8_t)(k % 2 ? UI_FIELD_POLLEN_MUGWORT : UI_FIELD_POLLEN_RAGWEED); /* fit narrow S */
+        for (int k = 0; k < UI_SPLIT_CELLS; k++) { /* the table's 32 ids, in the order the file names them */
+            char id[PC_ID_LEN];
+            snprintf(id, sizeof(id), "reading_%07d", (i * UI_SPLIT_CELLS + k) % UI_PC_FIELDS);
+            p->slots[k] = (uint8_t)ui_presets_pc_field(&s_p, id);
+            TEST_ASSERT_TRUE(ui_field_is_pc((ui_field_id_t)p->slots[k]));
         }
         p->clock = UI_CLOCK_12H;
         p->stale_policy = UI_STALE_PLACEHOLDER;
@@ -745,6 +754,12 @@ static void test_a_full_set_of_split_presets_fits_the_save_buffer(void)
         titled++;
     }
     TEST_ASSERT_EQUAL_INT(UI_TITLES_BYTES / 4, titled); /* 4 bytes each */
+    /* M7: the pool's 48 visuals at their longest, charts over a day with both bounds at a float's longest digits */
+    ui_visual_t chart = { .as = UI_VIS_CHART, .min_mode = UI_LIMIT_VALUE, .max_mode = UI_LIMIT_VALUE,
+                          .min = -1.234567e+38f, .max = 1.234567e+38f, .span_s = UI_SPAN_MAX_S, .numbers = true };
+    for (int i = 0; i < UI_VISUALS_MAX; i++) {
+        TEST_ASSERT_TRUE(ui_presets_set_visual(&s_p, i / UI_SPLIT_CELLS, i % UI_SPLIT_CELLS, &chart));
+    }
     s_p.count = UI_PRESET_MAX;
     s_p.cycle_interval_s = UI_CYCLE_MAX_S;
     s_p.offered = UI_OFFERED_ALL;
@@ -1013,7 +1028,8 @@ static void test_the_t5_defaults_have_no_env_field(void)
 {
     ui_profile_use(&ui_profile_t547);
     ui_presets_defaults(&s_p);
-    TEST_ASSERT_EQUAL_INT(8, s_p.count);
+    TEST_ASSERT_EQUAL_INT(9, s_p.count); /* M7: the PC's, out of the cycle */
+    TEST_ASSERT_EQUAL_INT(8, ui_presets_find(&s_p, "pc"));
     expect_slots(&s_p.presets[0], "home", UI_LAYOUT_CLASSIC,
                  (const ui_field_id_t[]){ UI_FIELD_TIME_CLOCK, UI_FIELD_DATE_DAY, UI_FIELD_WX_NOW, UI_FIELD_WX_TODAY,
                                           UI_FIELD_SUN_TIMES, UI_FIELD_MOON_PHASE, UI_FIELD_AQ_INDEX,
@@ -1050,7 +1066,7 @@ static void test_the_t5_defaults_have_no_env_field(void)
 int main(void)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_defaults_are_the_eight_built_ins);
+    RUN_TEST(test_defaults_are_the_nine_built_ins);
     RUN_TEST(test_the_rlcd_defaults_are_todays);
     RUN_TEST(test_the_t5_defaults_have_no_env_field);
     RUN_TEST(test_next_follows_cycle_order_and_skips_presets_out_of_it);

@@ -79,6 +79,7 @@ static const struct {
     { UI_OFFERED_FLIGHTS, "flights", "Flights", UI_LAYOUT_FLIGHTS, true, false },
     { UI_OFFERED_SOLAR, "solar", "Solar", UI_LAYOUT_SOLAR, false, true },
     { UI_OFFERED_ENERGY, "energy", "Energy", UI_LAYOUT_ENERGY, false, false },
+    { UI_OFFERED_PC, "pc", "PC", UI_LAYOUT_PC, false, false }, /* M7: filled from the first catalogue */
 };
 
 bool ui_presets_offer_builtins(ui_presets_t *p)
@@ -177,6 +178,124 @@ static size_t title_bytes(const char *text)
     return n;
 }
 
+ui_field_id_t ui_presets_pc_field(ui_presets_t *p, const char *id)
+{
+    if (!pc_id_valid(id)) {
+        return UI_FIELD_NONE;
+    }
+    for (int n = 0; n < UI_PC_FIELDS; n++) {
+        if (p->pc_ids[n][0] == '\0') {
+            snprintf(p->pc_ids[n], sizeof(p->pc_ids[n]), "%s", id); /* a new entry */
+            return (ui_field_id_t)(UI_FIELD_PC_FIRST + n);
+        }
+        if (strcmp(p->pc_ids[n], id) == 0) {
+            return (ui_field_id_t)(UI_FIELD_PC_FIRST + n);
+        }
+    }
+    return UI_FIELD_NONE;
+}
+
+ui_field_id_t ui_presets_field_by_name(ui_presets_t *p, const char *name)
+{
+    if (name != NULL && strncmp(name, "pc.", 3) == 0) {
+        return ui_presets_pc_field(p, name + 3);
+    }
+    return ui_field_by_name(name);
+}
+
+size_t ui_presets_field_name(const ui_presets_t *p, ui_field_id_t field, char *out, size_t size)
+{
+    return ui_field_name(p->pc_ids, field, out, size);
+}
+
+const ui_visual_t *ui_presets_visual(const ui_presets_t *p, int preset, int slot)
+{
+    for (int i = 0; i < p->visual_count; i++) {
+        if (p->visuals[i].preset == preset && p->visuals[i].slot == slot) {
+            return &p->visuals[i].vis;
+        }
+    }
+    return NULL;
+}
+
+bool ui_presets_set_visual(ui_presets_t *p, int preset, int slot, const ui_visual_t *vis)
+{
+    if (preset < 0 || preset >= UI_PRESET_MAX || slot < 0 || slot >= UI_SLOT_MAX) {
+        return false;
+    }
+    int key = preset * UI_SLOT_MAX + slot, at = 0;
+    while (at < p->visual_count && p->visuals[at].preset * UI_SLOT_MAX + p->visuals[at].slot < key) {
+        at++;
+    }
+    bool here = at < p->visual_count && p->visuals[at].preset == preset && p->visuals[at].slot == slot;
+    if (vis == NULL || vis->as == UI_VIS_VALUE) {
+        if (here) {
+            memmove(&p->visuals[at], &p->visuals[at + 1], (size_t)(p->visual_count - at - 1) * sizeof(p->visuals[0]));
+            p->visual_count--;
+            memset(&p->visuals[p->visual_count], 0, sizeof(p->visuals[0]));
+        }
+        return true;
+    }
+    if (!here) {
+        if (p->visual_count >= UI_VISUALS_MAX) {
+            return false;
+        }
+        memmove(&p->visuals[at + 1], &p->visuals[at], (size_t)(p->visual_count - at) * sizeof(p->visuals[0]));
+        p->visual_count++;
+    }
+    p->visuals[at] = (ui_visual_entry_t){ .preset = (uint8_t)preset, .slot = (uint8_t)slot, .vis = *vis };
+    return true;
+}
+
+bool ui_presets_fill_pc(ui_presets_t *p, const pc_catalog_t *cat)
+{
+    int i = ui_presets_find(p, "pc");
+    if (i < 0 || p->presets[i].layout != UI_LAYOUT_PC || cat->count == 0) {
+        return false;
+    }
+    ui_preset_t *pc = &p->presets[i];
+    const ui_layout_t *layout = ui_layout(UI_LAYOUT_PC);
+    for (int s = 0; s < layout->slot_count; s++) {
+        if (pc->slots[s] != UI_FIELD_NONE) {
+            return false;
+        }
+    }
+    bool changed = false;
+    for (int s = 0; s < layout->slot_count && s < cat->count; s++) {
+        ui_field_id_t f = ui_presets_pc_field(p, cat->r[s].id);
+        ui_visual_t vis = { .as = s < 4 ? UI_VIS_CHART : UI_VIS_BAR, .span_s = UI_SPAN_DEFAULT_S, .numbers = s < 4 };
+        if (f == UI_FIELD_NONE || !ui_presets_set_visual(p, i, s, &vis)) {
+            break; /* the tables are full: the rest stay empty */
+        }
+        pc->slots[s] = (uint8_t)f;
+        changed = true;
+    }
+    return changed;
+}
+
+int ui_presets_chart_fields(const ui_presets_t *p, char names[UI_HIST_SERIES][UI_HIST_NAME_LEN])
+{
+    int n = 0;
+    for (int i = 0; i < p->visual_count && n < UI_HIST_SERIES; i++) {
+        const ui_visual_entry_t *e = &p->visuals[i];
+        if (e->vis.as != UI_VIS_CHART || e->preset >= p->count) {
+            continue;
+        }
+        char name[UI_HIST_NAME_LEN];
+        if (ui_presets_field_name(p, (ui_field_id_t)p->presets[e->preset].slots[e->slot], name, sizeof(name)) == 0) {
+            continue;
+        }
+        bool seen = false;
+        for (int k = 0; k < n && !seen; k++) {
+            seen = strcmp(names[k], name) == 0;
+        }
+        if (!seen) {
+            memcpy(names[n++], name, sizeof(name));
+        }
+    }
+    return n;
+}
+
 const char *ui_presets_title(const ui_presets_t *p, int preset, int slot)
 {
     int n;
@@ -224,6 +343,11 @@ bool ui_presets_set_title(ui_presets_t *p, int preset, int slot, const char *tex
 void ui_presets_titles(const ui_presets_t *p, int preset, ui_titles_t *out)
 {
     memset(out, 0, sizeof(*out));
+    for (int i = 0; i < p->visual_count; i++) {
+        if (p->visuals[i].preset == preset && p->visuals[i].slot < UI_SLOT_MAX) {
+            out->visual[p->visuals[i].slot] = &p->visuals[i].vis;
+        }
+    }
     int n;
     for (size_t at = 0; (n = record_len(p->titles, at)) >= 0; at += 3 + (size_t)n) {
         if (p->titles[at] == preset && p->titles[at + 1] < UI_SLOT_MAX) {

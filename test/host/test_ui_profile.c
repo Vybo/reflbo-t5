@@ -197,7 +197,14 @@ static void test_the_rlcd_layouts_and_separators_are_todays(void)
     assert_seps(ui_layout(UI_LAYOUT_WEATHER), w_sep, 4);
     assert_seps(ui_layout(UI_LAYOUT_GRID), g_sep, 3);
     assert_seps(ui_layout(UI_LAYOUT_FOCUS), f_sep, 2);
+    const ui_sep_t pc_sep[] = { { 200, 29, 84, 1 },  { 200, 130, 84, 1 }, { 8, 121, 384, 0 },
+                                { 8, 222, 384, 0 }, { 133, 231, 61, 1 }, { 267, 231, 61, 1 } };
+    TEST_ASSERT_EQUAL_INT(7, ui_layout(UI_LAYOUT_PC)->slot_count); /* M7: test_ui_pc_layout.c checks the slots */
+    assert_seps(ui_layout(UI_LAYOUT_PC), pc_sep, 6);
     for (int id = UI_LAYOUT_RADAR; id < UI_LAYOUT_COUNT; id++) {
+        if (id == UI_LAYOUT_PC) {
+            continue;
+        }
         TEST_ASSERT_EQUAL_INT(0, ui_layout((ui_layout_id_t)id)->slot_count);
         TEST_ASSERT_EQUAL_INT(0, ui_layout((ui_layout_id_t)id)->sep_count);
     }

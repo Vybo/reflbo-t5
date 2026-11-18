@@ -17,6 +17,7 @@
 #include "sync_plan.h"
 #include "ui_fields.h"
 #include "ui_menu.h"
+#include "ui_pc.h"
 #include "ui_preset.h"
 #include "ui_radar.h"
 #include "ui_solar.h"
@@ -56,8 +57,7 @@ typedef struct {
 
 typedef struct {
     ds_t ds;
-    settings_t settings;
-    ui_presets_t presets;
+    settings_t settings; /* the presets are apart: their own block in RTC FAST memory (M7, spec §6) */
     time_t cycle_at;      /* next auto-cycle switch; 0 = not armed (cycling off, or no tick yet) */
     time_t done_slot;     /* the last minute slot that was sampled and rendered */
     time_t night_until;   /* night sleep ends here (UTC, on a minute); 0 = no night (spec §9.1) */
@@ -81,6 +81,9 @@ app_ui_state_t *app_state(void); /* the menu edits it (main/app_menu.c) */
 const settings_t *app_settings(void);
 ds_t *app_ds(void);
 ui_presets_t *app_presets(void);
+/* The presets through deep sleep, apart from app_ui_state_t: RTC slow memory can't hold them as they grow. */
+void app_ui_export_presets(ui_presets_t *out);
+void app_ui_import_presets(const ui_presets_t *in);
 
 /* Applies the settings that live outside the app: time zone, sensor offsets, freshness, panel rate. */
 void app_ui_apply_settings(void);
@@ -121,6 +124,7 @@ void app_ui_toast_expire(void);
 
 /* Night sleep (spec §9.1): starts now and ends at `until` (UTC, on a minute). */
 void app_ui_start_night(time_t until);
+void app_ui_begin_night(time_t until); /* a schedule's night: started, with its toast "Night until 06:00" */
 void app_ui_end_night(void);
 bool app_ui_night(void);
 
@@ -129,6 +133,9 @@ bool app_ui_first_run(void);
 void app_ui_end_first_run(void);
 /* settings.json as it would be saved now (GET /api/settings, the backup). */
 size_t app_ui_settings_json(char *out, size_t size);
+/* The files as a save would write them now: a PC session's `always` and preset as the ones before it. */
+size_t app_ui_saved_settings_json(char *out, size_t size);
+size_t app_ui_saved_presets_json(char *out, size_t size);
 /* A whole new settings.json (a restore) or a merge patch (PATCH /api/settings): validated, saved
  * and applied at once. ESP_ERR_INVALID_ARG with the reason in `err` if it doesn't parse. */
 esp_err_t app_ui_replace_settings(const char *json, char *err, size_t err_size);
@@ -249,6 +256,53 @@ typedef struct {
 void app_flights_tick(bool shown);
 void app_flights_fill(ui_radar_t *ui); /* the last good poll into the view's context */
 void app_flights_status(app_flights_status_t *out);
+
+/* The PC's sensors (main/app_pc.c, spec §12a, M7, D44): the session, its stream and the charts' history. */
+typedef struct {
+    bool session;          /* a session runs */
+    bool connected;        /* its stream is up */
+    bool demo;             /* `pc demo on` */
+    bool set_always;       /* the session switched to sync mode `always` */
+    pc_hwinfo_t hwinfo;    /* HWiNFO's state as the app last said */
+    uint8_t readings;      /* the catalogue's, the cached one included */
+    time_t since;          /* when the last session ended (UTC); 0 = none since the boot */
+    uint32_t age_ms;       /* since the last readings; 0 = none */
+    char name[32];         /* the PC's, from /v1/info */
+    char why[64];          /* why the stream last closed, or a frame was refused */
+    char preset[UI_PRESET_ID_LEN]; /* the preset the session showed; "" for none */
+} app_pc_status_t;
+void app_pc_init(void);            /* the cached catalogue, and the history for the presets' charts */
+void app_pc_presets_changed(void); /* the presets' charts may have changed: their series follow */
+void app_pc_report(const sync_report_t *r); /* a sync's PC step: a session may start (before Wi-Fi goes) */
+void app_pc_tick(void);            /* its silence, its settings; call from the app loop */
+int64_t app_pc_deadline_ms(void);  /* app_uptime_ms() of its next look; 0 without a session */
+void app_pc_end(const char *why);  /* a night, a critical battery */
+bool app_pc_session(void);
+bool app_pc_keeps_wifi(void);      /* quiet hours don't end it (spec §12a.4) */
+bool app_pc_pauses_cycle(void);    /* the session's preset is on screen */
+/* What the files keep while a session runs (spec §12a.4): the mode from before for `mode`, while it is still the
+ * session's `always`; the preset from before while the session's is on screen (NULL: as it is). */
+uint8_t app_pc_saved_mode(uint8_t mode);
+const char *app_pc_saved_preset(void);
+void app_pc_defer_night(time_t until); /* a schedule's night during a session: it starts at the session's end */
+void app_pc_settings_saved(uint8_t mode); /* leaving `always` by hand ends a session (the owner, 2026-10-21) */
+void app_pc_feed(bool sample);     /* the charts' other fields: at a sample (`env.*`, `bat.*`) or a sync (the rest) */
+const ui_pc_t *app_pc_ui(void);    /* what a render draws now */
+const ui_history_t *app_pc_history(void); /* NULL until a chart needs it */
+void app_pc_status(app_pc_status_t *out);
+void app_pc_demo(bool on);         /* `pc demo on|off` */
+void app_pc_state_text(char *out, size_t size); /* Menu ▸ Sync ▸ PC ▸ Session: "DESKTOP-PC, 1 s", "since 18:12" */
+void app_pc_tested(const sync_report_t *r);     /* the PC page's Test: its result, and a session if found */
+/* The PC page's Test (spec §10.3): the PC step alone, now. ESP_ERR_INVALID_ARG without PC stats on and an address,
+ * ESP_ERR_NOT_FOUND without a saved network, ESP_ERR_INVALID_STATE while a sync runs or the battery is critical. */
+esp_err_t app_sync_pc_test(void);
+/* The last Test's outcome: when (UTC; 0 for none), its sync_step_result_t and its detail. */
+typedef struct {
+    time_t at;
+    uint8_t result;
+    char detail[SYNC_DETAIL_LEN];
+} app_pc_test_t;
+const app_pc_test_t *app_pc_last_test(void);
 
 /* Config mode (main/app_config.c, spec §10.2). */
 esp_err_t app_net_init(void); /* the Wi-Fi manager, started on first use */

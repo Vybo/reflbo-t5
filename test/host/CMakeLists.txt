@@ -95,6 +95,12 @@ target_include_directories(sync_logic PUBLIC ${REPO_ROOT}/components/sync/includ
 target_compile_options(sync_logic PRIVATE ${REFLBO_WARNINGS})
 target_link_libraries(sync_logic PUBLIC scheduler)
 
+# pcstats: the PC app's messages (spec §12a, D44) and the session's rules build on the host; the WebSocket does not.
+add_library(pcstats_logic STATIC ${REPO_ROOT}/components/pcstats/pc_msg.c ${REPO_ROOT}/components/pcstats/pc_session.c)
+target_include_directories(pcstats_logic PUBLIC ${REPO_ROOT}/components/pcstats/include)
+target_compile_options(pcstats_logic PRIVATE ${REFLBO_WARNINGS})
+target_link_libraries(pcstats_logic PRIVATE cjson util)
+
 # board: only the pure gesture recogniser builds on the host.
 add_library(board_logic STATIC ${REPO_ROOT}/components/board/gesture.c)
 target_include_directories(board_logic PUBLIC ${REPO_ROOT}/components/board/include)
@@ -206,7 +212,7 @@ file(GLOB UI_SOURCES CONFIGURE_DEPENDS ${REPO_ROOT}/components/ui/*.c)
 add_library(ui STATIC ${UI_SOURCES})
 target_include_directories(ui PUBLIC ${REPO_ROOT}/components/ui/include)
 target_compile_options(ui PRIVATE ${REFLBO_WARNINGS})
-target_link_libraries(ui PUBLIC gfx locale datastore util map radar_logic adsb_logic solar_logic energy_logic
+target_link_libraries(ui PUBLIC gfx locale datastore util map radar_logic adsb_logic solar_logic energy_logic pcstats_logic
                       PRIVATE cjson scheduler weather_logic astro m)
 
 # reflbo_host_test(<name> <libs...>): builds <name>.c against Unity and registers it with ctest.
@@ -277,9 +283,16 @@ reflbo_host_test(test_solar solar_logic)
 target_compile_definitions(test_solar PRIVATE FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/solar")
 reflbo_host_test(test_energy energy_logic)
 reflbo_host_test(test_energy_dev energy_logic)
+reflbo_host_test(test_pcstats pcstats_logic)
+reflbo_host_test(test_pc_session pcstats_logic)
 target_compile_definitions(test_energy PRIVATE FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/energy")
 reflbo_host_test(test_ui_fields ui)
 reflbo_host_test(test_ui_preset ui)
+reflbo_host_test(test_ui_pc ui pcstats_logic)
+reflbo_host_test(test_ui_history ui)
+reflbo_host_test(test_ui_visual ui)
+reflbo_host_test(test_ui_preset_visuals ui)
+reflbo_host_test(test_ui_pc_layout ui)
 reflbo_host_test(test_ui_split ui)
 reflbo_host_test(test_ui_profile ui)
 target_compile_definitions(test_ui_profile PRIVATE GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
@@ -323,6 +336,13 @@ target_link_libraries(render_dashboard PRIVATE ui ZLIB::ZLIB)
 
 reflbo_host_test(test_ui_screens_golden ui ZLIB::ZLIB) # the time zones through ui's solar and energy
 target_compile_definitions(test_ui_screens_golden PRIVATE GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
+
+reflbo_host_test(test_ui_visual_golden ui)
+target_compile_definitions(test_ui_visual_golden PRIVATE GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
+
+add_executable(render_visual render_visual.c)
+target_compile_options(render_visual PRIVATE ${REFLBO_WARNINGS})
+target_link_libraries(render_visual PRIVATE ui)
 
 add_executable(render_screen render_screen.c)
 target_compile_options(render_screen PRIVATE ${REFLBO_WARNINGS})

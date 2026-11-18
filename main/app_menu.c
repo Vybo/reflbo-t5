@@ -25,7 +25,7 @@
 
 static const char *TAG = "app_menu";
 
-_Static_assert(UI_MI_STEP_ENERGY - UI_MI_STEP_WEATHER == 4 && SETTINGS_STEP_ENERGY == 1 << 4,
+_Static_assert(UI_MI_STEP_PC - UI_MI_STEP_WEATHER == 5 && SETTINGS_STEP_PC == 1 << 5,
                "Sync ▸ Steps follows settings_step_t: a switch a bit");
 
 static int64_t s_closed_ms; /* app_uptime_ms() when the menu last closed */
@@ -156,17 +156,17 @@ static void build_model(void)
     ui_menu_model_t *m = &s_model;
     memset(m, 0, sizeof(*m));
 
-    for (int i = 0; i < st->presets.count; i++) {
-        s_preset_names[i] = st->presets.presets[i].name;
+    for (int i = 0; i < app_presets()->count; i++) {
+        s_preset_names[i] = app_presets()->presets[i].name;
     }
     m->choices[UI_MI_ACTIVE_PRESET] = s_preset_names;
-    m->choice_count[UI_MI_ACTIVE_PRESET] = st->presets.count;
-    m->value[UI_MI_ACTIVE_PRESET] = st->presets.active;
-    m->value[UI_MI_AUTO_CYCLE] = st->presets.cycle_enabled;
+    m->choice_count[UI_MI_ACTIVE_PRESET] = app_presets()->count;
+    m->value[UI_MI_ACTIVE_PRESET] = app_presets()->active;
+    m->value[UI_MI_AUTO_CYCLE] = app_presets()->cycle_enabled;
     m->choices[UI_MI_CYCLE_INTERVAL] = k_cycle_labels;
     m->choice_count[UI_MI_CYCLE_INTERVAL] = CYCLE_COUNT;
-    m->value[UI_MI_CYCLE_INTERVAL] = nearest_index(k_cycle_s, CYCLE_COUNT, st->presets.cycle_interval_s);
-    m->value[UI_MI_SCHEDULE] = st->presets.schedule.enabled;
+    m->value[UI_MI_CYCLE_INTERVAL] = nearest_index(k_cycle_s, CYCLE_COUNT, app_presets()->cycle_interval_s);
+    m->value[UI_MI_SCHEDULE] = app_presets()->schedule.enabled;
 
     time_t now = time(NULL);
     localtime_r(&now, &m->local);
@@ -188,9 +188,13 @@ static void build_model(void)
     m->value[UI_MI_SYNC_INTERVAL] = nearest_index(k_sync_min, SYNC_STEPS, set->sync_interval_min);
     m->hidden[UI_MI_SYNC_INTERVAL] = set->sync_mode != SETTINGS_SYNC_INTERVAL;
     m->value[UI_MI_QUIET_HOURS] = set->quiet;
-    for (int i = 0; i < 5; i++) { /* Sync ▸ Steps (D35), in settings_step_t order */
+    for (int i = 0; i < 6; i++) { /* Sync ▸ Steps (D35, M7), in settings_step_t order */
         m->value[UI_MI_STEP_WEATHER + i] = (set->sync_steps >> i) & 1;
     }
+    m->value[UI_MI_PC_STATS] = set->pc_enabled; /* Sync ▸ PC (M7) */
+    static char s_pc_state[48];
+    app_pc_state_text(s_pc_state, sizeof(s_pc_state));
+    m->info[UI_MI_PC_SESSION] = s_pc_state;
 
     m->value[UI_MI_UPDATE_INTERVAL] = set->display_every_min;
     int rate = 0;
@@ -291,14 +295,14 @@ static void apply(const ui_menu_intent_t *in)
             app_ui_set_cycle(in->value != 0);
             break;
         case UI_MI_CYCLE_INTERVAL:
-            st->presets.cycle_interval_s = k_cycle_s[in->value < CYCLE_COUNT ? in->value : 0];
-            if (st->presets.cycle_enabled) {
-                st->cycle_at = time(NULL) + st->presets.cycle_interval_s;
+            app_presets()->cycle_interval_s = k_cycle_s[in->value < CYCLE_COUNT ? in->value : 0];
+            if (app_presets()->cycle_enabled) {
+                st->cycle_at = time(NULL) + app_presets()->cycle_interval_s;
             }
             save_presets = true;
             break;
         case UI_MI_SCHEDULE:
-            st->presets.schedule.enabled = in->value != 0;
+            app_presets()->schedule.enabled = in->value != 0;
             st->sched_checked = time(NULL);
             save_presets = true;
             break;
@@ -333,12 +337,17 @@ static void apply(const ui_menu_intent_t *in)
         case UI_MI_STEP_AIR:
         case UI_MI_STEP_RADAR:
         case UI_MI_STEP_SOLAR:
-        case UI_MI_STEP_ENERGY: { /* a step that is off makes no requests, its refreshes in `always` included */
+        case UI_MI_STEP_ENERGY:
+        case UI_MI_STEP_PC: { /* a step that is off makes no requests, its refreshes in `always` included */
             uint8_t bit = (uint8_t)(1u << (in->item - UI_MI_STEP_WEATHER));
             set->sync_steps = (uint8_t)(in->value ? set->sync_steps | bit : set->sync_steps & ~bit);
             save_settings = true;
             break;
         }
+        case UI_MI_PC_STATS: /* off ends a session at the next tick (spec §12a.4) */
+            set->pc_enabled = in->value != 0;
+            save_settings = true;
+            break;
         case UI_MI_REFRESH_RATE:
             set->lpm_quarter_hz = k_quarter_hz[in->value < RATE_COUNT ? in->value : 2];
             apply_settings = save_settings = true;

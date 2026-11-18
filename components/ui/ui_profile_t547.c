@@ -99,6 +99,7 @@ static const ui_layout_t k_layouts[UI_LAYOUT_COUNT] = {
     [UI_LAYOUT_SPLIT] = { "split", NULL, 0, NULL, 0 },
     [UI_LAYOUT_SOLAR] = { "solar", NULL, 0, NULL, 0 },
     [UI_LAYOUT_ENERGY] = { "energy", NULL, 0, NULL, 0 },
+    [UI_LAYOUT_PC] = { "pc", NULL, 0, NULL, 0 }, /* T5b Task 6: §7.7 */
 };
 
 const ui_profile_t ui_profile_t547 = {

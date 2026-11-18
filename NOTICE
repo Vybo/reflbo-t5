@@ -9,8 +9,9 @@ This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-Versions up to commit b7d0fb5 were released under the Apache License,
-Version 2.0, and remain available under its terms.
+Versions up to commit c1cf153 of upstream reflbo, and up to commit b7d0fb5
+of this fork, were released under the Apache License, Version 2.0, and
+remain available under its terms.
 
 Additional permission under GNU GPL version 3 section 7
 

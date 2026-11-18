@@ -290,11 +290,11 @@ static void get_status(uint8_t *out, size_t size, webui_reply_t *reply)
         cJSON_AddStringToObject(energy, "plant", ss->site.plant_id); /* the Developer API's, found once (D37) */
     }
 
-    const ui_preset_t *active = &st->presets.presets[st->presets.active];
+    const ui_preset_t *active = &app_presets()->presets[app_presets()->active];
     cJSON *preset = cJSON_AddObjectToObject(o, "preset");
     cJSON_AddStringToObject(preset, "active", active->id);
     cJSON_AddStringToObject(preset, "name", active->name);
-    cJSON_AddBoolToObject(preset, "cycle", st->presets.cycle_enabled);
+    cJSON_AddBoolToObject(preset, "cycle", app_presets()->cycle_enabled);
     reply_cjson(reply, out, size, o);
 }
 
@@ -355,6 +355,7 @@ static void preview(const char *method, const char *query, const char *body, uin
         app_radar_prepare(&doc.presets[index]); /* its map, and the frame from its file if PSRAM has none */
         ui_context_t ctx;
         app_ui_context(&ctx);
+        ctx.pc_ids = doc.pc_ids; /* M7: the previewed file's own PC readings */
         ui_titles_t titles;
         ui_presets_titles(&doc, index, &titles);
         ui_draw_dashboard(fb, &ctx, &doc.presets[index], &titles);
@@ -429,6 +430,54 @@ _Static_assert(SETTINGS_FILE_MAX + UI_PRESETS_JSON_MAX + 512 <= WEBUI_BODY_MAX,
 _Static_assert(UI_JSON_MAX_DEPTH + 2 <= BACKUP_MAX_DEPTH, "a backup holds the deepest presets.json");
 _Static_assert(BACKUP_MAX_DEPTH <= WEBUI_JSON_MAX_DEPTH, "the web server passes the deepest backup");
 
+static const char *step_result_name(uint8_t r)
+{
+    static const char *const k_results[] = { "not run", "ok", "failed", "kept" };
+    return k_results[r < 4 ? r : 0];
+}
+
+/* GET /api/pc (spec §10.3, M7): the session now, the PC's catalogue, the last PC step and Test; never the token. */
+static void pc_state(uint8_t *out, size_t size, webui_reply_t *reply)
+{
+    app_pc_status_t s;
+    app_pc_status(&s);
+    const settings_t *set = app_settings();
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddBoolToObject(o, "enabled", set->pc_enabled);
+    cJSON_AddBoolToObject(o, "session", s.session);
+    cJSON_AddBoolToObject(o, "connected", s.connected);
+    cJSON_AddBoolToObject(o, "demo", s.demo);
+    cJSON_AddBoolToObject(o, "set_always", s.set_always);
+    cJSON_AddStringToObject(o, "name", s.name);
+    cJSON_AddStringToObject(o, "hwinfo", pc_hwinfo_name(s.hwinfo));
+    cJSON_AddStringToObject(o, "preset", s.preset);
+    cJSON_AddNumberToObject(o, "since", (double)s.since);
+    cJSON_AddNumberToObject(o, "age_ms", s.age_ms);
+    cJSON_AddStringToObject(o, "trouble", s.why);
+    const ui_pc_t *view = app_pc_ui();
+    cJSON *list = cJSON_AddArrayToObject(o, "catalog");
+    for (int i = 0; view->catalog != NULL && i < view->catalog->count; i++) {
+        const pc_reading_t *r = &view->catalog->r[i];
+        cJSON *e = cJSON_CreateObject();
+        cJSON_AddStringToObject(e, "id", r->id);
+        cJSON_AddStringToObject(e, "label", r->label);
+        cJSON_AddStringToObject(e, "unit", r->unit);
+        cJSON_AddItemToArray(list, e);
+    }
+    const app_sync_state_t *sync = &app_state()->sync;
+    cJSON *step = cJSON_AddObjectToObject(o, "step");
+    cJSON_AddNumberToObject(step, "at", sync->last_at);
+    cJSON_AddStringToObject(step, "result", step_result_name(sync->last_result[SYNC_STEP_PC]));
+    cJSON_AddStringToObject(step, "detail", sync->last_detail[SYNC_STEP_PC]);
+    const app_pc_test_t *t = app_pc_last_test();
+    cJSON *test = cJSON_AddObjectToObject(o, "test");
+    cJSON_AddNumberToObject(test, "at", (double)t->at);
+    cJSON_AddStringToObject(test, "result", step_result_name(t->result));
+    cJSON_AddStringToObject(test, "detail", t->detail);
+    cJSON_AddBoolToObject(o, "testing", app_sync_active() && sync_step() == SYNC_STEP_PC);
+    reply_cjson(reply, out, size, o);
+}
+
 /* GET /api/backup (spec §14.4): the /cfg files as the firmware would save them now. */
 static void backup(uint8_t *out, size_t size, webui_reply_t *reply)
 {
@@ -437,8 +486,8 @@ static void backup(uint8_t *out, size_t size, webui_reply_t *reply)
     netmgr_status_t net;
     netmgr_status(&net);
     backup_file_t files[] = {
-        { "settings.json", app_ui_settings_json(settings, sizeof(settings)) ? settings : NULL },
-        { "presets.json", ui_presets_to_json(app_presets(), presets, sizeof(presets)) ? presets : NULL },
+        { "settings.json", app_ui_saved_settings_json(settings, sizeof(settings)) ? settings : NULL },
+        { "presets.json", app_ui_saved_presets_json(presets, sizeof(presets)) ? presets : NULL },
     };
     reply_text(reply, out, size,
                backup_build(files, 2, net.host, esp_app_get_description()->version, (char *)out, size));
@@ -459,6 +508,8 @@ static void get_settings(uint8_t *out, size_t size, webui_reply_t *reply)
     cJSON_AddBoolToObject(keys, "solcast_key", app_secret_set(SETTINGS_SECRET_SOLCAST_KEY));
     cJSON_AddNumberToObject(keys, "solcast_sites", app_secret_set(SETTINGS_SECRET_SOLCAST_SITE1) +
                                                        app_secret_set(SETTINGS_SECRET_SOLCAST_SITE2));
+    cJSON_AddBoolToObject(cJSON_AddObjectToObject(cJSON_GetObjectItemCaseSensitive(o, "pc"), "keys"), "token",
+                          app_secret_set(SETTINGS_SECRET_PC_TOKEN)); /* M7 */
     keys = cJSON_AddObjectToObject(cJSON_GetObjectItemCaseSensitive(o, "energy"), "keys");
     cJSON_AddBoolToObject(keys, "solax_token", app_secret_set(SETTINGS_SECRET_SOLAX_TOKEN));
     cJSON_AddBoolToObject(keys, "solax_sn", app_secret_set(SETTINGS_SECRET_SOLAX_SN));
@@ -622,6 +673,21 @@ void app_web_api(const char *method, const char *path, const char *query, const 
                         : e == ESP_ERR_INVALID_STATE ? "not now: a sync runs, the battery is critical, or the device "
                                                        "is on its own network only"
                                                      : "the check didn't start");
+        }
+    } else if (strcmp(path, "/api/pc") == 0 && get) { /* spec §10.3, M7 */
+        pc_state(out, size, reply);
+    } else if (strcmp(path, "/api/pc/test") == 0 && strcmp(method, "POST") == 0) {
+        esp_err_t e = app_sync_pc_test();
+        if (e == ESP_OK) {
+            reply_text(reply, out, size, (size_t)snprintf((char *)out, size, "{\"started\":true}"));
+            reply->status = 202; /* the page follows it in GET /api/pc */
+        } else {
+            reply_error(reply, out, size, 409,
+                        e == ESP_ERR_NOT_FOUND       ? "no Wi-Fi network is saved"
+                        : e == ESP_ERR_INVALID_ARG   ? "nothing to test: PC stats are off or the PC has no address"
+                        : e == ESP_ERR_INVALID_STATE ? "not now: a sync runs, the battery is critical, or the device "
+                                                       "is on its own network only"
+                                                     : "the test didn't start");
         }
     } else if (strcmp(path, "/api/backup") == 0 && get) {
         backup(out, size, reply);
