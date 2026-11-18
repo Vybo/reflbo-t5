@@ -1,5 +1,7 @@
 # M7: MQTT and Home Assistant, Implementation Plan
 
+> **Superseded** by [`2026-10-06-m7-mqtt-home-assistant.md`](2026-10-06-m7-mqtt-home-assistant.md), the refresh after M6c and M6d with D40's additions. Don't run this one; it stays for its history.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** M7 (spec §18, D32): the board publishes its state to Home Assistant through MQTT discovery and takes HA's commands (the preset select, Sync now and Next preset buttons) and a message, which shows as a banner until KEY dismisses it and as the `ha.message` field; values from HA and other local devices arrive as `mqtt.<key>` fields; while connected, its key presses reach HA as device triggers. A session runs in every sync, and sync mode `always` keeps one; a failed session is shown but doesn't fail the sync.
