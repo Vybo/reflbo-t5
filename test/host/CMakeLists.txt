@@ -337,7 +337,7 @@ target_link_libraries(render_dashboard PRIVATE ui ZLIB::ZLIB)
 reflbo_host_test(test_ui_screens_golden ui ZLIB::ZLIB) # the time zones through ui's solar and energy
 target_compile_definitions(test_ui_screens_golden PRIVATE GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
 
-reflbo_host_test(test_ui_visual_golden ui)
+reflbo_host_test(test_ui_visual_golden ui ZLIB::ZLIB)
 target_compile_definitions(test_ui_visual_golden PRIVATE GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
 
 add_executable(render_visual render_visual.c)

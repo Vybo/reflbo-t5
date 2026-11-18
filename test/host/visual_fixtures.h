@@ -266,3 +266,9 @@ static inline bool fixture_visual(const char *name, gfx_fb_t *fb)
 static const char *const k_visual_fixtures[] = { "visuals_m",       "visuals_s",   "visuals_small", "chart_spans",
                                                  "chart_variants",  "visuals_missing", "visuals_cs", "chart_gap",
                                                  "visuals_tall",    "visuals_rows" };
+
+/* The sheets with a T5 golden (test/host/golden/t5/vis_<name>.pgm.gz), NULL-terminated: each joins once the owner
+ * has approved its render (T5 spec DT2, §7.7). */
+static const char *const k_t5_visual_fixtures[] = { "visuals_m",      "visuals_s",       "visuals_small", "chart_spans",
+                                                    "chart_variants", "visuals_missing", "visuals_cs",    "chart_gap",
+                                                    "visuals_tall",   "visuals_rows",    NULL };
