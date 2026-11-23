@@ -984,6 +984,7 @@ const frameMs = (settings) => Math.round(1000 / ((settings.display || {}).lpm_hz
 const msLabel = (ms) => (ms < 1000 ? `${ms} ms` : `${+(ms / 1000).toFixed(2)} s`);
 
 async function pcPage() {
+  await panel();
   const [s, doc, pc] = await Promise.all([api('GET', '/api/settings'), api('GET', '/api/presets'), api('GET', '/api/pc')]);
   const set = s.pc || {}, keys = set.keys || {};
   const enabled = h('input', { type: 'checkbox', checked: !!set.enabled });
@@ -1005,10 +1006,16 @@ async function pcPage() {
   const token = secretInput('Token', !!keys.token, 'From the PC app\'s page: ABCDE-FGHIJ-…, with or without the dashes.');
   const always = h('input', { type: 'checkbox', checked: set.auto_always !== false });
   const preset = choose([['', 'None'], ...doc.presets.map((p) => [p.id, p.name])], set.preset ?? 'pc');
+  const epaper = has('epaper'); /* the T5: a session's own clean refresh (T5 spec DT18) */
+  const cleanNow = (s.display || {}).pc_clean_min ?? 10;
+  const clean = choose([...new Set([...PC_CLEAN_MIN, cleanNow])].sort((a, b) => a - b)
+    .map((n) => [String(n), n % 60 === 0 ? `${n / 60} h` : `${n} min`]), String(cleanNow));
+  clean.value = String(cleanNow);
   const note = h('p');
   const save = card(null, note, actions(button('Save', () => busy(save, note, async () => {
     const out = { pc: { enabled: enabled.checked, host: host.value.trim(), port: Number(conn.port),
                         interval_ms: Number(conn.interval), auto_always: always.checked, preset: preset.value } };
+    if (epaper) out.display = { pc_clean_min: Number(clean.value) };
     const t = token.value();
     if (t !== undefined) out.pc.token = t;
     await api('PATCH', '/api/settings', out);
@@ -1066,7 +1073,9 @@ async function pcPage() {
       field('A reading every (ms)', interval, '250 ms to 10 s.'), warning),
     card('When the PC is on', h('label', { class: 'check' }, always, 'Switch to Always on'),
       h('p', { class: 'muted small', text: 'Without it, a session starts only in sync mode Always on.' }),
-      field('Show preset', preset, 'When the PC goes quiet, what you haven\'t changed comes back.')),
+      field('Show preset', preset, 'When the PC goes quiet, what you haven\'t changed comes back.'),
+      epaper ? field('Clean refresh in a session', clean, 'A session redraws the panel at every reading, too often for ' +
+        'the Device page\'s Clean refresh: it flashes clean this often instead, and once when it ends.') : null),
     save, nowCard);
 }
 
@@ -1136,6 +1145,7 @@ const LANGUAGES = [['en', 'English'], ['cs', 'Čeština']];
 const SENSOR_MIN = [1, 2, 5, 10, 15, 30];
 const RATES = [0.25, 0.5, 1, 2, 4, 8];
 const CLEAN_AFTER = [1, 2, 3, 4, 6, 10, 15, 20, 30, 60, 120, 240]; /* the menu's (main/app_menu.c) */
+const PC_CLEAN_MIN = [1, 2, 3, 5, 10, 15, 20, 30, 60, 120, 240]; /* a PC session's, in minutes (T5 spec DT18) */
 
 /* "21st", "22nd", "13th". */
 const ordinal = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
@@ -1170,7 +1180,7 @@ async function devicePage() {
   clean.value = String(cleanNow);
   const cleanNote = h('p', { class: 'muted small' });
   const showClean = () => cleanNote.replaceChildren(cleanSentence(Number(update.value), Number(clean.value)), h('br'),
-    'Preset switches and leaving the menu flash clean too.');
+    'Preset switches and leaving the menu flash clean too. A PC session has its own, on the PC page.');
   showClean();
   update.addEventListener('change', showClean);
   clean.addEventListener('change', showClean);

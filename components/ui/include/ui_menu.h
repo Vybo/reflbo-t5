@@ -48,6 +48,7 @@ typedef enum {
     UI_MI_UPDATE_INTERVAL, /* number, minutes 1-15 */
     UI_MI_REFRESH_RATE,    /* choice: 0.25-8 Hz */
     UI_MI_CLEAN_REFRESH,   /* choice: every Nth update clean, e-paper (T5 spec §5.3) */
+    UI_MI_PC_CLEAN,        /* choice: a PC session's clean every N minutes, e-paper (T5 spec DT18) */
     UI_MI_SENSORS,
     UI_MI_TEMP_OFFSET, /* number, 0.1 °C, -10.0 to +10.0 */
     UI_MI_HUM_OFFSET,  /* number, 0.1 %, -20.0 to +20.0 in 0.5 steps */

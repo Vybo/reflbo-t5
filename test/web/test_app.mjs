@@ -1482,6 +1482,27 @@ test('the PC page saves the address, the port, the interval and what a session s
   assert.deepEqual(options(control(main, 'Show preset')), ['', 'home', 'pc']); /* none, or any preset */
 });
 
+test('on e-paper the PC page sets a session\'s clean refresh in minutes (T5 spec DT18)', async () => {
+  const patches = [];
+  const settings = { ...PC_SETTINGS, display: { ...PC_SETTINGS.display, clean_after: 2, pc_clean_min: 30 } };
+  const { ctx, main } = await load({ ...pcDevice(patches, settings),
+                                     'GET /api/layouts': () => reply(200, T5_CATALOGUE_EPAPER) });
+  await ctx.pcPage();
+  const clean = control(main, 'Clean refresh in a session');
+  assert.equal(clean.value, '30');
+  assert.deepEqual(options(clean), ['1', '2', '3', '5', '10', '15', '20', '30', '60', '120', '240']);
+  await change(clean, '60');
+  await buttonNamed(main, 'Save').click();
+  await settle();
+  assert.deepEqual(patches.at(-1).display, { pc_clean_min: 60 }); /* the rest of display stays as it is */
+});
+
+test('without e-paper the PC page has no session clean refresh', async () => {
+  const { ctx, main } = await load(pcDevice([]));
+  await ctx.pcPage();
+  assert.equal(text(main).includes('Clean refresh in a session'), false);
+});
+
 test('the PC\'s token is write-only: the page says whether one is set and sends only what you type', async () => {
   const patches = [];
   const settings = { ...PC_SETTINGS, pc: { ...PC_SETTINGS.pc, keys: { token: true } } };

@@ -40,7 +40,7 @@ static bool s_pushed;
 static EpdiyHighlevelState s_hl; /* its back buffer: what the panel shows, when s_policy.known */
 static bool s_hl_ready;
 static display_t5_stats_t s_stats;
-static epaper_policy_t s_policy = { .clean_after = 60 };
+static epaper_policy_t s_policy = { .clean_after = 60, .session_clean_ms = 10 * 60000u };
 
 static const char *mode_name(epaper_mode_t m)
 {
@@ -93,6 +93,8 @@ static esp_err_t panel_up(void)
     ESP_RETURN_ON_FALSE(epaper_lut_ram_ok(largest, largest_psram), ESP_ERR_NO_MEM, TAG,
                         "no block for epdiy's LUT: %u internal, %u PSRAM; update skipped", (unsigned)largest,
                         (unsigned)largest_psram);
+    /* The LUT in internal RAM only with plenty to spare: in a PC session it left Wi-Fi 844 B (T5 spec DT18). */
+    epd_lut_psram_first(!epaper_lut_internal(free_internal, largest, largest_psram));
     /* epd_init() sets the board each time and warns from the second on; routine wakes print warnings. P5's
      * LUT fallback logs as "epd" and stays. */
     esp_log_level_set("epdiy", ESP_LOG_ERROR);
@@ -237,6 +239,16 @@ void display_set_clean_after(uint8_t n)
     s_policy.clean_after = n < 1 ? 1 : n;
 }
 
+void display_set_session(bool on)
+{
+    epaper_session(&s_policy, on, s_policy.session_clean_ms);
+}
+
+void display_set_pc_clean_min(uint8_t min)
+{
+    s_policy.session_clean_ms = (uint32_t)(min < 1 ? 1 : min) * 60000u;
+}
+
 esp_err_t display_battery_sense(bool on)
 {
     board_buttons_back_pause(true); /* IO0 strobes the word in (DT13) */
@@ -315,6 +327,7 @@ esp_err_t display_commit(bool force)
     }
     epaper_change_t change;
     epaper_change(s_hl.back_fb, s_fb.buf, PANEL_W, PANEL_H, &change);
+    s_policy.now_ms = (uint32_t)now_ms(); /* a PC session's clean comes by the clock (DT18) */
     epaper_mode_t mode = epaper_choose(&s_policy, &change);
     if (mode == EPAPER_NONE) {
         s_last_crc = crc;

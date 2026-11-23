@@ -197,6 +197,7 @@ void app_ui_apply_settings(void)
     uint32_t ttl = (uint32_t)s.settings.sensors_every_min * 120u;
     ttl = ttl < 900 ? 900 : ttl;
     display_set_clean_after(s.settings.clean_after); /* T5 spec §5.3; nothing on the RLCD */
+    display_set_pc_clean_min(s.settings.pc_clean_min); /* T5 spec DT18 */
     for (int f = 0; f < DS_FIELD_COUNT; f++) {
         ds_set_ttl(&s.ds, (ds_field_t)f, ttl);
     }

@@ -393,9 +393,10 @@ static void test_the_menu_hides_what_the_board_lacks(void)
     memset(&model, 0, sizeof(model));
     ui_menu_hide_for_board(&model);
     ui_profile_use(NULL);
-    TEST_ASSERT_EQUAL_INT(2, section(UI_MI_DISPLAY, &model, items));
+    TEST_ASSERT_EQUAL_INT(3, section(UI_MI_DISPLAY, &model, items));
     TEST_ASSERT_EQUAL_INT(UI_MI_UPDATE_INTERVAL, items[0]);
     TEST_ASSERT_EQUAL_INT(UI_MI_CLEAN_REFRESH, items[1]);
+    TEST_ASSERT_EQUAL_INT(UI_MI_PC_CLEAN, items[2]); /* T5 spec DT18 */
     TEST_ASSERT_EQUAL_INT(1, section(UI_MI_SENSORS, &model, items));
     TEST_ASSERT_EQUAL_INT(UI_MI_UNITS, items[0]);
 }

@@ -156,6 +156,16 @@ void display_set_clean_after(uint8_t n)
     (void)n;
 }
 
+void display_set_session(bool on)
+{
+    (void)on;
+}
+
+void display_set_pc_clean_min(uint8_t min)
+{
+    (void)min;
+}
+
 bool display_wants_shown(void)
 {
     return false;

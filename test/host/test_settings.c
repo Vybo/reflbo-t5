@@ -115,6 +115,33 @@ static void test_clean_after_survives_its_file(void)
     TEST_ASSERT_EQUAL_UINT8(12, s_out.clean_after);
 }
 
+/* T5b (T5 spec DT18): a PC session's clean refresh, every N minutes. */
+static void test_pc_clean_min_defaults_to_10_and_reads_1_to_240(void)
+{
+    settings_t d;
+    memset(&d, 0, sizeof(d));
+    settings_display_defaults(&d);
+    TEST_ASSERT_EQUAL_UINT8(10, d.pc_clean_min);
+    TEST_ASSERT_TRUE(settings_from_json("{\"schema\": 1, \"display\": {\"pc_clean_min\": 30}}", &s_defaults,
+                                        &s_out, s_err, sizeof(s_err)));
+    TEST_ASSERT_EQUAL_UINT8(30, s_out.pc_clean_min);
+    TEST_ASSERT_TRUE(settings_from_json("{\"schema\": 1, \"display\": {\"pc_clean_min\": 0}}", &s_defaults,
+                                        &s_out, s_err, sizeof(s_err)));
+    TEST_ASSERT_EQUAL_UINT8(1, s_out.pc_clean_min);
+    TEST_ASSERT_TRUE(settings_from_json("{\"schema\": 1, \"display\": {\"pc_clean_min\": 999}}", &s_defaults,
+                                        &s_out, s_err, sizeof(s_err)));
+    TEST_ASSERT_EQUAL_UINT8(240, s_out.pc_clean_min);
+}
+
+static void test_pc_clean_min_survives_its_file(void)
+{
+    settings_t s = s_defaults;
+    s.pc_clean_min = 45;
+    TEST_ASSERT_TRUE(settings_to_json(&s, NULL, s_json, sizeof(s_json)) > 0);
+    TEST_ASSERT_TRUE_MESSAGE(settings_from_json(s_json, &s_defaults, &s_out, s_err, sizeof(s_err)), s_err);
+    TEST_ASSERT_EQUAL_UINT8(45, s_out.pc_clean_min);
+}
+
 static void test_not_json_or_another_schema_fails(void)
 {
     TEST_ASSERT_FALSE(settings_from_json("{", &s_defaults, &s_out, s_err, sizeof(s_err)));
@@ -880,6 +907,8 @@ int main(void)
     RUN_TEST(test_bad_values_are_clamped_or_ignored_one_by_one);
     RUN_TEST(test_clean_after_defaults_to_60_and_reads_1_to_240);
     RUN_TEST(test_clean_after_survives_its_file);
+    RUN_TEST(test_pc_clean_min_defaults_to_10_and_reads_1_to_240);
+    RUN_TEST(test_pc_clean_min_survives_its_file);
     RUN_TEST(test_not_json_or_another_schema_fails);
     RUN_TEST(test_deep_nesting_is_rejected_before_parsing);
     RUN_TEST(test_saving_keeps_keys_this_firmware_does_not_know);

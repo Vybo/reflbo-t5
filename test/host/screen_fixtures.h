@@ -75,6 +75,11 @@ static inline void fixture_menu_model(ui_menu_model_t *m, const lang_t *lang)
     m->choices[UI_MI_CLEAN_REFRESH] = clean; /* main/app_menu.c's */
     m->choice_count[UI_MI_CLEAN_REFRESH] = 12;
     m->value[UI_MI_CLEAN_REFRESH] = 9; /* 60 */
+    static const char *const pc_clean[] = { "1 min",  "2 min",  "3 min", "5 min", "10 min", "15 min",
+                                            "20 min", "30 min", "1 h",   "2 h",   "4 h" };
+    m->choices[UI_MI_PC_CLEAN] = pc_clean; /* main/app_menu.c's */
+    m->choice_count[UI_MI_PC_CLEAN] = 11;
+    m->value[UI_MI_PC_CLEAN] = 4; /* 10 min */
     ui_menu_hide_for_board(m); /* as the app does (T5 spec §9) */
 }
 

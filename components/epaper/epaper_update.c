@@ -51,7 +51,11 @@ epaper_mode_t epaper_choose(const epaper_policy_t *p, const epaper_change_t *c)
     if (!c->any) {
         return EPAPER_NONE;
     }
-    if (!p->fast && p->since_clean + 1 >= (p->clean_after > 0 ? p->clean_after : 1)) {
+    if (p->session && !p->fast) {
+        if ((uint32_t)(p->now_ms - p->clean_ms) >= p->session_clean_ms) {
+            return EPAPER_CLEAN; /* a session's, by the clock: its redraws come too often to count (DT18) */
+        }
+    } else if (!p->fast && p->since_clean + 1 >= (p->clean_after > 0 ? p->clean_after : 1)) {
         return EPAPER_CLEAN; /* every clean_after-th counted update */
     }
     return c->bw_only ? EPAPER_DU : EPAPER_GL16;
@@ -70,11 +74,21 @@ void epaper_after(epaper_policy_t *p, epaper_mode_t mode, epaper_result_t result
         p->known = true;
         p->clean_next = false;
         p->since_clean = 0;
-    } else if (!p->fast && p->since_clean < UINT16_MAX) {
+        p->clean_ms = p->now_ms;
+    } else if (!p->fast && !p->session && p->since_clean < UINT16_MAX) {
         p->since_clean++;
     }
     if (p->clean_again) { /* asked for while it ran: the next one */
         p->clean_next = true;
         p->clean_again = false;
     }
+}
+
+void epaper_session(epaper_policy_t *p, bool on, uint32_t clean_ms)
+{
+    if (p->session && !on) {
+        p->clean_next = true;
+    }
+    p->session = on;
+    p->session_clean_ms = clean_ms;
 }

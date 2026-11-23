@@ -65,6 +65,7 @@ static const node_t k_nodes[UI_MI_COUNT] = {
                                 .max = 15, .step = 1, .unit = "min" },
     [UI_MI_REFRESH_RATE] = { .label = LS_M_REFRESH_RATE, .kind = K_CHOICE, .parent = UI_MI_DISPLAY },
     [UI_MI_CLEAN_REFRESH] = { .label = LS_M_CLEAN_REFRESH, .kind = K_CHOICE, .parent = UI_MI_DISPLAY },
+    [UI_MI_PC_CLEAN] = { .label = LS_M_PC_CLEAN, .kind = K_CHOICE, .parent = UI_MI_DISPLAY },
     [UI_MI_SENSORS] = { .label = LS_M_SENSORS, .kind = K_SECTION, .parent = UI_MI_ROOT },
     [UI_MI_TEMP_OFFSET] = { .label = LS_M_TEMP_OFFSET, .kind = K_NUMBER, .parent = UI_MI_SENSORS, .min = -100,
                             .max = 100, .step = 1, .decimals = 1, .unit = "°C" },
@@ -101,6 +102,7 @@ void ui_menu_hide_for_board(ui_menu_model_t *model)
     uint32_t caps = ui_profile()->caps;
     model->hidden[UI_MI_REFRESH_RATE] |= !(caps & UI_CAP_LPM_RATE);
     model->hidden[UI_MI_CLEAN_REFRESH] |= !(caps & UI_CAP_EPAPER);
+    model->hidden[UI_MI_PC_CLEAN] |= !(caps & UI_CAP_EPAPER);
     model->hidden[UI_MI_TEMP_OFFSET] |= !(caps & UI_CAP_ENV_SENSOR);
     model->hidden[UI_MI_HUM_OFFSET] |= !(caps & UI_CAP_ENV_SENSOR);
 }

@@ -44,6 +44,10 @@ esp_err_t display_clean(void);
 void display_clean_next(void);
 /* Every Nth update clean, from display.clean_after (T5 spec §5.3). No-op on the RLCD. */
 void display_set_clean_after(uint8_t n);
+/* A PC session's redraws (T5 spec DT18): fast and left out of the count, a clean every display.pc_clean_min minutes,
+ * and one at the session's end. No-ops on the RLCD. */
+void display_set_session(bool on);
+void display_set_pc_clean_min(uint8_t min);
 /* After a warm wake (T5 spec §5.5): true while the panel's frame isn't known but the snapshot says what it showed;
  * always false on the RLCD. */
 bool display_wants_shown(void);

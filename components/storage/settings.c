@@ -452,6 +452,7 @@ bool settings_from_json(const char *json, const settings_t *defaults, settings_t
     out->display_every_min = (uint8_t)read_scaled(display, "update_min", out->display_every_min, 1, 1, 15);
     out->lpm_quarter_hz = lpm_from_hz(display, out->lpm_quarter_hz);
     out->clean_after = (uint8_t)read_scaled(display, "clean_after", out->clean_after, 1, 1, 240);
+    out->pc_clean_min = (uint8_t)read_scaled(display, "pc_clean_min", out->pc_clean_min, 1, 1, 240);
     const cJSON *location = child(root, "location");
     read_string(location, "name", out->place, sizeof(out->place));
     out->lat_e4 = (int32_t)read_scaled(location, "lat", out->lat_e4, 1e4, -900000, 900000);
@@ -546,6 +547,7 @@ size_t settings_to_json(const settings_t *s, const char *base_json, char *out, s
     put(display, "update_min", cJSON_CreateNumber(s->display_every_min));
     put(display, "lpm_hz", cJSON_CreateNumber(s->lpm_quarter_hz / 4.0));
     put(display, "clean_after", cJSON_CreateNumber(s->clean_after));
+    put(display, "pc_clean_min", cJSON_CreateNumber(s->pc_clean_min));
     cJSON *location = object_at(root, "location");
     put(location, "name", cJSON_CreateString(s->place));
     put(location, "lat", cJSON_CreateNumber(s->lat_e4 / 1e4));
@@ -831,4 +833,5 @@ size_t settings_take_secrets(const char *patch, char *out, size_t size, settings
 void settings_display_defaults(settings_t *out)
 {
     out->clean_after = 60; /* hourly at the 1-minute update (T5 spec §5.3) */
+    out->pc_clean_min = 10; /* a PC session's redraws don't count; its clean comes by the clock (T5 spec DT18) */
 }

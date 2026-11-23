@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <string.h>
 
 #include "epaper_update.h"
@@ -102,6 +103,63 @@ static void test_every_nth_counted_update_is_clean_and_fast_ones_dont_count(void
     TEST_ASSERT_EQUAL_INT(EPAPER_CLEAN, epaper_choose(&p, &c));
 }
 
+/* T5b (T5 spec DT18): a PC session's redraws are fast and left out of the count; its clean comes by the clock. */
+static void test_a_sessions_redraws_dont_count_and_its_clean_comes_by_the_clock(void)
+{
+    set_px(s_after, 0, 0, 0);
+    epaper_change_t c = change();
+    epaper_policy_t p = { .known = true, .clean_after = 2, .clean_ms = 1000 };
+    epaper_session(&p, true, 600000); /* every 10 minutes */
+    for (int i = 1; i <= 10; i++) { /* a reading every 5 s */
+        p.now_ms = 1000 + (uint32_t)i * 5000;
+        epaper_mode_t m = epaper_choose(&p, &c);
+        TEST_ASSERT_EQUAL_INT(EPAPER_DU, m);
+        epaper_after(&p, m, EPAPER_DONE);
+    }
+    TEST_ASSERT_EQUAL_UINT16(0, p.since_clean);
+    p.now_ms = 1000 + 600000;
+    TEST_ASSERT_EQUAL_INT(EPAPER_CLEAN, epaper_choose(&p, &c));
+    epaper_after(&p, EPAPER_CLEAN, EPAPER_DONE);
+    TEST_ASSERT_EQUAL_UINT32(601000, p.clean_ms);
+    p.now_ms += 5000;
+    TEST_ASSERT_EQUAL_INT(EPAPER_DU, epaper_choose(&p, &c));
+}
+
+static void test_a_sessions_clean_waits_for_a_change_and_the_menu_and_survives_the_clock_wrapping(void)
+{
+    epaper_change_t none = change();
+    set_px(s_after, 3, 1, 0);
+    epaper_change_t c = change();
+    epaper_policy_t p = { .known = true, .clean_after = 60, .clean_ms = UINT32_MAX - 999 };
+    epaper_session(&p, true, 60000);
+    p.now_ms = 59000; /* the clock wrapped: 60 001 ms since the last clean */
+    TEST_ASSERT_EQUAL_INT(EPAPER_NONE, epaper_choose(&p, &none));
+    p.fast = true; /* the menu opened in the session: fast, no clean */
+    TEST_ASSERT_EQUAL_INT(EPAPER_DU, epaper_choose(&p, &c));
+    p.fast = false;
+    TEST_ASSERT_EQUAL_INT(EPAPER_CLEAN, epaper_choose(&p, &c));
+}
+
+static void test_a_sessions_end_flashes_clean_and_counting_goes_on(void)
+{
+    set_px(s_after, 0, 0, 0);
+    epaper_change_t c = change();
+    epaper_policy_t p = { .known = true, .since_clean = 5, .clean_after = 60 };
+    epaper_session(&p, true, 600000);
+    TEST_ASSERT_FALSE(p.clean_next);
+    epaper_session(&p, true, 600000); /* already on: nothing new */
+    TEST_ASSERT_FALSE(p.clean_next);
+    epaper_session(&p, false, 600000);
+    TEST_ASSERT_FALSE(p.session);
+    TEST_ASSERT_TRUE(p.clean_next);
+    epaper_after(&p, epaper_choose(&p, &c), EPAPER_DONE);
+    TEST_ASSERT_EQUAL_UINT16(0, p.since_clean);
+    epaper_after(&p, epaper_choose(&p, &c), EPAPER_DONE);
+    TEST_ASSERT_EQUAL_UINT16(1, p.since_clean); /* counted again */
+    epaper_session(&p, false, 600000); /* already off: no clean */
+    TEST_ASSERT_FALSE(p.clean_next);
+}
+
 /* Review Focus 3: no flash for an unchanged frame. */
 static void test_the_count_reached_without_a_change_runs_nothing(void)
 {
@@ -166,6 +224,9 @@ int main(void)
     RUN_TEST(test_black_and_white_changes_are_du_others_gl16);
     RUN_TEST(test_an_unknown_frame_or_a_clean_request_is_clean_even_unchanged);
     RUN_TEST(test_every_nth_counted_update_is_clean_and_fast_ones_dont_count);
+    RUN_TEST(test_a_sessions_redraws_dont_count_and_its_clean_comes_by_the_clock);
+    RUN_TEST(test_a_sessions_clean_waits_for_a_change_and_the_menu_and_survives_the_clock_wrapping);
+    RUN_TEST(test_a_sessions_end_flashes_clean_and_counting_goes_on);
     RUN_TEST(test_the_count_reached_without_a_change_runs_nothing);
     RUN_TEST(test_a_failed_update_forgets_the_frame_and_keeps_the_count);
     RUN_TEST(test_an_update_refused_before_it_drew_keeps_the_frame);

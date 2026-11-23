@@ -259,6 +259,10 @@ int epd_rotated_display_height();
 /** Deinit the ePaper display */
 void epd_deinit();
 
+/* reflbo patch P5 (PATCHES.md): where the next epd_init() puts the conversion LUT: PSRAM first when true, internal
+ * RAM first when false (the default), the other one as the fallback either way. */
+void epd_lut_psram_first(bool psram_first);
+
 /** Enable display power supply. */
 void epd_poweron();
 

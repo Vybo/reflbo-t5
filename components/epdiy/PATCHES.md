@@ -9,7 +9,7 @@
 | # | Where | Change |
 |---|---|---|
 | P1 | `Kconfig` (new) | `EPD_LUT_IN_PSRAM` |
-| P5 | `src/render.c` | The conversion LUT in PSRAM with `EPD_LUT_IN_PSRAM`, and a PSRAM fallback instead of `abort()` when internal RAM is short |
+| P5 | `src/render.c`, `src/epdiy.h` | The conversion LUT in PSRAM with `EPD_LUT_IN_PSRAM`, and a PSRAM fallback instead of `abort()` when internal RAM is short; `epd_lut_psram_first()`, called before each `epd_init()`, tries PSRAM first and internal RAM as the fallback (T5 spec DT18) |
 | P6 | `CMakeLists.txt` (new, replaces upstream's) | Builds only on the T5 and only the ESP32 I2S path's sources and the lilygo_t5_47 board; no `idf_component.yml` |
 
 History: the fork's T1 first assumed LilyGo's T5-ePaper-S3 and carried P2 (the I2S render method on an S3) and P4 (an S3 i80 row bus) for it, commits `2bb37f3` and `7232440`; T1's port to the ESP32 board removed them.

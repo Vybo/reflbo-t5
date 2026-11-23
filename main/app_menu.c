@@ -73,6 +73,11 @@ static const char *const k_sync_labels[] = { "15 min", "30 min", "1 h", "2 h", "
 static const uint16_t k_clean_after[] = { 1, 2, 3, 4, 6, 10, 15, 20, 30, 60, 120, 240 };
 static const char *const k_clean_labels[] = { "1", "2", "3", "4", "6", "10", "15", "20", "30", "60", "120", "240" };
 #define CLEAN_STEPS ((int)(sizeof(k_clean_after) / sizeof(k_clean_after[0])))
+/* Display ▸ Clean in a PC session: a clean update every N minutes while a session redraws (T5 spec DT18). */
+static const uint16_t k_pc_clean_min[] = { 1, 2, 3, 5, 10, 15, 20, 30, 60, 120, 240 };
+static const char *const k_pc_clean_labels[] = { "1 min",  "2 min",  "3 min", "5 min", "10 min", "15 min",
+                                                 "20 min", "30 min", "1 h",   "2 h",   "4 h" };
+#define PC_CLEAN_STEPS ((int)(sizeof(k_pc_clean_min) / sizeof(k_pc_clean_min[0])))
 static const char *const k_languages[] = { "en", "cs" };
 #define LANGUAGE_COUNT ((int)(sizeof(k_languages) / sizeof(k_languages[0])))
 
@@ -211,6 +216,9 @@ static void build_model(void)
     m->choices[UI_MI_CLEAN_REFRESH] = k_clean_labels;
     m->choice_count[UI_MI_CLEAN_REFRESH] = CLEAN_STEPS;
     m->value[UI_MI_CLEAN_REFRESH] = nearest_index(k_clean_after, CLEAN_STEPS, set->clean_after);
+    m->choices[UI_MI_PC_CLEAN] = k_pc_clean_labels;
+    m->choice_count[UI_MI_PC_CLEAN] = PC_CLEAN_STEPS;
+    m->value[UI_MI_PC_CLEAN] = nearest_index(k_pc_clean_min, PC_CLEAN_STEPS, set->pc_clean_min);
 
     m->value[UI_MI_TEMP_OFFSET] = set->temp_offset_c100 / 10;
     m->value[UI_MI_HUM_OFFSET] = set->hum_offset_pct100 / 10;
@@ -355,6 +363,10 @@ static void apply(const ui_menu_intent_t *in)
         case UI_MI_CLEAN_REFRESH:
             set->clean_after = (uint8_t)k_clean_after[in->value >= 0 && in->value < CLEAN_STEPS ? in->value : 9];
             apply_settings = save_settings = true; /* app_ui_apply_settings() tells the display */
+            break;
+        case UI_MI_PC_CLEAN:
+            set->pc_clean_min = (uint8_t)k_pc_clean_min[in->value >= 0 && in->value < PC_CLEAN_STEPS ? in->value : 4];
+            apply_settings = save_settings = true;
             break;
         case UI_MI_TEMP_OFFSET:
             set->temp_offset_c100 = (int16_t)(in->value * 10);

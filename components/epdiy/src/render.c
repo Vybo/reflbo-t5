@@ -44,6 +44,13 @@ const int clear_cycle_time = 12;
 
 static RenderContext_t render_context;
 
+/* reflbo patch P5 (PATCHES.md): where the next epd_init() tries the LUT first. */
+static bool s_lut_psram_first = false;
+
+void epd_lut_psram_first(bool psram_first) {
+    s_lut_psram_first = psram_first;
+}
+
 void epd_push_pixels(EpdRect area, short time, int color) {
     render_context.area = area;
 #ifdef RENDER_METHOD_LCD
@@ -264,18 +271,19 @@ void epd_renderer_init(enum EpdInitOptions options, const EpdInitConfig* config)
     }
 
     ESP_LOGI("epd", "Space used for waveform LUT: %dK", lut_size / 1024);
-    /* reflbo patch P5 (PATCHES.md): the LUT in PSRAM when configured, or when internal RAM is short
-     * (Wi-Fi up), rather than abort. */
+    /* reflbo patch P5 (PATCHES.md): the LUT in PSRAM when configured or asked for (epd_lut_psram_first()), or
+     * when internal RAM is short (Wi-Fi up), rather than abort. */
 #ifdef CONFIG_EPD_LUT_IN_PSRAM
     render_context.conversion_lut
         = (uint8_t*)heap_caps_malloc(lut_size, MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
 #else
-    render_context.conversion_lut
-        = (uint8_t*)heap_caps_malloc(lut_size, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    uint32_t first = s_lut_psram_first ? MALLOC_CAP_SPIRAM : MALLOC_CAP_INTERNAL;
+    uint32_t second = s_lut_psram_first ? MALLOC_CAP_INTERNAL : MALLOC_CAP_SPIRAM;
+    render_context.conversion_lut = (uint8_t*)heap_caps_malloc(lut_size, MALLOC_CAP_8BIT | first);
     if (render_context.conversion_lut == NULL) {
-        ESP_LOGW("epd", "LUT: internal RAM short, using PSRAM");
-        render_context.conversion_lut
-            = (uint8_t*)heap_caps_malloc(lut_size, MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
+        ESP_LOGW("epd", "LUT: %s short, using %s", s_lut_psram_first ? "PSRAM" : "internal RAM",
+                 s_lut_psram_first ? "internal RAM" : "PSRAM");
+        render_context.conversion_lut = (uint8_t*)heap_caps_malloc(lut_size, MALLOC_CAP_8BIT | second);
     }
 #endif
     if (render_context.conversion_lut == NULL) {
