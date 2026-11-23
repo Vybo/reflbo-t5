@@ -1,7 +1,7 @@
 # reflbo on the LilyGo T5-4.7 (ESP32): design spec
 
 - **Date:** 2026-10-06
-- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3); r14 designs titles and shared presets (DT14, §7.5); r15 records them as built; r16 designs the last sync's time in the status bar (DT15, §7.6); r17 records it as built (T4d), the owner's renders approved on 2026-10-14; r18 records its board check (T4d done, 2026-10-19); r19 the licence (DT16); r20 designs T5a and T5b, upstream's M6e and M7 in the fork (DT17, §7.7); r21 records T5a's board check (T5a done, 2026-11-23)
+- **Status:** r1 approved by the owner on 2026-10-06; r2 recorded T0 as built; r3, for the board the owner actually has (DT9), approved on 2026-10-07; r4 records T1 as built; r5 records T2; r6 records T3a; r7 records T3b; r8 records T3c; r9 records T4; r10 designs the T5's four buttons (DT13, §8.3); r11 records them as built; r12 records the battery fixes (§2.5 gotchas 23, 24); r13 the questions' No and Yes (§8.3); r14 designs titles and shared presets (DT14, §7.5); r15 records them as built; r16 designs the last sync's time in the status bar (DT15, §7.6); r17 records it as built (T4d), the owner's renders approved on 2026-10-14; r18 records its board check (T4d done, 2026-10-19); r19 the licence (DT16); r20 designs T5a and T5b, upstream's M6e and M7 in the fork (DT17, §7.7); r21 records T5a's board check (T5a done, 2026-11-23); r22 records T5b as built and its board check, with DT18 (T5b done, 2026-11-23)
 - **Covers:** the fork `Vybo/reflbo-t5`, milestones T0–T4
 - **Related:** the upstream design spec [`2026-09-25-firmware-design.md`](2026-09-25-firmware-design.md) (r44 at the fork's base), `AGENTS.md`
 
@@ -50,6 +50,7 @@ Fork decisions are numbered DT1, DT2, … so they don't collide with upstream's 
 | DT15 | Owner, 2026-10-13: a preset can show the last good sync's time in the status bar, on the left after the marks; today's time, an earlier day's weekday and time, a date after a week (§7.6). Both boards, backported upstream as for DT14 |
 | DT16 | Owner, 2026-10-21 (upstream D46): the fork is GPL-3.0-only from then on, in place of Apache-2.0 (D8), with upstream's permission under GPL §7 to link with the libraries ESP-IDF ships in object form only (`NOTICE`); versions up to `b7d0fb5` stay Apache-2.0. epdiy stays LGPL-3.0-or-later, which combines with it (§5.1). The firmware spec's copy here carries D46 and the new D8 ahead of upstream's merge |
 | DT17 | Owner, 2026-10-29: on the T5 the app task runs on core 0, so upstream M7's presets block stays in RTC FAST memory as upstream has it: on the ESP32 only the PRO CPU (core 0) reaches that memory, and ESP-IDF keeps it powered through deep sleep where it isn't heap. Sync, the flight radar's task and the place search move to core 1, beside the app's former place. Fork-only: the RLCD keeps its app task on core 1 (`BOARD_APP_CORE`, `BOARD_NET_CORE`) |
+| DT18 | Owner, 2026-11-23 (T5b's board check): a PC session's redraws leave `display.clean_after`'s count, and its clean refresh has a setting of its own, `display.pc_clean_min` (1–240 minutes, default 10), on the PC page and in Menu ▸ Display (§5.3, §9). The same check moved epdiy's LUT to PSRAM unless internal RAM has plenty to spare (§5.1), and gave the charts' history PSRAM per series kept (§7.7) |
 
 ### 1.3 Out of scope
 
@@ -189,8 +190,9 @@ The SHTC3 code is built only with `BOARD_HAS_ENV_SENSOR`. The battery reading ta
 ### 5.1 epdiy, vendored
 
 - `components/epdiy/` holds epdiy 2.1.3 (tag `2.1.3`, commit `7c30780`, LGPL-3.0-or-later) with its licence headers, built only for `REFLBO_BOARD_T547`: the ESP32's I2S output path and the `epd_board_lilygo_t5_47` board definition, both as upstream has them.
-- **One patch, P5:** the conversion LUT (64 KB) goes to PSRAM when internal RAM is short, or always with the Kconfig option `EPD_LUT_IN_PSRAM`, instead of `abort()`. The ESP32's internal RAM is tight with Wi-Fi up (§2.5).
+- **One patch, P5:** the conversion LUT (64 KB) goes to PSRAM when internal RAM is short, or always with the Kconfig option `EPD_LUT_IN_PSRAM`, instead of `abort()`; from T5b `epd_lut_psram_first()`, called before each `epd_init()`, tries PSRAM first. The ESP32's internal RAM is tight with Wi-Fi up (§2.5).
 - **The LUT stays in internal RAM** (T1): in PSRAM a full-panel GL16 took 1767 ms against 1101 ms (60 % slower) and a clean update 2.64 s against 2.22 s, so `EPD_LUT_IN_PSRAM` is off. Internal RAM free with epdiy up: about 126 KB with Wi-Fi off, about 58 KB in config mode with the AP up (30 KB the lowest since boot); the LUT fit both times, and P5's fallback covers a shorter day.
+- **From T5b, the LUT goes to internal RAM only with 96 KB to spare beside it** (`epaper_lut_internal()`, `EPAPER_LUT_SPARE_INTERNAL`; DT18), else to PSRAM, and to internal RAM again only when PSRAM has no block for it. At T5b's board check a PC session kept 129 KB of internal RAM free; the LUT went there, and each update left Wi-Fi 7.7 KB, 844 B at the least. With the LUT in PSRAM the session's updates left 80–90 KB, at about 25 % longer GL16 (942×303: 850 against 680 ms) and GC16 1.3–1.5 s against 1.0 s; the owner saw the session's fast updates as fine.
 - **epdiy's other allocations have no fallback** (its line queues, feed buffers, task stacks and DMA buffers, about 25 KB, assert). An update starts only with at least 40 KB of internal RAM free and an 8 KB block (`epaper_budget.h`); short of that it's skipped, logged, and the next commit tries again (T1's final review).
 - `components/epdiy/PATCHES.md` records the base and every change; `THIRD_PARTY.md` credits epdiy. The fork's own files are GPL-3.0-only (DT16), which epdiy's licence allows.
 
@@ -215,6 +217,7 @@ Our code, GPL-3.0-only (DT16), built only for the T5:
   - on `panel clean` from the console;
   - at a cold boot and whenever the previous frame isn't known (§5.5).
 - **`display_set_fast(true)`** (the menu, the radar's loop) makes updates fast and leaves them out of the count, since leaving the menu cleans anyway.
+- **A PC session** (T5b, DT18): its redraws are fast and left out of the count; a clean comes once `display.pc_clean_min` minutes (1–240, default 10) have passed since the last clean one, and once when the session ends (`epaper_session()`, `display_set_session()`). In the menu, the menu's rule wins. Counting a session's redraws flashed every other one at the owner's `clean_after` of 2 (T5b's board check).
 - **Seconds.** The T5 never draws seconds: a preset that asks for them shows hours and minutes there, and the web page says so on the T5. A refresh every second would keep the board awake and the panel's rails on.
 - **The setting on the web's Display page** shows a sentence built from `display.update_min` and `display.clean_after`:
   - "The panel updates every 15 minutes without flashing, and flashes clean every 4th update, about once an hour."
@@ -303,7 +306,7 @@ The map's land stays white. Only outlines around a gray fill stay 1 px (the lege
 
 - `screenshot` prints a PGM (P5, 8-bit) between `-----BEGIN RLCD PGM-----` and `-----END RLCD PGM-----` on a 4 bpp board, and the PBM as today on 1 bpp. `tools/screenshot.py` reads both and writes a PNG.
 - `/api/screenshot.bmp` and `/api/preview.bmp` send a 4-bit BMP with a 16-gray palette on the T5. The preview draws into a frame as deep as the panel's (`ui_profile_fb_size()`, `ui_profile_fb_init()`: 259 KB of PSRAM on the T5, allocated at the first preview and kept); until T3c's board check it was 1 bpp on every board. Checked over Wi-Fi at T3c: `panel test`'s BMP equals the golden test pattern, and a preset's preview equals the screenshot taken in the same minute, pixel for pixel.
-- The T5's goldens are gzip-compressed PGMs (`.pgm.gz`, as a plain one is 518 KB) in `test/host/golden/t5/`, read and written through `test/host/golden_io.h`; `render_dashboard` and `render_screen` take `--board t5` (and `render_dashboard [--board t5] --layouts` lists each fixture's layout). `tools/render.py --board t5` renders every fixture as the T5 draws it, and `tools/pbm_png.py` reads compressed images. The T5's golden set is every dashboard fixture (76: T3a's 41 on Classic, Grid, Weather and Focus; T3b's 35 on Radar, Flights, Solar, Energy and the split, with the radar, chart and flow widgets in slots) and every screen (24) (`k_t5_dashboard_fixtures`, `k_t5_screen_fixtures`). A fixture that asks for the Indoor preset gets the T5's Sky.
+- The T5's goldens are gzip-compressed PGMs (`.pgm.gz`, as a plain one is 518 KB) in `test/host/golden/t5/`, read and written through `test/host/golden_io.h`; `render_dashboard` and `render_screen` take `--board t5` (and `render_dashboard [--board t5] --layouts` lists each fixture's layout). `tools/render.py --board t5` renders every fixture as the T5 draws it, and `tools/pbm_png.py` reads compressed images. The T5's golden set is every dashboard fixture (76: T3a's 41 on Classic, Grid, Weather and Focus; T3b's 35 on Radar, Flights, Solar, Energy and the split, with the radar, chart and flow widgets in slots) and every screen (24) (`k_t5_dashboard_fixtures`, `k_t5_screen_fixtures`); T4c, T4d and T5b brought the dashboards to 86 and added M7's 10 visual sheets (`k_t5_visual_fixtures`, 120 in all). A fixture that asks for the Indoor preset gets the T5's Sky.
 - The T5's UI draws its 960×540 4 bpp frame directly, in epdiy's layout (T3a): `display_fb()` is the frame the panel gets and `display_screenshot_fb()` returns it, with no composition. A T5 screenshot is about 690 KB of base64, about a minute at 115200 baud (66 s measured); `/api/screenshot.bmp`'s reply buffer is 264 KB on the T5.
 
 ## 7. Dense UI at 960×540
@@ -442,8 +445,14 @@ Upstream's M7 (D44, D45) as it is, drawn at the T5's size; nothing new for eithe
   Its lines, 2 px wide and 14 px short of the cells' ends: down at 479 from 49 and from 231, 150 long; across at 214 and 396 from 14, 932 long; down at 318 and 640 from 413, 113 long. The owner may ask at the renders for a denser one, as Grid's 4×2.
 - **The visuals** (a history chart, a bar, a ring, a gauge): fonts by role, every size and threshold `UI_PX()` of the RLCD's (the least room the board publishes to the page too), lines and outlines `UI_PX(1)`, the chart's line `UI_PX(1)` wide and tall (§6.4, §7.1). Where the RLCD dithers, the T5 draws gray: the chart's fill under its line at 6, a column's spread around its mean at 3. "PC asleep" stays centred as on the RLCD; the status bar's monitor is drawn at `UI_PX()`.
 - **Cores:** the app task on core 0 (DT17), as the presets' block in RTC FAST memory needs; the PC's WebSocket client keeps upstream's task, with no core of its own.
-- **E-paper at a session's rate:** each message redraws with a fast update (about 0.4 s, T4), which is the panel's frame time for D44's warning; a clean one follows the setting (every 60th by default, so once a minute at 1 s).
+- **E-paper at a session's rate:** each message redraws with a fast update, which is the panel's frame time for D44's warning; a session's clean refresh comes by the clock, every `display.pc_clean_min` minutes (DT18, §5.3).
+- **Memory:** the charts' history takes PSRAM per series a chart shows (`ui_history_init_lazy()`, about 47 KB a series) and gives it back when no chart shows it; upstream's 16 series at once were 760 KB of the T5's 4 MB and left the radar's hour no room in a session ("png: no memory", PSRAM 24 KB at the least).
 - **Checks** (T5b): the owner approves the renders before their goldens; a session from the PC app's demo on this Mac shows on the panel with its charts moving; the presets come back from RTC FAST after a deep-sleep wake; `tasks` shows the cores and core 0's load in sync mode `always` with the radar.
+- **As built (2026-11-23):** the owner approved the renders (2026-11-18) and the Display menu with DT18's item; the T5's goldens gained 6 dashboards and the 10 visual sheets (`k_t5_visual_fixtures`). The board check, on the owner's T5 against the PC app's demo on this Mac:
+  - `tasks` (now with each task's core): `app` on core 0; `sync`, `adsb` (Flights in sync mode `always`) and `geocode` (caught during place searches) on core 1; the WebSocket client's task unpinned; Wi-Fi's on core 0.
+  - Two `sleep test deep` wakes were warm, the presets came back from RTC FAST unchanged, and a field set in RAM before them survived; no `presets.json` read.
+  - A session with four readings every 5 s switched to sync mode `always` and the PC preset, its charts moving; Up's preset switch began its update 0.33 s after the press with core 0 busy; the demo stopped, the session ended at once ("the PC app quit").
+  - After DT18's fixes (`elf 4361f8cd4`): PSRAM 1.49 MB free at boot with 4 series (942 KB before), ČHMÚ's 12 frames kept in the session, internal RAM at least 80 KB through it (844 B before), every redraw fast and the session's clean on the owner's setting.
 
 ## 8. Time, wake, buttons, battery and power on the T5
 
@@ -506,9 +515,9 @@ T4b on battery (owner's meter in series, the meter build, 2026-10-11): about 42 
 
 ## 9. Settings, menu, web and console
 
-- **Settings:** `display.clean_after` (1–240, default 60) joins `display.*`, default in `components/storage` (AGENTS.md §8). On the T5, `display.lpm_hz`, `display.contrast`, `sensors.temp_offset_c` and `sensors.hum_offset_pct` stay in the file but nothing reads or shows them.
-- **Menu:** Display ▸ Clean refresh on the T5, in place of Display ▸ Refresh rate. Items for missing hardware are hidden. As built (T4): `ui_menu_hide_for_board()` hides Refresh rate without `UI_CAP_LPM_RATE`, Clean refresh without `UI_CAP_EPAPER`, and the temperature and humidity offsets without `UI_CAP_ENV_SENSOR`.
-- **Web:** the Display page's clean refresh and sentence (§5.3, T4); the capabilities hide the rest (§4.3; as built at T3c, §7.4).
+- **Settings:** `display.clean_after` (1–240, default 60) and, from T5b, `display.pc_clean_min` (1–240 minutes, default 10, DT18) join `display.*`, defaults in `components/storage` (AGENTS.md §8). On the T5, `display.lpm_hz`, `display.contrast`, `sensors.temp_offset_c` and `sensors.hum_offset_pct` stay in the file but nothing reads or shows them.
+- **Menu:** Display ▸ Clean refresh on the T5, in place of Display ▸ Refresh rate, and from T5b Display ▸ Clean in a PC session (1, 2, 3, 5, 10, 15, 20, 30 minutes, 1, 2 or 4 hours). Items for missing hardware are hidden. As built (T4): `ui_menu_hide_for_board()` hides Refresh rate without `UI_CAP_LPM_RATE`, Clean refresh without `UI_CAP_EPAPER`, and the temperature and humidity offsets without `UI_CAP_ENV_SENSOR`.
+- **Web:** the Display page's clean refresh and sentence (§5.3, T4), and from T5b the PC page's "Clean refresh in a session" (DT18); the capabilities hide the rest (§4.3; as built at T3c, §7.4).
 - **Console on the T5** (DT11):
   - UART0 at 115200 through the CH9102, line mode as upstream.
   - Console input keeps the board awake for 5 minutes. A PC can't be detected on UART, so this replaces upstream's tethered mode on this board.
@@ -523,7 +532,8 @@ T4b on battery (owner's meter in series, the meter build, 2026-10-11): about 42 
   - `rtc get|set` on the system clock.
   - `panel mode|rate|fps|init`, `sensors`' SHTC3 part and the trim lines of `rtc get` are absent.
   - `screenshot`: PBM until T2, then PGM (§6.5).
-- **Tools:** `tools/devlog.py` and `tools/screenshot.py` take `-p` for a `/dev/cu.usbserial-*` port. On such a port they open without resetting the board, changing DTR and RTS together, and `--reset` pulses RTS to reset it.
+- `tasks` lists each task's core since T5b (`CONFIG_FREERTOS_VTASKLIST_INCLUDE_COREID`, both boards: its header named the column before).
+- **Tools:** `tools/devlog.py` and `tools/screenshot.py` take `-p` for a `/dev/cu.usbserial-*` port (`/dev/cu.wchusbserial*` with WCH's driver). On such a port they open without resetting the board, changing DTR and RTS together, and `--reset` pulses RTS to reset it.
 
 ## 10. Testing and verification
 
@@ -564,14 +574,14 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | T4c | Titles and shared presets (DT14, §7.5): a slot's or cell's own title, a split cell's forced title, export and import on the Presets page; both boards; backported upstream | The owner approves the renders; a titled split preset on the panel; a preset exported from the page imports again (done 2026-10-12) |
 | T4d | The last sync's time in the status bar (DT15, §7.6): a preset's option, both boards, backported upstream | The owner approves the renders; the time on the panel after a sync (done 2026-10-19) |
 | T5a | Upstream to `60dccab`: M6e's cycle windows (D41) and the solar gaps fix (r50) | Both boards build; the RLCD's goldens identical to upstream's; a window set from the console closes on the T5 and the cycle skips its preset (done 2026-11-23) |
-| T5b | Upstream to `14593da`: M7's PC sensors (D44, D45) and the GPL (D46); DT17's cores; M7's visuals and PC layout at 960×540 (§7.7) | The owner approves the renders; a PC session from the app's demo on the panel; the presets kept through deep sleep; core 0's load checked |
+| T5b | Upstream to `14593da`: M7's PC sensors (D44, D45) and the GPL (D46); DT17's cores; M7's visuals and PC layout at 960×540 (§7.7); DT18 | The owner approves the renders; a PC session from the app's demo on the panel; the presets kept through deep sleep; core 0's load checked (done 2026-11-23) |
 
 ## 12. Risks and open items
 
 - **The ESP32's internal RAM** with Wi-Fi, TLS, the web server and epdiy's update all at once. T1 measures it; the LUT falls back to PSRAM, and epdiy is up only for updates.
 - **The slow clock's drift** without an RTC: T1 measured about −1000 ppm on 8MD256 (§8.1), up to about 1.5 minutes before a daily sync. The owner accepts a daily sync (DT12); the trim from sync to sync waits for the owner's decision.
 - **Refresh currents are unknown** until the owner's meter (T1 measured the times, §5.3). They set `clean_after`'s default, the menu's mode and the radar loop's frame time.
-- **On USB the whole image fades to gray at times** (owner, 2026-10-11): within a second or so after an update, fast or clean, at random; the clean-only firmware before T4 did it at times too. Likely, not yet confirmed: with USB in the panel's switched 3V3, and with it the VCOM amplifier, stays on (§2.5 gotcha 20), so VCOM biases the panel while its drivers are off; epdiy's tips name a mis-set VCOM for an image that fades after updates. The deciding check is the owner's panel on battery, where POWER_EN cuts that rail. Firmware can't switch the rail off on USB.
+- **On USB the whole image fades to gray at times** (owner, 2026-10-11): within a second or so after an update, fast or clean, at random; the clean-only firmware before T4 did it at times too. Likely, not yet confirmed: with USB in the panel's switched 3V3, and with it the VCOM amplifier, stays on (§2.5 gotcha 20), so VCOM biases the panel while its drivers are off; epdiy's tips name a mis-set VCOM for an image that fades after updates. The deciding check is the owner's panel on battery, where POWER_EN cuts that rail. Firmware can't switch the rail off on USB. At T5b's board check (2026-11-23) the panel looked half its resolution after the Flights check until clean updates; the owner links it to this.
 - **A cold boot draws twice:** `display_init()` cleans the panel to its blank frame (1.52 s), then the first screen comes as a fast GL16 (1.12 s, T4).
 - **Ghosting** from fast updates between clean ones; the default may need lowering after the owner sees the panel. T4: the default stays 60 until the owner has watched the panel on battery.
 - **The CH9102's auto-reset:** a tool that opens the port the wrong way resets the board (§2.5).
@@ -581,8 +591,8 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 - **Lines 1 px wide vanish on the panel** (owner, 2026-10-10): T5 drawing takes lines `UI_PX(1)` (2 px) wide and grays from level 6 down (§6.4).
 - **The task watchdog at boot:** a boot to the radar ran two clean updates and the map's render back to back on the app task and starved IDLE1 (found at T3b); `clean_update()` yields a tick after each update.
 - **Merge conflicts** with upstream's M7 in `components/ui`, mostly from `UI_PX()`. Merging `upstream/main` into the fork after each upstream milestone keeps them small.
-- **Internal RAM in a PC session** (T5b): the WebSocket client and its task join Wi-Fi, the radar's TLS and epdiy's update on the ESP32's internal RAM; T5b's board check records the lowest free.
-- **E-paper at a PC session's rate** (§7.7): a fast update every second, ghosting between clean ones; the owner judges it at the board.
+- **Internal RAM in a PC session** (T5b): the WebSocket client and its task join Wi-Fi, the radar's TLS and epdiy's update on the ESP32's internal RAM. T5b's board check found 844 B at the least, with the LUT in internal RAM; with DT18's rule, at least 80 KB (§5.1).
+- **E-paper at a PC session's rate** (§7.7): fast updates at each reading and a clean one by the clock (DT18); the owner judged them fine at 5 s readings (T5b). A session at 1 s waits for the owner's PC.
 - **The T5-ePaper-S3** (LilyGo's newer board) would be a third board choice. Its V2.3 needs the S3 output patch from the fork's history (commit `7232440`); its V2.4 runs stock epdiy. Not planned.
 - **Buttons:** the owner found KEY and BOOT out of the board's order (2026-10-11): DT13 maps four buttons; IO0's use as Back carries gotcha 2's risk, by the owner's choice.
 - **The menu's items for missing hardware** are hidden since T4 (§9).
@@ -613,3 +623,4 @@ Each gets its own plan in `docs/plans/`, written just before it starts.
 | r19 | 2026-10-21 | The licence: GPL-3.0-only with upstream's permission for ESP-IDF's object-only libraries (DT16, §5.1, §5.2) |
 | r20 | 2026-11-18 | T5a and T5b: upstream's M6e and M7 in the fork; DT17, the app task on core 0; the PC's sensors on the T5 (§1.2, §7.7, §11, §12) |
 | r21 | 2026-11-23 | T5a's board check: a window set from the console on Weather closed it until its start, and `off` brought the list back; T5a done (§11) |
+| r22 | 2026-11-23 | T5b as built: DT18, a PC session's clean refresh by the clock (§5.3, §9), the LUT's placement (§5.1), the charts' history per series (§7.7); the board check's numbers (§7.7); `tasks`' core column (§9); T5b done (§11, §12) |
