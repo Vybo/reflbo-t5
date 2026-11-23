@@ -86,8 +86,8 @@ void epaper_after(epaper_policy_t *p, epaper_mode_t mode, epaper_result_t result
 
 void epaper_session(epaper_policy_t *p, bool on, uint32_t clean_ms)
 {
-    if (p->session && !on) {
-        p->clean_next = true;
+    if (p->session && !on && !p->fast) {
+        p->clean_next = true; /* in the menu, leaving it flashes (display_set_fast(false)) */
     }
     p->session = on;
     p->session_clean_ms = clean_ms;

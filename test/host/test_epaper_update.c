@@ -160,6 +160,18 @@ static void test_a_sessions_end_flashes_clean_and_counting_goes_on(void)
     TEST_ASSERT_FALSE(p.clean_next);
 }
 
+/* Final review: a session that ends in the menu (the config screen, the radar's loop) doesn't flash there; leaving
+ * it does (display_set_fast(false)), as for a preset switch in the menu (T5 spec §5.3). */
+static void test_a_session_ending_in_the_menu_leaves_the_clean_to_the_menus_end(void)
+{
+    epaper_policy_t p = { .known = true, .clean_after = 60 };
+    epaper_session(&p, true, 600000);
+    p.fast = true;
+    epaper_session(&p, false, 600000);
+    TEST_ASSERT_FALSE(p.session);
+    TEST_ASSERT_FALSE(p.clean_next);
+}
+
 /* Review Focus 3: no flash for an unchanged frame. */
 static void test_the_count_reached_without_a_change_runs_nothing(void)
 {
@@ -227,6 +239,7 @@ int main(void)
     RUN_TEST(test_a_sessions_redraws_dont_count_and_its_clean_comes_by_the_clock);
     RUN_TEST(test_a_sessions_clean_waits_for_a_change_and_the_menu_and_survives_the_clock_wrapping);
     RUN_TEST(test_a_sessions_end_flashes_clean_and_counting_goes_on);
+    RUN_TEST(test_a_session_ending_in_the_menu_leaves_the_clean_to_the_menus_end);
     RUN_TEST(test_the_count_reached_without_a_change_runs_nothing);
     RUN_TEST(test_a_failed_update_forgets_the_frame_and_keeps_the_count);
     RUN_TEST(test_an_update_refused_before_it_drew_keeps_the_frame);

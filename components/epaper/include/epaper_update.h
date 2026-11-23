@@ -44,5 +44,6 @@ typedef enum {
  * panel's frame unknown (the next is clean) and the count as it was; a refused one changes nothing. */
 void epaper_after(epaper_policy_t *p, epaper_mode_t mode, epaper_result_t result);
 
-/* A PC session starts or ends (T5 spec DT18), its clean every `clean_ms`; its end flashes clean, as the menu's does. */
+/* A PC session starts or ends (T5 spec DT18), its clean every `clean_ms`; its end flashes clean, as the menu's does,
+ * unless it ends in fast mode (the menu), whose own end flashes. */
 void epaper_session(epaper_policy_t *p, bool on, uint32_t clean_ms);
